@@ -257,39 +257,41 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         getPedidoTypes().then(setAllPedidoTypes);
     }, []);
 
-    useEffect(() => {
-        const fetchApplicableConcepts = async () => {
-            if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
-                // For SMYL, we don't need to pre-fetch concepts as they are hardcoded in the special logic.
-                if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS') {
-                    setAvailableConcepts([]);
-                    setSelectedConcepts([]); // Auto-select logic is handled internally
-                    return;
-                }
-                
-                setIsLoadingAvailableConcepts(true);
-                try {
-                    const result = await findApplicableConcepts(
-                        settlementClient,
-                        format(settlementDateRange.from, 'yyyy-MM-dd'),
-                        format(settlementDateRange.to, 'yyyy-MM-dd')
-                    );
-                    setAvailableConcepts(result);
-                    // Clear selected concepts that are no longer available for the new criteria
-                    setSelectedConcepts(prev => prev.filter(sc => result.some(ac => ac.id === sc)));
-                } catch (error) {
-                    toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los conceptos aplicables.' });
-                    setAvailableConcepts([]);
-                } finally {
-                    setIsLoadingAvailableConcepts(false);
-                }
-            } else {
+    const handleFetchApplicableConcepts = useCallback(async () => {
+        if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
+            
+            const isSmylWithLot = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && settlementLotId.trim() !== '';
+            if (isSmylWithLot) {
                 setAvailableConcepts([]);
                 setSelectedConcepts([]);
+                return;
             }
-        };
-        fetchApplicableConcepts();
-    }, [settlementClient, settlementDateRange, toast]);
+
+            setIsLoadingAvailableConcepts(true);
+            try {
+                const result = await findApplicableConcepts(
+                    settlementClient,
+                    format(settlementDateRange.from, 'yyyy-MM-dd'),
+                    format(settlementDateRange.to, 'yyyy-MM-dd')
+                );
+                setAvailableConcepts(result);
+                // Clear selected concepts that are no longer available for the new criteria
+                setSelectedConcepts(prev => prev.filter(sc => result.some(ac => ac.id === sc)));
+            } catch (error) {
+                toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los conceptos aplicables.' });
+                setAvailableConcepts([]);
+            } finally {
+                setIsLoadingAvailableConcepts(false);
+            }
+        } else {
+            setAvailableConcepts([]);
+            setSelectedConcepts([]);
+        }
+    }, [settlementClient, settlementDateRange, settlementLotId, toast]);
+
+    useEffect(() => {
+        handleFetchApplicableConcepts();
+    }, [handleFetchApplicableConcepts]);
 
 
     useEffect(() => {
@@ -1137,7 +1139,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
                 conceptIds: selectedConcepts,
                 containerNumber: settlementContainer,
-                lotId: isSmyl ? settlementLotId : undefined,
+                lotId: settlementLotId,
             });
             
             if (result.success && result.data) {
@@ -2565,7 +2567,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <Button
                                                     variant="outline"
                                                     className="w-full justify-between"
-                                                    disabled={!settlementClient || !settlementDateRange}
+                                                    disabled={!settlementClient || !settlementDateRange || (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && settlementLotId !== '')}
                                                 >
                                                     <span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>
                                                     {isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}

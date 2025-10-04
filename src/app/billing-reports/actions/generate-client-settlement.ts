@@ -357,8 +357,19 @@ const calculatePalletsForOperation = (
           }
           return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || Number(i.paletasCompletas) || 0), 0);
       }
-      const uniquePallets = new Set(items.filter(i => !i.esPicking).map((i: any) => i.paleta).filter(Boolean));
-      return uniquePallets.size;
+      const uniquePallets = new Set<number>();
+      let pallets999Count = 0;
+      items.forEach((item: any) => {
+        const paletaNum = Number(item.paleta);
+        if (!isNaN(paletaNum) && paletaNum > 0) {
+            if (paletaNum === 999) {
+                pallets999Count++;
+            } else if (!item.esPicking) {
+                uniquePallets.add(paletaNum);
+            }
+        }
+      });
+      return uniquePallets.size + pallets999Count;
   }
   
   return 0;
@@ -418,14 +429,17 @@ async function generateSmylLiquidation(
 ): Promise<ClientSettlementRow[]> {
     const settlementRows: ClientSettlementRow[] = [];
     
+    // Find the required concepts by their exact name
     const mainConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA');
+    const freezingConcept = allConcepts.find(c => c.conceptName === 'Servicio logístico Congelación (4 Días)');
     const dailyConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
 
-    if (!mainConcept?.value || !dailyConcept?.value) {
-        throw new Error("No se encontraron los conceptos de 'MANIPULACIÓN' y/o 'COBRO DIARIO' con tarifas definidas. Verifique la configuración.");
+    if (!mainConcept?.value || !freezingConcept?.value || !dailyConcept?.value) {
+        throw new Error("No se encontraron todos los conceptos de SMYL ('MANIPULACIÓN CARGA', 'Congelación (4 Días)', 'COBRO DIARIO') con tarifas definidas. Verifique la configuración.");
     }
     
     const mainTariff = mainConcept.value;
+    const freezingPalletRate = freezingConcept.value;
     const dailyPalletRate = dailyConcept.value;
 
     const report = await getSmylLotAssistantReport(lotId, startDate, endDate);
@@ -437,16 +451,16 @@ async function generateSmylLiquidation(
     const initialPallets = initialReception.pallets;
     
     // --- Phase 1: Grace Period Billing ---
-    const freezingTotal = initialPallets * dailyPalletRate * 4;
+    const freezingTotal = initialPallets * freezingPalletRate;
     const manipulationTotal = mainTariff - freezingTotal;
     
     settlementRows.push({
         date: format(initialReception.date, 'yyyy-MM-dd'),
         conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
         subConceptName: 'Servicio logístico Congelación (4 Días)',
-        quantity: initialPallets * 4,
-        unitOfMeasure: 'PALETA/DIA',
-        unitValue: dailyPalletRate,
+        quantity: initialPallets,
+        unitOfMeasure: 'PALETA',
+        unitValue: freezingPalletRate,
         totalValue: freezingTotal,
         placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialPallets,
     });
@@ -508,7 +522,7 @@ export async function generateClientSettlement(criteria: {
   
   const allConcepts = await getClientBillingConcepts();
 
-  // Conditional logic for SMYL client
+  // --- SPECIAL SMYL LOGIC ---
   if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotId) {
       try {
         const smylRows = await generateSmylLiquidation(startDate, endDate, lotId, allConcepts);
@@ -518,6 +532,7 @@ export async function generateClientSettlement(criteria: {
       }
   }
 
+  // --- STANDARD LOGIC FOR ALL OTHER CLIENTS (AND SMYL WITHOUT LOT) ---
   try {
     const serverQueryStartDate = startOfDay(parseISO(startDate));
     const serverQueryEndDate = endOfDay(parseISO(endDate));
@@ -1200,6 +1215,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
