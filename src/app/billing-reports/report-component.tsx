@@ -19,7 +19,7 @@ import { getBillingReport, DailyReportData } from '@/app/actions/billing-report'
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
-import { generateClientSettlement, type ClientSettlementRow, findApplicableConcepts } from './actions/generate-client-settlement';
+import { generateClientSettlement, type ClientSettlementRow, findApplicableConcepts, type ClientBillingConcept } from './actions/generate-client-settlement';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -260,6 +260,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const handleFetchApplicableConcepts = useCallback(async () => {
         if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
             
+            // If SMYL is selected and Lot ID is provided, no need to fetch manual concepts
             const isSmylWithLot = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && settlementLotId.trim() !== '';
             if (isSmylWithLot) {
                 setAvailableConcepts([]);
@@ -1117,15 +1118,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
 
         const isSmyl = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
-        if (isSmyl && !settlementLotId) {
-            toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe ingresar un lote para liquidar a SMYL.' });
-            return;
-        }
-        if (!isSmyl && selectedConcepts.length === 0) {
-             toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe seleccionar al menos un concepto a liquidar.' });
-            return;
-        }
+        const usesSpecialSmylLogic = isSmyl && (settlementLotId.trim() !== '' || selectedConcepts.some(c => availableConcepts.find(ac => ac.id === c)?.calculationType === 'SALDO_INVENTARIO'));
 
+        if (isSmyl && usesSpecialSmylLogic && !settlementLotId.trim()) {
+            toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe ingresar un lote para liquidar con conceptos especiales de SMYL.' });
+            return;
+        }
+        
+        if (!usesSpecialSmylLogic && selectedConcepts.length === 0) {
+            toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe seleccionar al menos un concepto a liquidar.' });
+            return;
+        }
 
         setIsSettlementLoading(true);
         setSettlementSearched(true);
@@ -1212,15 +1215,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
-            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', // Parent concept
-            'Servicio logístico Congelación (4 Días)', // Child
-            'Servicio de Manipulación', // Child
+            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            'Servicio logístico congelación (4 Días)', 
+            'Servicio de Manipulación',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
         ];
@@ -1480,12 +1483,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            'Servicio logístico Congelación (4 Días)', // Child
+            'Servicio de Manipulación', // Child
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
         ];
@@ -1679,12 +1684,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            'Servicio logístico Congelación (4 Días)', // Child
+            'Servicio de Manipulación', // Child
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
         ];
@@ -2538,8 +2545,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     {settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' ? (
                                         <div className="space-y-2">
-                                            <Label>No. de Lote</Label>
-                                            <Input placeholder="Ingrese el lote a liquidar" value={settlementLotId} onChange={(e) => setSettlementLotId(e.target.value.toUpperCase())} />
+                                            <Label>No. de Lote (Opcional)</Label>
+                                            <Input placeholder="Si aplica, ingrese el lote" value={settlementLotId} onChange={(e) => setSettlementLotId(e.target.value.toUpperCase())} />
                                         </div>
                                     ) : (
                                         <div className="space-y-2">
@@ -2910,3 +2917,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
