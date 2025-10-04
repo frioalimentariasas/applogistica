@@ -194,7 +194,7 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS') {
         const smylSpecialConcepts = [
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-            'Servicio logístico Congelación (4 Días)',
+            'Servicio logístico congelación (4 Días)',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
         ];
         conceptsForClient = conceptsForClient.filter(c => !smylSpecialConcepts.includes(c.conceptName));
@@ -456,14 +456,13 @@ async function generateSmylLiquidation(
     const { initialReception, dailyBalances } = report;
     const initialPallets = initialReception.pallets;
     
-    // --- Phase 1: Grace Period Billing ---
     const freezingTotal = initialPallets * dailyPalletRate;
     const manipulationTotal = mainTariff - freezingTotal;
     
     settlementRows.push({
         date: format(initialReception.date, 'yyyy-MM-dd'),
         conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-        subConceptName: 'Servicio logístico Congelación (4 Días)',
+        subConceptName: 'Servicio logístico congelación (4 Días)',
         quantity: initialPallets,
         unitOfMeasure: 'PALETA',
         unitValue: dailyPalletRate,
@@ -475,9 +474,9 @@ async function generateSmylLiquidation(
         date: format(initialReception.date, 'yyyy-MM-dd'),
         conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
         subConceptName: 'Servicio de Manipulación',
-        quantity: 1, // It's a single manipulation service
+        quantity: 1, 
         unitOfMeasure: 'UNIDAD',
-        unitValue: manipulationTotal, // The unit value is the calculated total for this single service
+        unitValue: manipulationTotal, 
         totalValue: manipulationTotal,
         placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: 0,
     });
@@ -1227,3 +1226,6 @@ const minutesToTime = (minutes: number): string => {
 
 
 
+
+
+    
