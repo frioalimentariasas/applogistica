@@ -418,20 +418,16 @@ async function generateSmylLiquidation(
 ): Promise<ClientSettlementRow[]> {
     const settlementRows: ClientSettlementRow[] = [];
     
-    // 1. Fetch SMYL-specific concepts by name and validate them
     const mainConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA');
-    const freezingConcept = allConcepts.find(c => c.conceptName === 'Servicio logístico Congelación (4 Días)');
     const dailyConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
 
-    if (!mainConcept || !freezingConcept || !dailyConcept || mainConcept.value === undefined || freezingConcept.value === undefined || dailyConcept.value === undefined) {
-        throw new Error("No se encontraron todos los conceptos de liquidación necesarios para SMYL (MANIPULACIÓN, CONGELACIÓN, COBRO DIARIO) o sus tarifas no están definidas. Verifique la configuración.");
+    if (!mainConcept?.value || !dailyConcept?.value) {
+        throw new Error("No se encontraron los conceptos de 'MANIPULACIÓN' y/o 'COBRO DIARIO' con tarifas definidas. Verifique la configuración.");
     }
     
     const mainTariff = mainConcept.value;
-    const freezingTariff = freezingConcept.value; // This is now the per-pallet tariff for freezing
     const dailyPalletRate = dailyConcept.value;
 
-    // 2. Get the lot history and daily balances from the assistant's logic
     const report = await getSmylLotAssistantReport(lotId, startDate, endDate);
     if ('error' in report) {
         throw new Error(report.error);
@@ -441,22 +437,20 @@ async function generateSmylLiquidation(
     const initialPallets = initialReception.pallets;
     
     // --- Phase 1: Grace Period Billing ---
-    const freezingTotal = initialPallets * freezingTariff;
+    const freezingTotal = initialPallets * dailyPalletRate * 4;
     const manipulationTotal = mainTariff - freezingTotal;
     
-    // Row for the freezing sub-concept
     settlementRows.push({
         date: format(initialReception.date, 'yyyy-MM-dd'),
         conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
         subConceptName: 'Servicio logístico Congelación (4 Días)',
-        quantity: initialPallets,
-        unitOfMeasure: 'PALETA',
-        unitValue: freezingTariff,
+        quantity: initialPallets * 4,
+        unitOfMeasure: 'PALETA/DIA',
+        unitValue: dailyPalletRate,
         totalValue: freezingTotal,
         placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialPallets,
     });
 
-    // Row for the manipulation sub-concept
     settlementRows.push({
         date: format(initialReception.date, 'yyyy-MM-dd'),
         conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
@@ -1026,7 +1020,7 @@ export async function generateClientSettlement(criteria: {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
                  
-                if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
+                 if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
                     operacionLogistica = opData.comentarios || 'No Aplica';
                     // Ensure numeroPersonas is not displayed for this concept
                     numeroPersonasParaReporte = undefined;
@@ -1227,5 +1221,6 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
