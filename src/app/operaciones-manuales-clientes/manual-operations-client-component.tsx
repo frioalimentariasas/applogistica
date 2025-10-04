@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -152,14 +153,16 @@ const manualOperationSchema = z.object({
         }
     }
     
-    if (isFmmZfpc) {
+    if (isFmmZfpc || isArinZfpc) {
       if (!data.details?.opLogistica) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Op. Logística es obligatoria.", path: ["details.opLogistica"] });
+    }
+    
+    if (isFmmZfpc) {
       if (!data.details?.fmmNumber?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio.", path: ["details.fmmNumber"] });
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
     }
     
     if (isArinZfpc) {
-      if (!data.details?.opLogistica) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Op. Logística es obligatoria.", path: ["details.opLogistica"] });
       if (!data.details?.arin?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # ARIN es obligatorio.", path: ["details.arin"] });
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
       if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details.container"] });
@@ -262,6 +265,13 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             form.setValue('operationDate', watchedFechaArribo);
         }
     }, [isElectricConnection, watchedFechaArribo, form]);
+    
+    useEffect(() => {
+        if (isArinZfpc) {
+            const opLogistica = watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' ? 'DESCARGUE' : 'CARGUE';
+            form.setValue('details.opLogistica', opLogistica);
+        }
+    }, [watchedConcept, isArinZfpc, form]);
 
 
     useEffect(() => {
@@ -1319,3 +1329,5 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
+    

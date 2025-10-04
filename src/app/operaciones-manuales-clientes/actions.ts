@@ -340,7 +340,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                         tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
                     }
                     if (totalNocturnoMinutes > 0) {
-                        tariffs.push({ tariffId: role.nocturnaId, quantity: totalNocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                         tariffs.push({ tariffId: role.nocturnaId, quantity: totalNocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
                     }
                     
                     return tariffs;
@@ -544,16 +544,17 @@ export async function uploadFmmOperations(
         const batch = firestore.batch();
 
         for (const [index, row] of rows.entries()) {
-            const rowIndex = index + 2;
+            const rowIndex = index + 2; // For user-friendly error messages (1-based index + header)
             const fmmNumber = String(row['# FMM'] || '').trim();
             const concepto = String(row.Concepto || '').trim().toUpperCase();
+            const opLogistica = String(row['Op. Logística'] || '').trim().toUpperCase() as 'CARGUE' | 'DESCARGUE';
 
             // Validation Checks
             if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
             if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
             if (!concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser 'FMM DE INGRESO ZFPC (MANUAL)' o 'FMM DE SALIDA ZFPC (MANUAL)'.`); errorCount++; continue; }
             if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
-            if (!row['Op. Logística'] || !['CARGUE', 'DESCARGUE'].includes(String(row['Op. Logística']).trim().toUpperCase())) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida. Debe ser 'CARGUE' o 'DESCARGUE'.`); errorCount++; continue; }
+            if (!opLogistica || !['CARGUE', 'DESCARGUE'].includes(opLogistica)) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida. Debe ser 'CARGUE' o 'DESCARGUE'.`); errorCount++; continue; }
             if (!fmmNumber) { errors.push(`Fila ${rowIndex}: Falta el # FMM.`); errorCount++; continue; }
 
             if (existingFmms.has(fmmNumber)) {
@@ -587,7 +588,7 @@ export async function uploadFmmOperations(
                 quantity: Number(row.Cantidad),
                 details: {
                     container: row.Contenedor || '',
-                    opLogistica: String(row['Op. Logística']).trim().toUpperCase(),
+                    opLogistica: opLogistica,
                     fmmNumber: fmmNumber,
                     plate: row.Placa || ''
                 },
@@ -616,3 +617,5 @@ export async function uploadFmmOperations(
         return { success: false, message: errorMessage, createdCount: 0, duplicateCount: 0, errorCount: rows.length, errors: [errorMessage] };
     }
 }
+
+    
