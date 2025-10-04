@@ -191,13 +191,18 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     
     let conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
     
+    // This is the key change: For SMYL, exclude the special logic concepts from this manual/rule-based search.
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS') {
-        const smylSpecialConcepts = [
+        const smylSpecialConceptsToExclude = [
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-            'Servicio logístico congelación (4 Días)',
+            'Servicio logístico Congelación (4 Días)',
+            'Servicio logistico Congelacion (4 Dias)',
+            'servicio logistico congelacion (4 dias)',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
         ];
-        conceptsForClient = conceptsForClient.filter(c => !smylSpecialConcepts.includes(c.conceptName));
+        conceptsForClient = conceptsForClient.filter(c => 
+            !smylSpecialConceptsToExclude.some(special => c.conceptName.toUpperCase() === special.toUpperCase())
+        );
     }
 
 
@@ -456,16 +461,17 @@ async function generateSmylLiquidation(
     const { initialReception, dailyBalances } = report;
     const initialPallets = initialReception.pallets;
     
+    // Phase 1: Grace Period Billing. The total is the `mainTariff`, but it's broken down.
     const freezingTotal = initialPallets * dailyPalletRate;
     const manipulationTotal = mainTariff - freezingTotal;
     
     settlementRows.push({
         date: format(initialReception.date, 'yyyy-MM-dd'),
         conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-        subConceptName: 'Servicio logístico congelación (4 Días)',
+        subConceptName: 'Servicio logístico Congelación (4 Días)',
         quantity: initialPallets,
         unitOfMeasure: 'PALETA',
-        unitValue: dailyPalletRate,
+        unitValue: dailyPalletRate, // This is the unit value per pallet for the initial period
         totalValue: freezingTotal,
         placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialPallets,
     });
@@ -476,7 +482,7 @@ async function generateSmylLiquidation(
         subConceptName: 'Servicio de Manipulación',
         quantity: 1, 
         unitOfMeasure: 'UNIDAD',
-        unitValue: manipulationTotal, 
+        unitValue: manipulationTotal, // The unit value is the calculated total for this single service
         totalValue: manipulationTotal,
         placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: 0,
     });
@@ -1219,13 +1225,5 @@ const minutesToTime = (minutes: number): string => {
 
 
     
-
-
-
-
-
-
-
-
 
     
