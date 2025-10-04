@@ -423,17 +423,13 @@ async function generateSmylLiquidation(
     const freezingConcept = allConcepts.find(c => c.conceptName === 'Servicio logístico Congelación (4 Días)');
     const dailyConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
 
-    if (!mainConcept || !freezingConcept || !dailyConcept) {
-        throw new Error("No se encontraron todos los conceptos de liquidación necesarios para SMYL (MANIPULACIÓN, CONGELACIÓN, COBRO DIARIO). Verifique la configuración.");
+    if (!mainConcept || !freezingConcept || !dailyConcept || mainConcept.value === undefined || freezingConcept.value === undefined || dailyConcept.value === undefined) {
+        throw new Error("No se encontraron todos los conceptos de liquidación necesarios para SMYL (MANIPULACIÓN, CONGELACIÓN, COBRO DIARIO) o sus tarifas no están definidas. Verifique la configuración.");
     }
     
     const mainTariff = mainConcept.value;
-    const freezingTariff = freezingConcept.value;
+    const freezingTariff = freezingConcept.value; // This is now the per-pallet tariff for freezing
     const dailyPalletRate = dailyConcept.value;
-
-    if (mainTariff === undefined || freezingTariff === undefined || dailyPalletRate === undefined) {
-         throw new Error("Una o más tarifas para los conceptos de SMYL no están definidas. Verifique la configuración.");
-    }
 
     // 2. Get the lot history and daily balances from the assistant's logic
     const report = await getSmylLotAssistantReport(lotId, startDate, endDate);
@@ -465,9 +461,9 @@ async function generateSmylLiquidation(
         date: format(initialReception.date, 'yyyy-MM-dd'),
         conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
         subConceptName: 'Servicio de Manipulación',
-        quantity: 1,
+        quantity: 1, // It's a single manipulation service
         unitOfMeasure: 'UNIDAD',
-        unitValue: manipulationTotal, // Unit value is the calculated total
+        unitValue: manipulationTotal, // The unit value is the calculated total for this single service
         totalValue: manipulationTotal,
         placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: 0,
     });
@@ -1231,4 +1227,5 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
