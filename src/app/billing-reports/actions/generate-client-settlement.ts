@@ -760,21 +760,16 @@ export async function generateClientSettlement(criteria: {
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
                 const summaryForOp = op.formData.summary || [];
                 if (summaryForOp.length > 0) {
-                    let mostExtremeTemp: number | null = null;
-                    
+                    const allTemps: number[] = [];
                     for (const item of summaryForOp) {
-                        const temps = [item.temperatura1, item.temperatura2, item.temperatura3]
-                            .filter(t => t !== null && t !== undefined && !isNaN(t));
-
-                        for (const temp of temps) {
-                            if (mostExtremeTemp === null || Math.abs(temp) > Math.abs(mostExtremeTemp)) {
-                                mostExtremeTemp = temp;
-                            }
-                        }
+                        [item.temperatura1, item.temperatura2, item.temperatura3]
+                            .filter((t): t is number => t !== null && t !== undefined && !isNaN(t))
+                            .forEach(t => allTemps.push(t));
                     }
-
-                    if (mostExtremeTemp !== null) {
-                        const matchingTariff = findMatchingTemperatureTariff(mostExtremeTemp, concept);
+                    
+                    if (allTemps.length > 0) {
+                        const averageTemp = allTemps.reduce((sum, temp) => sum + temp, 0) / allTemps.length;
+                        const matchingTariff = findMatchingTemperatureTariff(averageTemp, concept);
                         if (matchingTariff) {
                             unitValue = matchingTariff.ratePerKg;
                         }
@@ -1261,4 +1256,5 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
 
