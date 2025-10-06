@@ -462,7 +462,7 @@ async function generateSmylLiquidation(
     const initialPallets = initialReception.pallets;
     
     // Phase 1: Grace Period Billing. The total is the `mainTariff`, but it's broken down.
-    const freezingTotal = initialPallets * dailyPalletRate;
+    const freezingTotal = initialPallets * dailyPalletRate * 4;
     const manipulationTotal = mainTariff - freezingTotal;
     
     settlementRows.push({
@@ -503,7 +503,7 @@ async function generateSmylLiquidation(
                     unitOfMeasure: 'PALETA/DIA',
                     unitValue: dailyPalletRate,
                     totalValue: day.finalBalance * dailyPalletRate,
-                    placa: '', container: '', camara: 'CO', operacionLogistica: 'ALMACENAMIENTO', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: day.finalBalance
+                    placa: '', container: '', camara: 'CO', operacionLogistica: 'Servicio Congelación', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: day.finalBalance
                 });
             }
         }
@@ -1098,7 +1098,7 @@ export async function generateClientSettlement(criteria: {
                         container: 'N/A',
                         camara: concept.inventorySesion,
                         totalPaletas: dayData.posicionesAlmacenadas,
-                        operacionLogistica: 'ALMACENAMIENTO',
+                        operacionLogistica: 'Servicio',
                         pedidoSislog: 'N/A',
                         conceptName: concept.conceptName,
                         tipoVehiculo: 'No Aplica',
@@ -1124,7 +1124,7 @@ export async function generateClientSettlement(criteria: {
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-        'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
+        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)', 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC', 'SERVICIO DE SECO -PALLET/DIA', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
     ];
     
     const roleOrder = ['SUPERVISOR', 'MONTACARGUISTA TRILATERAL', 'MONTACARGUISTA NORMAL', 'OPERARIO'];

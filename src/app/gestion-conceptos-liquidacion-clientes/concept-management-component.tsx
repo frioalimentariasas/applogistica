@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -59,6 +58,15 @@ const tariffRangeSchema = z.object({
     path: ['maxTons'],
 });
 
+const temperatureTariffRangeSchema = z.object({
+  minTemp: z.coerce.number({ invalid_type_error: "Debe ser un número" }),
+  maxTemp: z.coerce.number({ invalid_type_error: "Debe ser un número" }),
+  ratePerKg: z.coerce.number({ invalid_type_error: "Debe ser un número" }).min(0, "Debe ser >= 0"),
+}).refine(data => data.maxTemp > data.minTemp, {
+    message: "Max. debe ser mayor que Min.",
+    path: ['maxTemp'],
+});
+
 const specificTariffSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, "El nombre es requerido."),
@@ -98,12 +106,13 @@ const conceptSchema = z.object({
   inventorySesion: z.enum(['CO', 'RE', 'SE']).optional(),
 
   // Tariff Rules
-  tariffType: z.enum(['UNICA', 'RANGOS', 'ESPECIFICA'], { required_error: "Debe seleccionar un tipo de tarifa."}),
+  tariffType: z.enum(['UNICA', 'RANGOS', 'ESPECIFICA', 'POR_TEMPERATURA'], { required_error: "Debe seleccionar un tipo de tarifa."}),
   value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser >= 0").optional(),
   billingPeriod: z.enum(['DIARIO', 'QUINCENAL', 'MENSUAL']).optional(),
   dayShiftStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
   dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
   tariffRanges: z.array(tariffRangeSchema).optional(),
+  tariffRangesTemperature: z.array(temperatureTariffRangeSchema).optional(),
   specificTariffs: z.array(specificTariffSchema).optional(),
   fixedTimeConfig: fixedTimeConfigSchema.optional(),
 }).superRefine((data, ctx) => {
@@ -127,6 +136,9 @@ const conceptSchema = z.object({
     if (data.tariffType === 'RANGOS') {
         if (!data.dayShiftStart) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es obligatoria.", path: ["dayShiftStart"] });
         if (!data.dayShiftEnd) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es obligatoria.", path: ["dayShiftEnd"] });
+    }
+    if (data.tariffType === 'POR_TEMPERATURA' && (!data.tariffRangesTemperature || data.tariffRangesTemperature.length === 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe definir al menos un rango de temperatura.", path: ["tariffRangesTemperature"] });
     }
     if (data.tariffType === 'ESPECIFICA' && (!data.specificTariffs || data.specificTariffs.length === 0)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe definir al menos una tarifa específica.", path: ["specificTariffs"] });
@@ -174,6 +186,7 @@ const addFormDefaultValues: ConceptFormValues = {
   dayShiftStart: '07:00',
   dayShiftEnd: '19:00',
   tariffRanges: [],
+  tariffRangesTemperature: [],
   specificTariffs: [],
   fixedTimeConfig: {
     weekdayStartTime: "17:00",
@@ -265,6 +278,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
         dayShiftStart: concept.dayShiftStart || '07:00',
         dayShiftEnd: concept.dayShiftEnd || '19:00',
         tariffRanges: concept.tariffRanges || [],
+        tariffRangesTemperature: concept.tariffRangesTemperature || [],
         specificTariffs: concept.specificTariffs || [],
         calculationType: concept.calculationType || 'REGLAS',
         filterSesion: concept.filterSesion || 'AMBOS',
@@ -464,7 +478,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                 {c.tariffType === 'UNICA' ? (
                                                     <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
                                                 ) : (
-                                                    <Badge variant="outline">{c.tariffType === 'RANGOS' ? 'Por Rangos' : 'Específica'}</Badge>
+                                                    <Badge variant="outline">{c.tariffType.replace('_', ' ')}</Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -524,164 +538,26 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   );
 }
 
-
-function ClientMultiSelectDialog({
-  options,
-  selected,
-  onChange,
-  placeholder,
-}: {
-  options: { value: string; label: string }[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  placeholder: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const filteredOptions = useMemo(() => {
-    if (!search) return options;
-    return options.filter((o) =>
-      o.label.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [search, options]);
-
-  const handleSelect = (valueToToggle: string) => {
-    const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
-    
-    if (isTodos) {
-      onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
-    } else {
-      const newSelection = selected.includes(valueToToggle)
-        ? selected.filter(s => s !== valueToToggle)
-        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
-      onChange(newSelection);
-    }
-  };
-
-  const getButtonLabel = () => {
-    if (selected.length === 0) return placeholder;
-    if (selected.length === 1) return selected[0];
-    if (selected.length === options.length) return "Todos los clientes seleccionados";
-    return `${selected.length} clientes seleccionados`;
-  };
-
+function TemperatureRangeFields({ control, remove, index, disabled }: { control: any, remove: (index: number) => void, index: number, disabled?: boolean }) {
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="w-full justify-between text-left font-normal"
-        >
-          <span className="truncate">{getButtonLabel()}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="p-0">
-        <DialogHeader className="p-6 pb-2">
-            <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
-            <DialogDescription>Seleccione los clientes para este concepto.</DialogDescription>
-        </DialogHeader>
-        <div className="p-6 pt-0">
-            <Input
-                placeholder="Buscar cliente..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="mb-4"
-            />
-            <ScrollArea className="h-60">
-                <div className="space-y-1 pr-4">
-                {filteredOptions.map((option) => (
-                    <div
-                        key={option.value}
-                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
-                    >
-                        <Checkbox
-                            id={`client-${option.value}`}
-                            checked={selected.includes(option.value)}
-                            onCheckedChange={() => handleSelect(option.value)}
-                        />
-                        <Label
-                            htmlFor={`client-${option.value}`}
-                            className="w-full cursor-pointer"
-                        >
-                            {option.label}
-                        </Label>
-                    </div>
-                ))}
-                </div>
-            </ScrollArea>
+    <div className="grid grid-cols-1 gap-3 border p-3 rounded-md relative">
+        <div className="grid grid-cols-2 gap-2">
+            <FormField control={control} name={`tariffRangesTemperature.${index}.minTemp`} render={({ field }) => (<FormItem><FormLabel>Min. Temp (°C)</FormLabel><FormControl><Input type="number" step="0.1" {...field} disabled={disabled} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={control} name={`tariffRangesTemperature.${index}.maxTemp`} render={({ field }) => (<FormItem><FormLabel>Max. Temp (°C)</FormLabel><FormControl><Input type="number" step="0.1" {...field} disabled={disabled} /></FormControl><FormMessage /></FormItem>)}/>
         </div>
-        <DialogFooter className="p-6 pt-0">
-            <Button onClick={() => setOpen(false)}>Cerrar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <FormField control={control} name={`tariffRangesTemperature.${index}.ratePerKg`} render={({ field }) => (<FormItem><FormLabel>Tarifa por Kilo (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} disabled={disabled} /></FormControl><FormMessage /></FormItem>)}/>
+        {!disabled && (
+            <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => remove(index)}>
+                <Trash2 className="h-4 w-4" />
+            </Button>
+        )}
+    </div>
   );
 }
-
-function PedidoTypeMultiSelect({
-  options,
-  selected,
-  onChange,
-  placeholder,
-}: {
-  options: { value: string; label: string }[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  placeholder: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const filteredOptions = useMemo(() => {
-    if (!search) return options;
-    return options.filter((o) =>
-      o.label.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [search, options]);
-
-  const getButtonLabel = () => {
-    if (selected.length === 0) return placeholder;
-    if (selected.length === 1) return selected[0];
-    if (selected.length === options.length) return "Todos los tipos";
-    return `${selected.length} tipos seleccionados`;
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-full justify-between text-left font-normal">
-          <span className="truncate">{getButtonLabel()}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="p-0">
-        <DialogHeader className="p-6 pb-2"><DialogTitle>Seleccionar Tipos de Pedido</DialogTitle></DialogHeader>
-        <div className="p-6 pt-0">
-          <Input placeholder="Buscar tipo..." value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4" />
-          <ScrollArea className="h-60"><div className="space-y-1 pr-4">
-            <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent">
-              <Checkbox id="select-all-pedidos" checked={selected.length === options.length} onCheckedChange={(checked) => onChange(checked ? options.map(o => o.value) : [])} />
-              <Label htmlFor="select-all-pedidos" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
-            </div>
-            {filteredOptions.map((option) => (
-              <div key={option.value} className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent">
-                <Checkbox id={`pedido-${option.value}`} checked={selected.includes(option.value)} onCheckedChange={(checked) => onChange(checked ? [...selected, option.value] : selected.filter(s => s !== option.value))} />
-                <Label htmlFor={`pedido-${option.value}`} className="w-full cursor-pointer">{option.label}</Label>
-              </div>
-            ))}
-          </div></ScrollArea>
-        </div>
-        <DialogFooter className="p-6 pt-0"><Button onClick={() => setOpen(false)}>Cerrar</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 
 function ConceptFormBody({ form, clientOptions, standardObservations, pedidoTypes, unitOfMeasureOptions, specificUnitOptions, isEditMode = false }: { form: any, clientOptions: any[], standardObservations: any[], pedidoTypes: PedidoType[], unitOfMeasureOptions: string[], specificUnitOptions: string[], isEditMode?: boolean }) {
     const { fields: tariffRangesFields, append: appendTariffRange, remove: removeTariffRange } = useFieldArray({ control: form.control, name: "tariffRanges" });
+    const { fields: tempTariffFields, append: appendTempTariff, remove: removeTempTariff } = useFieldArray({ control: form.control, name: "tariffRangesTemperature" });
     const { fields: specificTariffsFields, append: appendSpecificTariff, remove: removeSpecificTariff } = useFieldArray({ control: form.control, name: "specificTariffs" });
 
     const watchedCalculationType = useWatch({ control: form.control, name: 'calculationType' });
@@ -757,7 +633,7 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
                 </div>
             )}
             <Separator />
-            <FormField control={form.control} name="tariffType" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>Tipo de Tarifa</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="UNICA" id={`unica-${isEditMode}`} /><Label htmlFor={`unica-${isEditMode}`}>Única</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="RANGOS" id={`rangos-${isEditMode}`} /><Label htmlFor={`rangos-${isEditMode}`}>Rangos</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="ESPECIFICA" id={`especifica-${isEditMode}`} /><Label htmlFor={`especifica-${isEditMode}`}>Específica</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )}/>
+            <FormField control={form.control} name="tariffType" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>Tipo de Tarifa</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="UNICA" id={`unica-${isEditMode}`} /><Label htmlFor={`unica-${isEditMode}`}>Única</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="RANGOS" id={`rangos-${isEditMode}`} /><Label htmlFor={`rangos-${isEditMode}`}>Rangos</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="ESPECIFICA" id={`especifica-${isEditMode}`} /><Label htmlFor={`especifica-${isEditMode}`}>Específica</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="POR_TEMPERATURA" id={`temperatura-${isEditMode}`} /><Label htmlFor={`temperatura-${isEditMode}`}>Por Temperatura</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )}/>
 
             {watchedTariffType === 'UNICA' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -798,6 +674,20 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
                         ))}
                         <Button type="button" variant="outline" size="sm" onClick={() => appendTariffRange({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0 })}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {watchedTariffType === 'POR_TEMPERATURA' && (
+                <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
+                    <div className="space-y-2"><FormLabel>Rangos de Temperatura</FormLabel><FormDescription>Defina tarifas por kilo según la temperatura máxima registrada en la recepción.</FormDescription></div>
+                    <div className="space-y-4">
+                        {tempTariffFields.map((field, index) => (
+                           <TemperatureRangeFields key={field.id} control={form.control} remove={removeTempTariff} index={index} />
+                        ))}
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendTempTariff({ minTemp: 0, maxTemp: 0, ratePerKg: 0 })}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango de Temperatura
                         </Button>
                     </div>
                 </div>
@@ -858,4 +748,3 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
         </div>
     );
 }
-

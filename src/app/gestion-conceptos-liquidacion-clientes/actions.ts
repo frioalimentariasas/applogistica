@@ -12,6 +12,12 @@ export interface TariffRange {
   nightTariff: number;
 }
 
+export interface TemperatureTariffRange {
+  minTemp: number;
+  maxTemp: number;
+  ratePerKg: number;
+}
+
 export interface SpecificTariff {
   id: string; // e.g., 'hora-extra-diurna'
   name: string; // e.g., 'HORA EXTRA DIURNA'
@@ -51,12 +57,13 @@ export interface ClientBillingConcept {
   inventorySesion?: 'CO' | 'RE' | 'SE';
 
   // Tariff Rules
-  tariffType: 'UNICA' | 'RANGOS' | 'ESPECIFICA';
+  tariffType: 'UNICA' | 'RANGOS' | 'ESPECIFICA' | 'POR_TEMPERATURA';
   value?: number; // For 'UNICA' tariffType
   billingPeriod?: 'DIARIO' | 'QUINCENAL' | 'MENSUAL'; // New field
   dayShiftStart?: string; 
   dayShiftEnd?: string;
   tariffRanges?: TariffRange[];
+  tariffRangesTemperature?: TemperatureTariffRange[];
   specificTariffs?: SpecificTariff[];
   fixedTimeConfig?: FixedTimeConfig; // New field for TIEMPO EXTRA FRIOAL (FIJO)
 }
@@ -91,6 +98,7 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         dayShiftStart: data.dayShiftStart,
         dayShiftEnd: data.dayShiftEnd,
         tariffRanges: Array.isArray(data.tariffRanges) ? data.tariffRanges : [],
+        tariffRangesTemperature: Array.isArray(data.tariffRangesTemperature) ? data.tariffRangesTemperature : [],
         specificTariffs: Array.isArray(data.specificTariffs) ? data.specificTariffs : [],
         fixedTimeConfig: data.fixedTimeConfig,
       } as ClientBillingConcept;
