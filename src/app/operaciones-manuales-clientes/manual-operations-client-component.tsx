@@ -854,13 +854,14 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 }
 function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { billingConcepts: ClientBillingConcept[], selectedClient: string, onSelect: (conceptName: string) => void }) {
     const [search, setSearch] = useState('');
-    
-    const specialConcepts = ["MOVIMIENTO ENTRADA PRODUCTOS - PALLET", "MOVIMIENTO SALIDA PRODUCTOS - PALLET"];
+
+    const specialSmylConcepts = [
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)'
+    ];
 
     const filteredConcepts = useMemo(() => {
-        const manualConcepts = billingConcepts.filter(c => 
-            c.calculationType === 'MANUAL' || specialConcepts.includes(c.conceptName)
-        );
+        const manualConcepts = billingConcepts.filter(c => c.calculationType === 'MANUAL');
         
         const clientSpecific = manualConcepts.filter(c => c.clientNames.includes(selectedClient));
         const global = manualConcepts.filter(c => 
@@ -868,7 +869,7 @@ function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { 
             !clientSpecific.some(sc => sc.conceptName === c.conceptName)
         );
         
-        let displayConcepts = [...clientSpecific, ...global];
+        let displayConcepts = [...clientSpecific, ...global].filter(c => !specialSmylConcepts.includes(c.conceptName));
         
         if (search) {
             displayConcepts = displayConcepts.filter(c => c.conceptName.toLowerCase().includes(search.toLowerCase()));
