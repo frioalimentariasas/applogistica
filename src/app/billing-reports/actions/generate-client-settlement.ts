@@ -210,7 +210,8 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
         ];
         conceptsForClient = conceptsForClient.filter(c => 
-            !smylSpecialConceptsToExclude.some(special => c.conceptName.toUpperCase() === special.toUpperCase())
+            !smylSpecialConceptsToExclude.some(special => c.conceptName.toUpperCase() === special.toUpperCase()) &&
+            c.calculationType !== 'SALDO_INVENTARIO' // General rule to exclude all inventory-based concepts
         );
     }
 
@@ -759,13 +760,21 @@ export async function generateClientSettlement(criteria: {
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
                 const summaryForOp = op.formData.summary || [];
                 if (summaryForOp.length > 0) {
-                    const maxTemp = summaryForOp.reduce((max: number, item: any) => {
-                        const temp = item.temperatura1 ?? item.temperatura;
-                        return (temp !== null && temp > max) ? temp : max;
-                    }, -Infinity);
+                    let mostExtremeTemp: number | null = null;
+                    
+                    for (const item of summaryForOp) {
+                        const temps = [item.temperatura1, item.temperatura2, item.temperatura3]
+                            .filter(t => t !== null && t !== undefined && !isNaN(t));
 
-                    if (maxTemp > -Infinity) {
-                        const matchingTariff = findMatchingTemperatureTariff(maxTemp, concept);
+                        for (const temp of temps) {
+                            if (mostExtremeTemp === null || Math.abs(temp) > Math.abs(mostExtremeTemp)) {
+                                mostExtremeTemp = temp;
+                            }
+                        }
+                    }
+
+                    if (mostExtremeTemp !== null) {
+                        const matchingTariff = findMatchingTemperatureTariff(mostExtremeTemp, concept);
                         if (matchingTariff) {
                             unitValue = matchingTariff.ratePerKg;
                         }
@@ -1252,3 +1261,4 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
