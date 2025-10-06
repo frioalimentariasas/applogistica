@@ -748,3 +748,181 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
         </div>
     );
 }
+
+function ClientMultiSelectDialog({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    return options.filter((o) =>
+      o.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search, options]);
+
+  const handleSelect = (valueToToggle: string) => {
+    const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
+    
+    if (isTodos) {
+      onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
+    } else {
+      const newSelection = selected.includes(valueToToggle)
+        ? selected.filter(s => s !== valueToToggle)
+        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
+      onChange(newSelection);
+    }
+  };
+
+  const getButtonLabel = () => {
+    if (selected.length === 0) return placeholder;
+    if (selected.length === 1) return selected[0];
+    if (selected.length === options.length) return "Todos los clientes seleccionados";
+    return `${selected.length} clientes seleccionados`;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full justify-between text-left font-normal"
+        >
+          <span className="truncate">{getButtonLabel()}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogHeader className="p-6 pb-2">
+            <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+            <DialogDescription>Seleccione los clientes para este concepto.</DialogDescription>
+        </DialogHeader>
+        <div className="p-6 pt-0">
+            <Input
+                placeholder="Buscar cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="mb-4"
+            />
+            <ScrollArea className="h-60">
+                <div className="space-y-1 pr-4">
+                {filteredOptions.map((option) => (
+                    <div
+                        key={option.value}
+                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
+                    >
+                        <Checkbox
+                            id={`client-${option.value}`}
+                            checked={selected.includes(option.value)}
+                            onCheckedChange={() => handleSelect(option.value)}
+                        />
+                        <Label
+                            htmlFor={`client-${option.value}`}
+                            className="w-full cursor-pointer"
+                        >
+                            {option.label}
+                        </Label>
+                    </div>
+                ))}
+                </div>
+            </ScrollArea>
+        </div>
+        <DialogFooter className="p-6 pt-0">
+            <Button onClick={() => setOpen(false)}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PedidoTypeMultiSelect({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    return options.filter((o) =>
+      o.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search, options]);
+
+  const handleSelect = (valueToToggle: string) => {
+    const newSelection = selected.includes(valueToToggle)
+      ? selected.filter((s) => s !== valueToToggle)
+      : [...selected, valueToToggle];
+    onChange(newSelection);
+  };
+
+  const getButtonLabel = () => {
+    if (selected.length === 0) return placeholder;
+    if (selected.length === 1) return selected[0];
+    if (selected.length === options.length) return "Todos los tipos";
+    return `${selected.length} tipos seleccionados`;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full justify-between text-left font-normal"
+        >
+          <span className="truncate">{getButtonLabel()}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Seleccionar Tipos de Pedido</DialogTitle>
+        </DialogHeader>
+        <Input
+          placeholder="Buscar tipo..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="my-4"
+        />
+        <ScrollArea className="h-60">
+          <div className="space-y-1">
+            {filteredOptions.map((option) => (
+              <div
+                key={option.value}
+                className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
+              >
+                <Checkbox
+                  id={`pedido-${option.value}`}
+                  checked={selected.includes(option.value)}
+                  onCheckedChange={() => handleSelect(option.value)}
+                />
+                <Label htmlFor={`pedido-${option.value}`} className="w-full cursor-pointer">
+                  {option.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+        <DialogFooter>
+          <Button onClick={() => setOpen(false)}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
