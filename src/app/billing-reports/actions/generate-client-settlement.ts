@@ -3,7 +3,7 @@
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
-import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
+import type { ClientBillingConcept, TariffRange, SpecificTariff, TemperatureTariffRange } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
 import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays } from 'date-fns';
@@ -79,8 +79,20 @@ const findMatchingTariff = (tons: number, concept: ClientBillingConcept): Tariff
     return matchingRange;
 };
 
+const findMatchingTemperatureTariff = (temp: number, concept: ClientBillingConcept): TemperatureTariffRange | undefined => {
+    if (!concept.tariffRangesTemperature || concept.tariffRangesTemperature.length === 0) {
+        return undefined;
+    }
+    
+    return concept.tariffRangesTemperature.find(range => {
+        const min = Math.min(range.minTemp, range.maxTemp);
+        const max = Math.max(range.minTemp, range.maxTemp);
+        return temp >= min && temp <= max;
+    });
+};
+
 const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "No Aplica" => {
-    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO", "ALISTAMIENTO POR UNIDAD", "FMM DE INGRESO ZFPC", "FMM DE SALIDA ZFPC", "FMM ZFPC", "TIEMPO EXTRA FRIOAL (FIJO)", "TIEMPO EXTRA FRIOAL"];
+    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO", "ALISTAMIENTO POR UNIDAD", "FMM DE INGRESO ZFPC", "FMM DE SALIDA ZFPC", "FMM ZFPC", "TIEMPO EXTRA FRIOAL (FIJO)", "TIEMPO EXTRA FRIOAL", "SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA"];
     if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
       return "No Aplica";
     }
@@ -195,9 +207,6 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS') {
         const smylSpecialConceptsToExclude = [
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-            'Servicio logístico Congelación (4 Días)',
-            'Servicio logistico Congelacion (4 Dias)',
-            'servicio logistico congelacion (4 dias)',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
         ];
         conceptsForClient = conceptsForClient.filter(c => 
@@ -747,7 +756,23 @@ export async function generateClientSettlement(criteria: {
                         unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                     }
                 }
+            } else if (concept.tariffType === 'POR_TEMPERATURA') {
+                const summaryForOp = op.formData.summary || [];
+                if (summaryForOp.length > 0) {
+                    const maxTemp = summaryForOp.reduce((max: number, item: any) => {
+                        const temp = item.temperatura1 ?? item.temperatura;
+                        return (temp !== null && temp > max) ? temp : max;
+                    }, -Infinity);
+
+                    if (maxTemp > -Infinity) {
+                        const matchingTariff = findMatchingTemperatureTariff(maxTemp, concept);
+                        if (matchingTariff) {
+                            unitValue = matchingTariff.ratePerKg;
+                        }
+                    }
+                }
             }
+
             
             const filteredItems = getFilteredItems(op, concept.filterSesion, articleSessionMap);
             const firstProductCode = filteredItems[0]?.codigo;
@@ -1122,9 +1147,9 @@ export async function generateClientSettlement(criteria: {
         'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
         'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)', 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC', 'SERVICIO DE SECO -PALLET/DIA', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
+        'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
     ];
     
     const roleOrder = ['SUPERVISOR', 'MONTACARGUISTA TRILATERAL', 'MONTACARGUISTA NORMAL', 'OPERARIO'];
