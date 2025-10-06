@@ -472,7 +472,7 @@ async function generateSmylLiquidation(
     const initialPallets = initialReception.pallets;
     
     // Phase 1: Grace Period Billing. The total is the `mainTariff`, but it's broken down.
-    const freezingTotal = initialPallets * dailyPalletRate * 4;
+    const freezingTotal = initialPallets * dailyPalletRate;
     const manipulationTotal = mainTariff - freezingTotal;
     
     settlementRows.push({
@@ -607,6 +607,67 @@ export async function generateClientSettlement(criteria: {
     });
     
     const settlementRows: ClientSettlementRow[] = [];
+    
+    // --- SPECIAL LOGIC FOR SMYL "CARGUE Y ALMACENAMIENTO 1 DÍA" ---
+    const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)');
+    if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
+      const recepciones = allOperations
+          .filter(op => op.type === 'form' && (op.data.formType === 'variable-weight-reception' || op.data.formType === 'variable-weight-recepcion') && op.data.formData.tipoPedido === 'GENERICO')
+          .map(op => op.data);
+
+      for (const recepcion of recepciones) {
+          const lotesEnRecepcion = (recepcion.formData.items || []).reduce((acc: any, item: any) => {
+              if (item.lote) {
+                  if (!acc[item.lote]) {
+                      acc[item.lote] = { peso: 0, paletas: new Set() };
+                  }
+                  acc[item.lote].peso += Number(item.pesoBruto) || 0;
+                  acc[item.lote].paletas.add(item.paleta);
+              }
+              return acc;
+          }, {});
+
+          for (const loteId in lotesEnRecepcion) {
+              if (lotesEnRecepcion[loteId].peso >= 20000) {
+                  const fechaRecepcion = new Date(recepcion.formData.fecha);
+                  const fechaDespachoBuscada = addDays(fechaRecepcion, 1);
+
+                  const despachoDelDiaSiguiente = allOperations.find(op => 
+                      op.type === 'form' &&
+                      op.data.formType === 'variable-weight-despacho' &&
+                      format(new Date(op.data.formData.fecha), 'yyyy-MM-dd') === format(fechaDespachoBuscada, 'yyyy-MM-dd') &&
+                      (op.data.formData.items || []).some((item: any) => item.lote === loteId)
+                  );
+
+                  if (despachoDelDiaSiguiente) {
+                      const paletasEnDespacho = new Set(
+                          (despachoDelDiaSiguiente.data.formData.items || [])
+                              .filter((item: any) => item.lote === loteId && !item.esPicking)
+                              .map((item: any) => item.paleta)
+                      ).size;
+
+                      if (paletasEnDespacho === lotesEnRecepcion[loteId].paletas.size) {
+                           settlementRows.push({
+                              date: format(fechaRecepcion, 'yyyy-MM-dd'),
+                              placa: recepcion.formData.placa,
+                              container: recepcion.formData.contenedor,
+                              camara: 'CO', // Asumiendo Congelado
+                              totalPaletas: paletasEnDespacho,
+                              operacionLogistica: 'No Aplica',
+                              pedidoSislog: recepcion.formData.pedidoSislog,
+                              conceptName: smylCargueAlmacenamientoConcept.conceptName,
+                              tipoVehiculo: 'No Aplica',
+                              quantity: 1, // Se cobra una vez por la operación completa
+                              unitOfMeasure: smylCargueAlmacenamientoConcept.unitOfMeasure,
+                              unitValue: smylCargueAlmacenamientoConcept.value || 0,
+                              totalValue: smylCargueAlmacenamientoConcept.value || 0,
+                          });
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     const operacionCargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN CARGUE');
     if (clientName === 'AVICOLA EL MADROÑO S.A.' && operacionCargueConcept) {
@@ -758,21 +819,21 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
-                const summaryForOp = op.formData.summary || [];
-                if (summaryForOp.length > 0) {
-                    const allTemps: number[] = [];
-                    for (const item of summaryForOp) {
-                        [item.temperatura1, item.temperatura2, item.temperatura3]
-                            .filter((t): t is number => t !== null && t !== undefined && !isNaN(t))
-                            .forEach(t => allTemps.push(t));
-                    }
+                const allTemps: number[] = [];
+                (op.formData.summary || []).forEach((item: any) => {
+                    [item.temperatura1, item.temperatura2, item.temperatura3]
+                        .filter((t): t is number => t !== null && t !== undefined && !isNaN(t))
+                        .forEach(t => allTemps.push(t));
+                });
+                
+                if (allTemps.length > 0) {
+                    const tempToCompare = allTemps.reduce((maxAbs, current) => 
+                        Math.abs(current) > Math.abs(maxAbs) ? current : maxAbs
+                    , allTemps[0]);
                     
-                    if (allTemps.length > 0) {
-                        const averageTemp = allTemps.reduce((sum, temp) => sum + temp, 0) / allTemps.length;
-                        const matchingTariff = findMatchingTemperatureTariff(averageTemp, concept);
-                        if (matchingTariff) {
-                            unitValue = matchingTariff.ratePerKg;
-                        }
+                    const matchingTariff = findMatchingTemperatureTariff(tempToCompare, concept);
+                    if (matchingTariff) {
+                        unitValue = matchingTariff.ratePerKg;
                     }
                 }
             }
@@ -1037,7 +1098,8 @@ export async function generateClientSettlement(criteria: {
                         ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
                         : 'No Aplica';
                 } else if (opData.concept.includes('ARIN')) {
-                    operacionLogistica = opData.details?.opLogistica || 'No Aplica';
+                    const opLogisticaValue = opData.concept === 'ARIN DE INGRESO ZFPC (MANUAL)' ? 'DESCARGUE' : 'CARGUE';
+                    operacionLogistica = opLogisticaValue || 'No Aplica';
                 }
 
                 if (concept.conceptName === 'INSPECCIÓN ZFPC') {
@@ -1153,7 +1215,8 @@ export async function generateClientSettlement(criteria: {
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-        'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
+        'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
     ];
     
     const roleOrder = ['SUPERVISOR', 'MONTACARGUISTA TRILATERAL', 'MONTACARGUISTA NORMAL', 'OPERARIO'];
@@ -1256,5 +1319,6 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
 
 
