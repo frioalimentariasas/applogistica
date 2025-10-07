@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -46,6 +45,7 @@ import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 const tariffRangeSchema = z.object({
@@ -70,7 +70,7 @@ const specificTariffSchema = z.object({
   name: z.string().min(1, "El nombre es requerido."),
   value: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0"),
   baseQuantity: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0").optional().default(0),
-  unit: z.enum(['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES', 'KILOGRAMOS'], { required_error: 'Debe seleccionar una unidad.' }),
+  unit: z.enum(['KILOGRAMOS', 'HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'], { required_error: 'Debe seleccionar una unidad.' }),
 });
 
 const fixedTimeConfigSchema = z.object({
@@ -298,14 +298,6 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   };
   
   const sortedAndFilteredConcepts = useMemo(() => {
-    const order: Record<string, number> = {
-        'REGLAS': 1,
-        'OBSERVACION': 2,
-        'MANUAL': 3,
-        'SALDO_INVENTARIO': 4,
-        'LÓGICA ESPECIAL': 5,
-    };
-
     return concepts
         .filter(c => {
             const nameMatch = c.conceptName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -324,17 +316,30 @@ export default function ConceptManagementClientComponent({ initialClients, initi
             }
 
             return true;
-        })
-        .sort((a, b) => {
-            const orderA = order[a.calculationType] ?? 99;
-            const orderB = order[b.calculationType] ?? 99;
-
-            if (orderA !== orderB) {
-                return orderA - orderB;
-            }
-            return a.conceptName.localeCompare(b.conceptName);
         });
   }, [concepts, searchTerm, clientFilter, calculationTypeFilter]);
+
+  const groupedConcepts = useMemo(() => {
+    const groupOrder: Record<string, number> = {
+        'REGLAS': 1, 'OBSERVACION': 2, 'MANUAL': 3, 'SALDO_INVENTARIO': 4, 'LÓGICA ESPECIAL': 5,
+    };
+    const groups: Record<string, ClientBillingConcept[]> = {
+        'REGLAS': [], 'OBSERVACION': [], 'MANUAL': [], 'SALDO_INVENTARIO': [], 'LÓGICA ESPECIAL': [],
+    };
+    
+    sortedAndFilteredConcepts.forEach(c => {
+        const groupKey = c.calculationType || 'REGLAS';
+        if (groups[groupKey]) {
+            groups[groupKey].push(c);
+        }
+    });
+
+    Object.values(groups).forEach(group => group.sort((a, b) => a.conceptName.localeCompare(b.conceptName)));
+    
+    return Object.entries(groups)
+      .sort(([keyA], [keyB]) => (groupOrder[keyA] ?? 99) - (groupOrder[keyB] ?? 99))
+      .filter(([, concepts]) => concepts.length > 0);
+  }, [sortedAndFilteredConcepts]);
 
   const isAllSelected = useMemo(() => {
     if (sortedAndFilteredConcepts.length === 0) return false;
@@ -446,60 +451,68 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border">
-                        <ScrollArea className="h-[700px]">
-                            <Table>
+                  <div className="rounded-md border">
+                    <ScrollArea className="h-[700px]">
+                      <Accordion type="multiple" className="w-full" defaultValue={groupedConcepts.map(([key]) => key)}>
+                        {groupedConcepts.map(([groupName, concepts]) => (
+                          <AccordionItem value={groupName} key={groupName}>
+                            <AccordionTrigger className="px-4 text-base bg-muted/50">
+                              <div className="flex items-center gap-2">
+                                {groupName === 'REGLAS' ? <Calculator/> : groupName === 'OBSERVACION' ? <ListChecks/> : <DollarSign/>}
+                                {groupName.replace('_', ' ')}
+                                <Badge variant="secondary">{concepts.length}</Badge>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="p-0">
+                              <Table>
                                 <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
-                                        <TableHead>Concepto</TableHead>
-                                        <TableHead>Tipo Cálculo</TableHead>
-                                        <TableHead>Tarifa</TableHead>
-                                        <TableHead className="text-right">Acciones</TableHead>
-                                    </TableRow>
+                                  <TableRow>
+                                    <TableHead className="w-12"><Checkbox checked={concepts.every(c => selectedIds.has(c.id))} onCheckedChange={(checked) => {
+                                      const newSet = new Set(selectedIds);
+                                      if(checked) { concepts.forEach(c => newSet.add(c.id)); }
+                                      else { concepts.forEach(c => newSet.delete(c.id)); }
+                                      setSelectedIds(newSet);
+                                    }} /></TableHead>
+                                    <TableHead>Concepto</TableHead>
+                                    <TableHead>Tarifa</TableHead>
+                                    <TableHead className="text-right">Acciones</TableHead>
+                                  </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {sortedAndFilteredConcepts.length > 0 ? (
-                                        sortedAndFilteredConcepts.map((c) => (
-                                        <TableRow key={c.id} data-state={selectedIds.has(c.id) ? "selected" : ""}>
-                                            <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
-                                            <TableCell>
-                                                <div className="font-medium">{c.conceptName}</div>
-                                                <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
-                                                    Aplica a: {(c.clientNames || []).join(', ')}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant={
-                                                    c.calculationType === 'OBSERVACION' ? "default" 
-                                                    : c.calculationType === 'MANUAL' ? 'destructive' 
-                                                    : c.calculationType === 'SALDO_INVENTARIO' ? 'outline'
-                                                    : "secondary"
-                                                }
-                                                className={cn(c.calculationType === 'LÓGICA ESPECIAL' && "bg-amber-500 text-white")}
-                                                >
-                                                    {c.calculationType === 'OBSERVACION' ? `OBS: ${c.associatedObservation}` : c.calculationType?.replace('_', ' ') || 'REGLAS'}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                {c.tariffType === 'UNICA' ? (
-                                                    <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
-                                                ) : (
-                                                    <Badge variant="outline">{c.tariffType.replace('_', ' ')}</Badge>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
-                                            </TableCell>
-                                        </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos que coincidan con la búsqueda.</TableCell></TableRow>
-                                    )}
+                                  {concepts.map((c) => (
+                                    <TableRow key={c.id} data-state={selectedIds.has(c.id) ? "selected" : ""}>
+                                      <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
+                                      <TableCell>
+                                        <div className="font-medium">{c.conceptName}</div>
+                                        <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
+                                          Aplica a: {(c.clientNames || []).join(', ')}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        {c.tariffType === 'UNICA' ? (
+                                          <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
+                                        ) : (
+                                          <Badge variant="outline">{c.tariffType.replace('_', ' ')}</Badge>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
                                 </TableBody>
-                            </Table>
-                        </ScrollArea>
-                    </div>
+                              </Table>
+                            </AccordionContent>
+                          </AccordionItem>
+                        ))}
+                      </Accordion>
+                      {groupedConcepts.length === 0 && (
+                          <div className="h-96 flex items-center justify-center text-muted-foreground">
+                              No hay conceptos que coincidan con la búsqueda.
+                          </div>
+                      )}
+                    </ScrollArea>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -934,5 +947,3 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
         </div>
     );
 }
-
-    

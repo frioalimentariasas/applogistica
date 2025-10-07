@@ -472,7 +472,7 @@ async function generateSmylLiquidation(
     const { initialReception, dailyBalances } = report;
     const initialPallets = initialReception.pallets;
     
-    // Phase 1: Grace Period Billing. The total is the `mainTariff`, but it's broken down.
+    // Fase 1: Facturación del Período de Gracia. El total es la tarifa principal, pero está desglosado.
     const freezingTotal = initialPallets * dailyPalletRate * 4;
     const manipulationTotal = mainTariff - freezingTotal;
     
@@ -482,7 +482,7 @@ async function generateSmylLiquidation(
         subConceptName: 'Servicio logístico Congelación (4 Días)',
         quantity: initialPallets,
         unitOfMeasure: 'PALETA',
-        unitValue: dailyPalletRate, // This is the unit value per pallet for the initial period
+        unitValue: dailyPalletRate, // Este es el valor unitario por pallet para el período inicial
         totalValue: freezingTotal,
         placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialPallets,
     });
