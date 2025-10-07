@@ -211,7 +211,8 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         ];
         conceptsForClient = conceptsForClient.filter(c => 
             !smylSpecialConceptsToExclude.some(special => c.conceptName.toUpperCase() === special.toUpperCase()) &&
-            c.calculationType !== 'SALDO_INVENTARIO' // General rule to exclude all inventory-based concepts
+            c.calculationType !== 'SALDO_INVENTARIO' &&
+            c.calculationType !== 'LÓGICA ESPECIAL'
         );
     }
 
@@ -472,7 +473,7 @@ async function generateSmylLiquidation(
     const initialPallets = initialReception.pallets;
     
     // Phase 1: Grace Period Billing. The total is the `mainTariff`, but it's broken down.
-    const freezingTotal = initialPallets * dailyPalletRate;
+    const freezingTotal = initialPallets * dailyPalletRate * 4;
     const manipulationTotal = mainTariff - freezingTotal;
     
     settlementRows.push({
@@ -667,16 +668,15 @@ export async function generateClientSettlement(criteria: {
         }
     };
     
-    // --- SPECIAL LOGIC FOR SMYL "CARGUE Y ALMACENAMIENTO 1 DÍA" (HEAVY) ---
-    const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)');
+    // Logic for the two special SMYL concepts
+    const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
         await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000);
     }
-    
-    // --- SPECIAL LOGIC FOR SMYL "CARGUE Y ALMACENAMIENTO 1 DÍA" (LIGHT) ---
-    const smylCargueAlmacenamientoVehiculoLivianoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)');
+
+    const smylCargueAlmacenamientoVehiculoLivianoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoVehiculoLivianoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso <= 15000);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000);
     }
     
     const operacionCargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN CARGUE');
@@ -829,13 +829,12 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
-                const allTemps: number[] = (op.formData.summary || []).flatMap((item: any) => 
-                    [item.temperatura1, item.temperatura2, item.temperatura3].filter((t): t is number => t !== null && t !== undefined && !isNaN(t))
+                 const allTemps: number[] = (op.formData.summary || []).flatMap((item: any) => 
+                    [item.temperatura1, item.temperatura2, item.temperatura3].filter((t): t is number => t !== null && t !== undefined && !isNaN(Number(t)))
                 );
-
+            
                 if (allTemps.length > 0) {
-                    const averageTemp = allTemps.reduce((sum, current) => sum + current, 0) / allTemps.length;
-                    
+                    const averageTemp = allTemps.reduce((sum, current) => sum + Number(current), 0) / allTemps.length;
                     const matchingTariff = findMatchingTemperatureTariff(averageTemp, concept);
                     if (matchingTariff) {
                         unitValue = matchingTariff.ratePerKg;
@@ -1214,10 +1213,8 @@ export async function generateClientSettlement(criteria: {
         'Servicio logístico Congelación (4 Días)', // Child
         'Servicio de Manipulación', // Child
         'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
-        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)',
-        'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC (MANUAL)', 
-        'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC (MANUAL)',
+        'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
+        'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
         'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
@@ -1325,6 +1322,7 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
 
 
 

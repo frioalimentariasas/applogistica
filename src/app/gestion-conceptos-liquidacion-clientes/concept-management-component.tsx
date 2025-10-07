@@ -86,7 +86,7 @@ const conceptSchema = z.object({
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   unitOfMeasure: z.enum(['KILOGRAMOS', 'TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA', 'QUINCENA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   
-  calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
+  calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO', 'LÓGICA ESPECIAL'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
   
   // Calculation Rules (for REGLAS)
   calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES', 'PALETAS_SALIDA_MAQUILA_CONGELADOS', 'PALETAS_SALIDA_MAQUILA_SECO', 'CANTIDAD_SACOS_MAQUILA']).optional(),
@@ -302,6 +302,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
         'OBSERVACION': 2,
         'MANUAL': 3,
         'SALDO_INVENTARIO': 4,
+        'LÓGICA ESPECIAL': 5,
     };
 
     return concepts
@@ -438,6 +439,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                 <SelectItem value="OBSERVACION">Por Observación</SelectItem>
                                 <SelectItem value="MANUAL">Op. Manual</SelectItem>
                                 <SelectItem value="SALDO_INVENTARIO">Saldo Inventario</SelectItem>
+                                <SelectItem value="LÓGICA ESPECIAL">Lógica Especial</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -467,7 +469,15 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={c.calculationType === 'OBSERVACION' ? "default" : c.calculationType === 'MANUAL' ? 'destructive' : c.calculationType === 'SALDO_INVENTARIO' ? 'outline' : "secondary"}>
+                                                <Badge variant={
+                                                    c.calculationType === 'OBSERVACION' ? "default" 
+                                                    : c.calculationType === 'MANUAL' ? 'destructive' 
+                                                    : c.calculationType === 'SALDO_INVENTARIO' ? 'outline'
+                                                    : c.calculationType === 'LÓGICA ESPECIAL' ? 'secondary'
+                                                    : "secondary"
+                                                }
+                                                className={cn(c.calculationType === 'LÓGICA ESPECIAL' && "bg-amber-500 text-white")}
+                                                >
                                                     {c.calculationType === 'OBSERVACION' ? `OBS: ${c.associatedObservation}` : c.calculationType?.replace('_', ' ') || 'REGLAS'}
                                                 </Badge>
                                             </TableCell>
@@ -761,7 +771,7 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
             />
             <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida (Para Reporte)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una unidad" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{unitOfMeasureOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem>)}/>
             <Separator />
-            <FormField control={form.control} name="calculationType" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>Tipo de Cálculo</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id={`type-reglas-${isEditMode}`} /><Label htmlFor={`type-reglas-${isEditMode}`}>Por Reglas</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id={`type-obs-${isEditMode}`} /><Label htmlFor={`type-obs-${isEditMode}`}>Por Observación</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="MANUAL" id={`type-manual-${isEditMode}`} /><Label htmlFor={`type-manual-${isEditMode}`}>Op. Manual</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="SALDO_INVENTARIO" id={`type-saldo-${isEditMode}`} /><Label htmlFor={`type-saldo-${isEditMode}`}>Saldo Inventario</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )}/>
+            <FormField control={form.control} name="calculationType" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>Tipo de Cálculo</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id={`type-reglas-${isEditMode}`} /><Label htmlFor={`type-reglas-${isEditMode}`}>Por Reglas</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id={`type-obs-${isEditMode}`} /><Label htmlFor={`type-obs-${isEditMode}`}>Por Observación</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="MANUAL" id={`type-manual-${isEditMode}`} /><Label htmlFor={`type-manual-${isEditMode}`}>Op. Manual</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="SALDO_INVENTARIO" id={`type-saldo-${isEditMode}`} /><Label htmlFor={`type-saldo-${isEditMode}`}>Saldo Inventario</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="LÓGICA ESPECIAL" id={`type-logica-${isEditMode}`} /><Label htmlFor={`type-logica-${isEditMode}`}>Lógica Especial</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )}/>
             
             {watchedCalculationType === 'REGLAS' && (
                 <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
