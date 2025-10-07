@@ -45,6 +45,7 @@ import { Badge } from '@/components/ui/badge';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 
 const tariffRangeSchema = z.object({
@@ -473,7 +474,6 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                     c.calculationType === 'OBSERVACION' ? "default" 
                                                     : c.calculationType === 'MANUAL' ? 'destructive' 
                                                     : c.calculationType === 'SALDO_INVENTARIO' ? 'outline'
-                                                    : c.calculationType === 'LÓGICA ESPECIAL' ? 'secondary'
                                                     : "secondary"
                                                 }
                                                 className={cn(c.calculationType === 'LÓGICA ESPECIAL' && "bg-amber-500 text-white")}
@@ -934,3 +934,5 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
         </div>
     );
 }
+
+    
