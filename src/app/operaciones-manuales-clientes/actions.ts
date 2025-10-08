@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -493,13 +494,14 @@ export async function uploadFmmOperations(
         return { success: false, message: 'No se encontró el archivo.', createdCount: 0, duplicateCount: 0, errorCount: 0, errors: [] };
     }
 
+    let rows: Partial<FmmRow>[] = [];
+
     try {
         const buffer = await file.arrayBuffer();
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(buffer);
         const worksheet = workbook.worksheets[0];
 
-        const rows: Partial<FmmRow>[] = [];
         const headers = (worksheet.getRow(1).values as string[]).map(h => h ? String(h).trim() : '');
         
         worksheet.eachRow((row, rowNumber) => {
@@ -570,7 +572,10 @@ export async function uploadFmmOperations(
                 excelDate.setMinutes(excelDate.getMinutes() + excelDate.getTimezoneOffset());
                 operationDate = excelDate;
             } else if (typeof row.Fecha === 'string') {
-                operationDate = parse(row.Fecha, 'yyyy-MM-dd', new Date());
+                operationDate = parse(row.Fecha, 'dd-MM-yyyy', new Date());
+                 if (isNaN(operationDate.getTime())) {
+                    operationDate = parse(row.Fecha, 'd/M/yyyy', new Date());
+                }
             } else {
                 errors.push(`Fila ${rowIndex}: Formato de fecha no reconocido.`);
                 errorCount++;
@@ -618,4 +623,140 @@ export async function uploadFmmOperations(
     }
 }
 
+interface InspeccionRow {
+  Fecha: Date | string | number;
+  Cliente: string;
+  Concepto: 'INSPECCIÓN ZFPC';
+  Arin: string;
+  '# FMM': string;
+  Placa: string;
+  'Hora Inicio': string;
+  'Hora Final': string;
+  '# Personas': number;
+}
+
+export async function uploadInspeccionOperations(
+  formData: FormData
+): Promise<{ success: boolean; message: string; createdCount: number; errorCount: number; errors: string[] }> {
+  if (!firestore) {
+    return { success: false, message: 'El servidor no está configurado.', createdCount: 0, errorCount: 0, errors: [] };
+  }
+
+  const file = formData.get('file') as File;
+  if (!file) {
+    return { success: false, message: 'No se encontró el archivo.', createdCount: 0, errorCount: 0, errors: [] };
+  }
+  
+  let rows: Partial<InspeccionRow>[] = [];
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const worksheet = workbook.worksheets[0];
+
+    const headers = (worksheet.getRow(1).values as string[]).map(h => h ? String(h).trim() : '');
     
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        const rowData: any = {};
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          const header = headers[colNumber];
+          if (header) rowData[header] = cell.value;
+        });
+        rows.push(rowData);
+      }
+    });
+
+    if (rows.length === 0) throw new Error("El archivo está vacío.");
+    
+    const createdBy = {
+        uid: formData.get('userId') as string,
+        displayName: formData.get('userDisplayName') as string,
+    };
+
+    let createdCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    const batch = firestore.batch();
+
+    for (const [index, row] of rows.entries()) {
+      const rowIndex = index + 2;
+      try {
+        if (!row.Fecha) throw new Error("Falta la fecha.");
+        if (!row.Cliente) throw new Error("Falta el cliente.");
+        
+        let operationDate: Date;
+        if (row.Fecha instanceof Date) {
+            operationDate = row.Fecha;
+        } else if (typeof row.Fecha === 'number') {
+            const excelDate = new Date(Math.round((row.Fecha - 25569) * 86400 * 1000));
+            excelDate.setMinutes(excelDate.getMinutes() + excelDate.getTimezoneOffset());
+            operationDate = excelDate;
+        } else if (typeof row.Fecha === 'string') {
+            operationDate = parse(row.Fecha, 'dd-MM-yyyy', new Date());
+             if (isNaN(operationDate.getTime())) {
+                operationDate = parse(row.Fecha, 'd/M/yyyy', new Date());
+            }
+        } else {
+            throw new Error(`Formato de fecha no reconocido.`);
+        }
+        
+        operationDate.setUTCHours(operationDate.getUTCHours() + 5);
+
+        const startTime = String(row['Hora Inicio'] || '');
+        const endTime = String(row['Hora Final'] || '');
+        if (!startTime.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/) || !endTime.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+            throw new Error("Formato de hora inválido. Debe ser HH:MM.");
+        }
+
+        const start = parse(startTime, 'HH:mm', new Date());
+        const end = parse(endTime, 'HH:mm', new Date());
+        const totalMinutes = differenceInMinutes(end, start);
+        const integerHours = Math.floor(totalMinutes / 60);
+        const remainingMinutes = totalMinutes % 60;
+        let roundedHours = integerHours;
+        
+        if (totalMinutes > 0 && remainingMinutes >= 10) {
+            roundedHours = integerHours + 1;
+        }
+
+        const docRef = firestore.collection('manual_client_operations').doc();
+        batch.set(docRef, {
+          clientName: row.Cliente,
+          concept: 'INSPECCIÓN ZFPC',
+          operationDate: admin.firestore.Timestamp.fromDate(operationDate),
+          quantity: roundedHours,
+          numeroPersonas: Number(row['# Personas']) || 1,
+          details: {
+            arin: String(row.Arin || ''),
+            fmmNumber: String(row['# FMM'] || ''),
+            plate: String(row.Placa || ''),
+            startTime: startTime,
+            endTime: endTime,
+          },
+          createdAt: new Date().toISOString(),
+          createdBy: createdBy,
+        });
+        createdCount++;
+      } catch (e: any) {
+        errors.push(`Fila ${rowIndex}: ${e.message}`);
+        errorCount++;
+      }
+    }
+    
+    if (createdCount > 0) await batch.commit();
+
+    revalidatePath('/operaciones-manuales-clientes');
+    revalidatePath('/billing-reports');
+
+    let message = `Se crearon ${createdCount} registros.`;
+    if (errorCount > 0) message += ` ${errorCount} filas tuvieron errores y no se cargaron.`;
+    
+    return { success: errorCount === 0, message, createdCount, errorCount, errors };
+
+  } catch(error) {
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al procesar el archivo.';
+    return { success: false, message: errorMessage, createdCount: 0, errorCount: rows.length, errors: [errorMessage] };
+  }
+}

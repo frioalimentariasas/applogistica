@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -11,7 +12,7 @@ import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
 
-import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations } from './actions';
+import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations, uploadInspeccionOperations } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData, ExcedentEntry } from './actions';
 import { useToast } from '@/hooks/use-toast';
@@ -101,6 +102,7 @@ const manualOperationSchema = z.object({
     const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isFmmZfpc = data.concept === 'FMM DE INGRESO ZFPC (MANUAL)' || data.concept === 'FMM DE SALIDA ZFPC (MANUAL)';
     const isArinZfpc = data.concept === 'ARIN DE INGRESO ZFPC (MANUAL)' || data.concept === 'ARIN DE SALIDA ZFPC (MANUAL)';
+    const isInspeccionZfpc = data.concept === 'INSPECCIÓN ZFPC';
 
     if (isBulkMode) {
       if (!data.selectedDates || data.selectedDates.length === 0) {
@@ -122,9 +124,12 @@ const manualOperationSchema = z.object({
         }
     }
     
-    if (isTimeExtraMode) {
+    if (isTimeExtraMode || isInspeccionZfpc) {
       if (!data.details?.startTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es requerida.", path: ["details.startTime"] });
       if (!data.details?.endTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es requerida.", path: ["details.endTime"] });
+    }
+    
+    if(isTimeExtraMode) {
        if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
       }
@@ -163,26 +168,20 @@ const manualOperationSchema = z.object({
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
     }
     
-    if (isArinZfpc) {
+    if (isArinZfpc || isInspeccionZfpc) {
       if (!data.details?.arin?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # ARIN es obligatorio.", path: ["details.arin"] });
+    }
+    if (isArinZfpc) {
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
       if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details.container"] });
+    }
+    if (isInspeccionZfpc) {
+        if (!data.details?.fmmNumber?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio.", path: ["details.fmmNumber"] });
+        if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details.container"] });
     }
 
     const specialConcepts = ['TOMA DE PESOS POR ETIQUETA HRS'];
     if (specialConcepts.includes(data.concept)) {
-        if (!data.details?.container?.trim()) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
-        }
-    }
-    
-    if (data.concept === 'INSPECCIÓN ZFPC') {
-        if (!data.details?.arin?.trim()) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El ARIN es obligatorio para este concepto.", path: ["details", "arin"] });
-        }
-        if (!data.details?.fmmNumber?.trim()) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio para este concepto.", path: ["details.fmmNumber"] });
-        }
         if (!data.details?.container?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
         }
@@ -220,6 +219,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState<{ message: string, errors: string[] } | null>(null);
     const [isUploadResultOpen, setIsUploadResultOpen] = useState(false);
+    const [uploadType, setUploadType] = useState<'FMM' | 'INSPECCION'>('FMM');
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
@@ -541,7 +541,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setIsDeleting(false);
     };
     
-    const handleUploadFMM = async (formData: FormData) => {
+    const handleUploadAction = async (formData: FormData) => {
+        if (!uploadType) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Seleccione un tipo de carga.' });
+            return;
+        }
+
         const file = formData.get('file') as File;
         if (!file || file.size === 0) {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un archivo para cargar.' });
@@ -554,8 +559,13 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setUploadError(null);
         formData.append('userId', user.uid);
         formData.append('userDisplayName', displayName || user.email!);
-
-        const result = await uploadFmmOperations(formData);
+        
+        let result;
+        if (uploadType === 'FMM') {
+            result = await uploadFmmOperations(formData);
+        } else {
+            result = await uploadInspeccionOperations(formData);
+        }
         
         if (result.errorCount > 0) {
             setUploadError({ message: result.message, errors: result.errors });
@@ -569,6 +579,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
         
         setIsUploading(false);
+        (document.getElementById('upload-form') as HTMLFormElement)?.reset();
     };
 
     const handleCaptureTime = (fieldName: 'details.startTime' | 'details.endTime' | 'details.horaArribo' | 'details.horaSalida') => {
@@ -664,26 +675,38 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
                  <Card className="mb-6">
                     <CardHeader>
-                        <CardTitle>Carga Masiva de FMM desde Excel</CardTitle>
-                        <CardDescription>
-                            Suba un archivo Excel para registrar múltiples operaciones FMM. El sistema evitará duplicados basados en el # FMM.
-                            <br/>
-                            <span className="text-xs text-muted-foreground">La mejor opción es usar el formato de fecha de Excel. Si usa texto, prefiera DD-MM-AAAA.</span>
-                        </CardDescription>
+                        <CardTitle>Carga Masiva desde Excel</CardTitle>
+                        <CardDescription>Suba un archivo para registrar múltiples operaciones de una sola vez.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Alert className="mb-4">
-                            <AlertTitle>Formato del Archivo</AlertTitle>
-                            <AlertDescription>
-                                El archivo Excel debe tener las columnas: <strong>Fecha, Cliente, Concepto, Cantidad, Contenedor, Op. Logística, # FMM, Placa</strong>.
-                            </AlertDescription>
-                        </Alert>
-                        <form action={handleUploadFMM} className="flex flex-col sm:flex-row items-center gap-4">
-                            <Input type="file" name="file" accept=".xlsx, .xls" required disabled={isUploading} className="flex-grow" />
-                            <Button type="submit" disabled={isUploading} className="w-full sm:w-auto">
-                                {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
-                                Cargar Archivo
-                            </Button>
+                        <form id="upload-form" action={handleUploadAction} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="uploadType">Tipo de Carga</Label>
+                                <Select value={uploadType} onValueChange={(value: 'FMM' | 'INSPECCION') => setUploadType(value)}>
+                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="FMM">Carga Masiva FMM</SelectItem>
+                                        <SelectItem value="INSPECCION">Carga Masiva Inspección ZFPC</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Alert>
+                                <AlertTitle>Formato del Archivo: {uploadType}</AlertTitle>
+                                <AlertDescription>
+                                    {uploadType === 'FMM' ? (
+                                        "Columnas requeridas: Fecha, Cliente, Concepto, Cantidad, Contenedor, Op. Logística, # FMM, Placa."
+                                    ) : (
+                                        "Columnas requeridas: Fecha, Cliente, Concepto, Arin, # FMM, Placa, Hora Inicio, Hora Final, # Personas."
+                                    )}
+                                </AlertDescription>
+                            </Alert>
+                            <div className="flex flex-col sm:flex-row items-center gap-4">
+                                <Input type="file" name="file" accept=".xlsx, .xls" required disabled={isUploading} className="flex-grow" />
+                                <Button type="submit" disabled={isUploading} className="w-full sm:w-auto">
+                                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                                    Cargar Archivo
+                                </Button>
+                            </div>
                         </form>
                     </CardContent>
                 </Card>
@@ -707,18 +730,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                     <PopoverTrigger asChild>
                                         <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateRange?.from ? (
-                                                dateRange.to ? (
-                                                <>
-                                                    {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
-                                                    {format(dateRange.to, "LLL dd, y", { locale: es })}
-                                                </>
-                                                ) : (
-                                                format(dateRange.from, "LLL dd, y", { locale: es })
-                                                )
-                                            ) : (
-                                                <span>Seleccione un rango</span>
-                                            )}
+                                            {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus numberOfMonths={2} /></PopoverContent>
@@ -848,8 +860,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
-
-                <Dialog open={isUploadResultOpen} onOpenChange={setIsUploadResultOpen}>
+                
+                 <Dialog open={isUploadResultOpen} onOpenChange={setIsUploadResultOpen}>
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
                             <DialogTitle>Resultado de la Carga Masiva</DialogTitle>
@@ -1311,8 +1323,8 @@ function ConceptFormBody(props: any) {
                   </div>
               )}
 
-              {(showAdvancedFields || isElectricConnection || isArinZfpc) && (
-                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(isElectricConnection || isArinZfpc || watchedConcept === 'INSPECCIÓN ZFPC') && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+              {(showAdvancedFields || isElectricConnection || isArinZfpc || isInspeccionZfpc) && (
+                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(isElectricConnection || isArinZfpc || isInspeccionZfpc) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
               )}
               
               {(isInspeccionZfpc || isArinZfpc) && (
@@ -1333,7 +1345,7 @@ function ConceptFormBody(props: any) {
                           name="details.fmmNumber"
                           render={({ field }) => (
                               <FormItem>
-                                  <FormLabel># FMM</FormLabel>
+                                  <FormLabel># FMM {isInspeccionZfpc && <span className="text-destructive">*</span>}</FormLabel>
                                   <FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
                                   <FormMessage />
                               </FormItem>
@@ -1370,3 +1382,5 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
+```
