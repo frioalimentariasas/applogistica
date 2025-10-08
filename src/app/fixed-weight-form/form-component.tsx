@@ -71,6 +71,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
 
 const tempSchema = z.preprocess(
     (val) => (val === "" ? null : val),
@@ -95,6 +96,7 @@ const productSchema = z.object({
   temperatura1: tempSchema,
   temperatura2: tempSchema,
   temperatura3: tempSchema,
+  sesion: z.string().optional(),
 }).refine(data => {
     return data.temperatura1 !== null || data.temperatura2 !== null || data.temperatura3 !== null;
 }, {
@@ -861,6 +863,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
               if (productDialogIndex !== null) {
                   form.setValue(`productos.${productDialogIndex}.descripcion`, articulo.denominacionArticulo);
                   form.setValue(`productos.${productDialogIndex}.codigo`, articulo.codigoProducto);
+                  form.setValue(`productos.${productDialogIndex}.sesion`, articulo.sesion);
               }
           }}
         />
@@ -1518,10 +1521,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                       <FormItem className="space-y-1 lg:col-span-4">
                                           <FormLabel>Operación Realizada por Cuadrilla <span className="text-destructive">*</span></FormLabel>
                                           <FormControl>
-                                              <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2">
-                                                  <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem>
-                                                  <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem>
-                                              </RadioGroup>
+                                              <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup>
                                           </FormControl>
                                           <FormMessage />
                                       </FormItem>
@@ -1831,6 +1831,15 @@ function ProductSelectorDialog({
 }) {
     const [search, setSearch] = useState("");
 
+    const getSessionName = (sesionCode: string | undefined) => {
+        switch (sesionCode) {
+            case 'CO': return 'Congelado';
+            case 'RE': return 'Refrigerado';
+            case 'SE': return 'Seco';
+            default: return 'N/A';
+        }
+    }
+
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
         return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
@@ -1867,16 +1876,17 @@ function ProductSelectorDialog({
                                     <Button
                                         key={`${p.id}-${i}`}
                                         variant="ghost"
-                                        className="w-full justify-start h-auto text-wrap"
+                                        className="w-full justify-between h-auto text-wrap"
                                         onClick={() => {
                                             onSelect(p);
                                             onOpenChange(false);
                                         }}
                                     >
-                                        <div className="flex flex-col items-start">
+                                        <div className="flex flex-col items-start text-left">
                                             <span>{p.denominacionArticulo}</span>
                                             <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
                                         </div>
+                                        <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
                                     </Button>
                                 ))}
                             </div>
@@ -1887,7 +1897,4 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
-
-
-
 
