@@ -250,10 +250,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     });
 
     const watchedConcept = form.watch('concept');
-    const watchedTimes = form.watch(['details.startTime', 'details.endTime']);
-    const watchedElectricConnectionDates = form.watch(['details.fechaArribo', 'details.horaArribo', 'details.fechaSalida', 'details.horaSalida']);
-    const watchedFechaArribo = form.watch('details.fechaArribo');
-
+    
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || watchedConcept === 'SERVICIO APOYO JORNAL';
@@ -268,6 +265,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const showTunelCongelacionFields = watchedConcept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
 
 
+    const watchedFechaArribo = form.watch('details.fechaArribo');
+    
     useEffect(() => {
         if (isElectricConnection && watchedFechaArribo) {
             form.setValue('operationDate', watchedFechaArribo);
@@ -332,6 +331,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             if (!form.getValues('operationDate')) form.setValue('operationDate', new Date());
         }
     }, [watchedConcept, selectedConceptInfo, form, isBulkMode]);
+    
+    const [indexErrorMessage, setIndexErrorMessage] = useState('');
+    const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
 
     const fetchAllOperations = useCallback(async () => {
         setIsLoading(true);
@@ -577,11 +579,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     };
 
     const calculatedDuration = useMemo(() => {
-        const [startTime, endTime] = watchedTimes;
-        if (startTime && endTime) {
+        const watchedStartTime = form.getValues('details.startTime');
+        const watchedEndTime = form.getValues('details.endTime');
+        if (watchedStartTime && watchedEndTime) {
             try {
-                const start = parse(startTime, 'HH:mm', new Date());
-                let end = parse(endTime, 'HH:mm', new Date());
+                const start = parse(watchedStartTime, 'HH:mm', new Date());
+                let end = parse(watchedEndTime, 'HH:mm', new Date());
                 
                 if (end < start) {
                     end = addDays(end, 1);
@@ -596,10 +599,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             }
         }
         return null;
-    }, [watchedTimes]);
-    
+    }, [form.watch('details.startTime'), form.watch('details.endTime')]);
+
     const calculatedElectricConnectionHours = useMemo(() => {
-        const [fechaArribo, horaArribo, fechaSalida, horaSalida] = watchedElectricConnectionDates;
+        const { fechaArribo, horaArribo, fechaSalida, horaSalida } = form.getValues('details') || {};
         if (fechaArribo && horaArribo && fechaSalida && horaSalida) {
             try {
                 const startDateTime = parse(`${format(fechaArribo, 'yyyy-MM-dd')} ${horaArribo}`, 'yyyy-MM-dd HH:mm', new Date());
@@ -619,7 +622,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             }
         }
         return null;
-    }, [watchedElectricConnectionDates]);
+    }, [form.watch('details.fechaArribo'), form.watch('details.horaArribo'), form.watch('details.fechaSalida'), form.watch('details.horaSalida')]);
 
     useEffect(() => {
         if (isTimeExtraMode && calculatedDuration?.hours !== undefined) {
@@ -640,7 +643,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
              form.setValue('quantity', roundedHours, { shouldValidate: true });
         }
     }, [isTimeExtraMode, isInspeccionZfpc, calculatedDuration, isElectricConnection, calculatedElectricConnectionHours, form]);
-
+    
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-4xl mx-auto">
@@ -786,7 +789,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <p className="text-muted-foreground">
                                                         {searched
                                                             ? "No hay operaciones manuales para los filtros seleccionados."
-                                                            : "Seleccione una fecha y haga clic en 'Consultar' para ver los registros."}
+                                                            : "Seleccione un rango de fechas y haga clic en 'Consultar' para ver los registros."}
                                                     </p>
                                                 </div>
                                             </TableCell>
@@ -814,7 +817,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} isInspeccionZfpc={isInspeccionZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} />
+                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} isInspeccionZfpc={isInspeccionZfpc} />
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
@@ -845,8 +848,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
-                
-                 <Dialog open={isUploadResultOpen} onOpenChange={setIsUploadResultOpen}>
+
+                <Dialog open={isUploadResultOpen} onOpenChange={setIsUploadResultOpen}>
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
                             <DialogTitle>Resultado de la Carga Masiva</DialogTitle>
@@ -866,7 +869,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-
+                
+                 <IndexCreationDialog 
+                    isOpen={isIndexErrorOpen}
+                    onOpenChange={setIsIndexErrorOpen}
+                    errorMessage={indexErrorMessage}
+                />
             </div>
         </div>
     );
@@ -1114,7 +1122,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
 }
 
 function ConceptFormBody(props: any) {
-  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmZfpc, isArinZfpc, isInspeccionZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours } = props;
+  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmZfpc, isArinZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isInspeccionZfpc } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
   const showNumeroPersonas = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
@@ -1200,13 +1208,13 @@ function ConceptFormBody(props: any) {
           <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación (para búsqueda) <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
       ) : null}
 
-      {calculatedDuration && (showTimeExtraFields || isTimeExtraMode || isInspeccionZfpc) ? (
+      {(isTimeExtraMode || isInspeccionZfpc) && calculatedDuration ? (
             <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
               <Clock className="h-4 w-4 !text-sky-600" />
               <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
               <AlertDescription>
                   <span className="font-bold">{calculatedDuration.hours.toFixed(2)} horas</span> ({calculatedDuration.minutes} minutos).
-                  {(isTimeExtraMode || isInspeccionZfpc) && " Este valor (redondeado) se ha asignado a la cantidad."}
+                  Este valor (redondeado) se ha asignado a la cantidad.
               </AlertDescription>
           </Alert>
       ) : null}
@@ -1325,11 +1333,11 @@ function ConceptFormBody(props: any) {
                           name="details.fmmNumber"
                           render={({ field }) => (
                               <FormItem>
-                                  <FormLabel># FMM {(isInspeccionZfpc) && <span className="text-destructive">*</span>}</FormLabel>
+                                  <FormLabel># FMM</FormLabel>
                                   <FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
                                   <FormMessage />
                               </FormItem>
-                          )}    
+                          )}
                       />
                   </>
                 )}
