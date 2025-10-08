@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -54,6 +55,7 @@ const tariffRangeSchema = z.object({
   vehicleType: z.string().min(1, "El tipo de vehículo es requerido."),
   dayTariff: z.coerce.number({ invalid_type_error: "Debe ser un número" }).min(0, "Debe ser >= 0"),
   nightTariff: z.coerce.number({ invalid_type_error: "Debe ser un número" }).min(0, "Debe ser >= 0"),
+  extraTariff: z.coerce.number({ invalid_type_error: "Debe ser un número" }).min(0, "Debe ser >= 0"),
 }).refine(data => data.maxTons > data.minTons, {
     message: "Max. debe ser mayor que Min.",
     path: ['maxTons'],
@@ -107,8 +109,12 @@ const conceptSchema = z.object({
   tariffType: z.enum(['UNICA', 'RANGOS', 'ESPECIFICA', 'POR_TEMPERATURA'], { required_error: "Debe seleccionar un tipo de tarifa."}),
   value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser >= 0").optional(),
   billingPeriod: z.enum(['DIARIO', 'QUINCENAL', 'MENSUAL']).optional(),
-  dayShiftStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
-  dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
+  
+  weekdayDayShiftStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
+  weekdayDayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
+  saturdayDayShiftStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
+  saturdayDayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
+
   tariffRanges: z.array(tariffRangeSchema).optional(),
   tariffRangesTemperature: z.array(temperatureTariffRangeSchema).optional(),
   specificTariffs: z.array(specificTariffSchema).optional(),
@@ -132,8 +138,10 @@ const conceptSchema = z.object({
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La tarifa es obligatoria.", path: ["value"] });
     }
     if (data.tariffType === 'RANGOS') {
-        if (!data.dayShiftStart) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es obligatoria.", path: ["dayShiftStart"] });
-        if (!data.dayShiftEnd) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es obligatoria.", path: ["dayShiftEnd"] });
+        if (!data.weekdayDayShiftStart) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio (L-V) es obligatoria.", path: ["weekdayDayShiftStart"] });
+        if (!data.weekdayDayShiftEnd) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin (L-V) es obligatoria.", path: ["weekdayDayShiftEnd"] });
+        if (!data.saturdayDayShiftStart) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio (Sáb) es obligatoria.", path: ["saturdayDayShiftStart"] });
+        if (!data.saturdayDayShiftEnd) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin (Sáb) es obligatoria.", path: ["saturdayDayShiftEnd"] });
     }
     if (data.tariffType === 'POR_TEMPERATURA' && (!data.tariffRangesTemperature || data.tariffRangesTemperature.length === 0)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe definir al menos un rango de temperatura.", path: ["tariffRangesTemperature"] });
@@ -181,8 +189,10 @@ const addFormDefaultValues: ConceptFormValues = {
   tariffType: 'UNICA',
   value: 0,
   billingPeriod: 'DIARIO',
-  dayShiftStart: '07:00',
-  dayShiftEnd: '19:00',
+  weekdayDayShiftStart: '07:00',
+  weekdayDayShiftEnd: '19:00',
+  saturdayDayShiftStart: '07:00',
+  saturdayDayShiftEnd: '13:00',
   tariffRanges: [],
   tariffRangesTemperature: [],
   specificTariffs: [],
@@ -273,8 +283,10 @@ export default function ConceptManagementClientComponent({ initialClients, initi
         ...concept,
         value: concept.value ?? 0,
         billingPeriod: concept.billingPeriod ?? 'DIARIO',
-        dayShiftStart: concept.dayShiftStart || '07:00',
-        dayShiftEnd: concept.dayShiftEnd || '19:00',
+        weekdayDayShiftStart: concept.weekdayDayShiftStart || '07:00',
+        weekdayDayShiftEnd: concept.weekdayDayShiftEnd || '19:00',
+        saturdayDayShiftStart: concept.saturdayDayShiftStart || '07:00',
+        saturdayDayShiftEnd: concept.saturdayDayShiftEnd || '13:00',
         tariffRanges: concept.tariffRanges || [],
         tariffRangesTemperature: concept.tariffRangesTemperature || [],
         specificTariffs: concept.specificTariffs || [],
@@ -846,11 +858,16 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
             {watchedTariffType === 'RANGOS' && (
                 <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
                     <div className="space-y-2">
-                        <FormLabel>Definición de Turno</FormLabel>
-                        <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="dayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="dayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormLabel>Definición de Turno Diurno</FormLabel>
+                        <div className="grid grid-cols-2 gap-4 border-b pb-4">
+                            <FormField control={form.control} name="weekdayDayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio L-V</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="weekdayDayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin L-V</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
                         </div>
+                         <div className="grid grid-cols-2 gap-4 pt-2">
+                            <FormField control={form.control} name="saturdayDayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio Sáb</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="saturdayDayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin Sáb</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        </div>
+                        <FormDescription>Lo que esté fuera del rango de L-V será "Nocturno". Fuera del rango de Sábado o en Domingo será "Extra".</FormDescription>
                     </div>
                     <Separator />
                     <div className="space-y-2"><FormLabel>Rangos de Tarifas (Opcional)</FormLabel><FormDescription>Añada rangos si la tarifa varía por peso. Déjelo vacío para usar la misma tarifa sin importar el peso.</FormDescription></div>
@@ -862,16 +879,17 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
                                     <FormField control={form.control} name={`tariffRanges.${index}.maxTons`} render={({ field }) => (<FormItem><FormLabel>Max. Ton.</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                                 </div>
                                 <FormField control={form.control} name={`tariffRanges.${index}.vehicleType`} render={({ field }) => (<FormItem><FormLabel>Tipo Vehículo</FormLabel><FormControl><Input placeholder="EJ: TURBO" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                     <FormField control={form.control} name={`tariffRanges.${index}.dayTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                                     <FormField control={form.control} name={`tariffRanges.${index}.nightTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={form.control} name={`tariffRanges.${index}.extraTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Extra</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                                 </div>
                                 <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => removeTariffRange(index)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
                         ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendTariffRange({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0 })}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendTariffRange({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0, extraTariff: 0 })}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango
                         </Button>
                     </div>

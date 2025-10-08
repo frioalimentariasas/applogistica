@@ -1267,20 +1267,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                 </FormItem>
                                 )}
                             />
-                            {despachoPorDestino && isSummaryMode && (
-                                <FormField
-                                    control={form.control}
-                                    name="totalPaletasDespacho"
-                                    render={({ field }) => (
-                                        <FormItem className="max-w-xs">
-                                            <FormLabel>Total Paletas Despacho <span className="text-destructive">*</span></FormLabel>
-                                            <FormControl><Input type="text" inputMode="numeric" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
-                                            <FormDescription>Total de paletas para el despacho completo.</FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            )}
+                           
                         </div>
                      )}
                      {despachoPorDestino ? (

@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -10,6 +11,7 @@ export interface TariffRange {
   vehicleType: string;
   dayTariff: number;
   nightTariff: number;
+  extraTariff: number; // Added for Saturday/Sunday/Holiday logic
 }
 
 export interface TemperatureTariffRange {
@@ -60,8 +62,13 @@ export interface ClientBillingConcept {
   tariffType: 'UNICA' | 'RANGOS' | 'ESPECIFICA' | 'POR_TEMPERATURA';
   value?: number; // For 'UNICA' tariffType
   billingPeriod?: 'DIARIO' | 'QUINCENAL' | 'MENSUAL'; // New field
-  dayShiftStart?: string; 
-  dayShiftEnd?: string;
+  
+  // New granular shift times
+  weekdayDayShiftStart?: string;
+  weekdayDayShiftEnd?: string;
+  saturdayDayShiftStart?: string;
+  saturdayDayShiftEnd?: string;
+  
   tariffRanges?: TariffRange[];
   tariffRangesTemperature?: TemperatureTariffRange[];
   specificTariffs?: SpecificTariff[];
@@ -95,8 +102,13 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         tariffType: data.tariffType || 'UNICA',
         value: data.value,
         billingPeriod: data.billingPeriod,
-        dayShiftStart: data.dayShiftStart,
-        dayShiftEnd: data.dayShiftEnd,
+
+        // Map old fields to new ones for backward compatibility
+        weekdayDayShiftStart: data.weekdayDayShiftStart || data.dayShiftStart,
+        weekdayDayShiftEnd: data.weekdayDayShiftEnd || data.dayShiftEnd,
+        saturdayDayShiftStart: data.saturdayDayShiftStart,
+        saturdayDayShiftEnd: data.saturdayDayShiftEnd,
+
         tariffRanges: Array.isArray(data.tariffRanges) ? data.tariffRanges : [],
         tariffRangesTemperature: Array.isArray(data.tariffRangesTemperature) ? data.tariffRangesTemperature : [],
         specificTariffs: Array.isArray(data.specificTariffs) ? data.specificTariffs : [],
