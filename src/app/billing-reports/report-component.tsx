@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -1216,7 +1215,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-            'Servicio logístico congelación (4 Días)', 
+            'Servicio logístico Congelación (4 Días)', 
             'Servicio de Manipulación',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
@@ -1610,7 +1609,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const detailBody: any[] = [];
         sortedConceptKeys.forEach(conceptName => {
-             detailBody.push([{ content: conceptName, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+             detailBody.push([{ content: conceptName, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
              const sortedRows = groupedByConcept[conceptName].rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
              sortedRows.forEach(row => {
                  detailBody.push([
@@ -1623,7 +1622,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 ]);
              });
              detailBody.push([
-                { content: `Subtotal ${conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: `Subtotal ${conceptName}:`, colSpan: 13, styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: groupedByConcept[conceptName].subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: '', colSpan: 2 },
                 { content: groupedByConcept[conceptName].subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
@@ -1634,7 +1633,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
             body: detailBody,
             foot: [[
-                { content: 'TOTAL GENERAL:', colSpan: 12, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: 'TOTAL GENERAL:', colSpan: 13, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: '', colSpan: 2, styles: {fillColor: [26, 144, 200]} },
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
@@ -1643,7 +1642,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             pageBreak: 'auto',
             headStyles: { fillColor: [26, 144, 200], fontSize: 6, cellPadding: 1 },
             styles: { fontSize: 6, cellPadding: 1 },
-            columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
+            columnStyles: { 13: { halign: 'right' }, 15: { halign: 'right' }, 16: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' }
         });
     
@@ -2663,7 +2662,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </TableHeader>
                                             <TableBody>
                                                 {isSettlementLoading ? (
-                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={17}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={18}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                                 ) : Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
                                                         {Object.keys(settlementGroupedData).map(conceptName => (
@@ -2918,3 +2917,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
     
 
+
+
+    
