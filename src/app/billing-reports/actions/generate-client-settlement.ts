@@ -97,7 +97,7 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
       return "No Aplica";
     }
 
-    if (concept.calculationType !== 'REGLAS' || concept.tariffType !== 'RANGOS' || !isoDateString || !horaInicio || !horaFin || !concept.dayShiftStart || !concept.dayShiftEnd) {
+    if (concept.calculationType !== 'REGLAS' || concept.tariffType !== 'RANGOS' || !isoDateString || !horaInicio || !horaFin) {
         return "No Aplica";
     }
 
@@ -105,7 +105,7 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
         const date = new Date(isoDateString);
         date.setUTCHours(date.getUTCHours() - 5);
 
-        const dayOfWeek = date.getUTCDay();
+        const dayOfWeek = date.getUTCDay(); // 0=Sunday, 6=Saturday
 
         const [startHours, startMinutes] = horaInicio.split(':').map(Number);
         const startTime = new Date(date);
@@ -119,21 +119,37 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
             endTime.setUTCDate(endTime.getUTCDate() + 1);
         }
 
-        const [diurnoStartHours, diurnoStartMinutes] = concept.dayShiftStart.split(':').map(Number);
+        let diurnoStartStr: string | undefined, diurnoEndStr: string | undefined;
+        let shiftTypes: { diurno: "Diurno", other: "Nocturno" | "Extra" };
+
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
+            diurnoStartStr = concept.weekdayDayShiftStart;
+            diurnoEndStr = concept.weekdayDayShiftEnd;
+            shiftTypes = { diurno: "Diurno", other: "Nocturno" };
+        } else if (dayOfWeek === 6) { // Saturday
+            diurnoStartStr = concept.saturdayDayShiftStart;
+            diurnoEndStr = concept.saturdayDayShiftEnd;
+            shiftTypes = { diurno: "Diurno", other: "Extra" };
+        } else { // Sunday (dayOfWeek === 0)
+            return "Extra";
+        }
+        
+        if (!diurnoStartStr || !diurnoEndStr) {
+            return "No Aplica"; // Shift times are not configured for this day
+        }
+
+        const [diurnoStartHours, diurnoStartMinutes] = diurnoStartStr.split(':').map(Number);
         const diurnoStart = new Date(date);
         diurnoStart.setUTCHours(diurnoStartHours, diurnoStartMinutes, 0, 0);
 
-        const [diurnoEndHours, diurnoEndMinutes] = concept.dayShiftEnd.split(':').map(Number);
+        const [diurnoEndHours, diurnoEndMinutes] = diurnoEndStr.split(':').map(Number);
         const diurnoEnd = new Date(date);
         diurnoEnd.setUTCHours(diurnoEndHours, diurnoEndMinutes, 0, 0);
 
         if (startTime >= diurnoStart && endTime <= diurnoEnd) {
-            return 'Diurno';
+            return shiftTypes.diurno;
         } else {
-            if (dayOfWeek === 6 && (startTime < diurnoStart || endTime > diurnoEnd)) {
-                return 'Extra';
-            }
-            return 'Nocturno';
+            return shiftTypes.other;
         }
 
     } catch (e) {
@@ -811,20 +827,16 @@ export async function generateClientSettlement(criteria: {
                 const totalTons = weightKg / 1000;
                 operacionLogistica = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
                 
-                if (clientName === 'ATLANTIC FS S.A.S.' && concept.conceptName === 'OPERACIÓN DESCARGUE') {
-                    const matchingTariff = concept.tariffRanges?.find(r => r.vehicleType === 'CONTENEDOR');
-                     if (matchingTariff) {
-                        vehicleTypeForReport = matchingTariff.vehicleType;
-                        unitOfMeasureForReport = 'CONTENEDOR' as any; // Override unit of measure
-                        unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
-                    }
-                } else {
-                    const matchingTariff = findMatchingTariff(totalTons, concept);
-                    if (matchingTariff) {
-                        vehicleTypeForReport = matchingTariff.vehicleType;
-                        if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
-                            unitOfMeasureForReport = vehicleTypeForReport as any;
-                        }
+                const matchingTariff = findMatchingTariff(totalTons, concept);
+
+                if (matchingTariff) {
+                    vehicleTypeForReport = matchingTariff.vehicleType;
+                    if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
+                        unitOfMeasureForReport = vehicleTypeForReport as any;
+                        if (operacionLogistica === 'Diurno') unitValue = matchingTariff.dayTariff;
+                        else if (operacionLogistica === 'Nocturno') unitValue = matchingTariff.nightTariff;
+                        else if (operacionLogistica === 'Extra') unitValue = matchingTariff.extraTariff;
+                    } else {
                         unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                     }
                 }
@@ -1310,20 +1322,4 @@ const minutesToTime = (minutes: number): string => {
 
 
     
-
-
-
-
-
-
-
-
-
-    
-
-    
-
-
-
-
 
