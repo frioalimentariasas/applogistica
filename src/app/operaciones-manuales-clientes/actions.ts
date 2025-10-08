@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -630,10 +629,21 @@ interface InspeccionRow {
   Arin: string;
   '# FMM': string;
   Placa: string;
-  'Hora Inicio': string;
-  'Hora Final': string;
+  'Hora Inicio': string | number;
+  'Hora Final': string | number;
   '# Personas': number;
 }
+
+
+const excelTimeToHHMM = (excelTime: number): string => {
+  if (excelTime < 0 || excelTime >= 1) {
+    throw new Error('Valor de hora de Excel inválido. Debe ser un número entre 0 y 1.');
+  }
+  const totalMinutes = Math.round(excelTime * 24 * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
 
 export async function uploadInspeccionOperations(
   formData: FormData
@@ -704,11 +714,24 @@ export async function uploadInspeccionOperations(
         
         operationDate.setUTCHours(operationDate.getUTCHours() + 5);
 
-        const startTime = String(row['Hora Inicio'] || '');
-        const endTime = String(row['Hora Final'] || '');
-        if (!startTime.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/) || !endTime.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
-            throw new Error("Formato de hora inválido. Debe ser HH:MM.");
+        let startTime, endTime: string;
+
+        if (typeof row['Hora Inicio'] === 'number') {
+            startTime = excelTimeToHHMM(row['Hora Inicio']);
+        } else if (typeof row['Hora Inicio'] === 'string' && row['Hora Inicio'].match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+            startTime = row['Hora Inicio'];
+        } else {
+            throw new Error("Formato de Hora Inicio inválido. Debe ser HH:MM o un número de Excel.");
         }
+
+        if (typeof row['Hora Final'] === 'number') {
+            endTime = excelTimeToHHMM(row['Hora Final']);
+        } else if (typeof row['Hora Final'] === 'string' && row['Hora Final'].match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+            endTime = row['Hora Final'];
+        } else {
+            throw new Error("Formato de Hora Final inválido. Debe ser HH:MM o un número de Excel.");
+        }
+
 
         const start = parse(startTime, 'HH:mm', new Date());
         const end = parse(endTime, 'HH:mm', new Date());
