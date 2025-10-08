@@ -1382,5 +1382,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
-```
