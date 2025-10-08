@@ -70,18 +70,23 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
         
-        let serverQueryStartDate: Date;
-        let serverQueryEndDate: Date;
+        let serverQueryStartDate: Date | undefined;
+        let serverQueryEndDate: Date | undefined;
 
         if (criteria.searchDateStart && criteria.searchDateEnd) {
-            serverQueryStartDate = startOfDay(parseISO(criteria.searchDateStart));
-            serverQueryEndDate = endOfDay(parseISO(criteria.searchDateEnd));
+            // Adjust dates to Colombia timezone (UTC-5)
+            serverQueryStartDate = new Date(criteria.searchDateStart + 'T05:00:00.000Z');
+            // End of the day in Colombia is start of next day UTC-5
+            const endDateUTC = new Date(criteria.searchDateEnd + 'T05:00:00.000Z');
+            serverQueryEndDate = endOfDay(endDateUTC);
+
         } else if (criteria.pedidoSislog || criteria.placa) {
              // No date range, but unique ID provided. Fetch all data for this ID.
         } else {
             // Default to last 7 days ONLY if no other criteria are provided
-            serverQueryEndDate = endOfDay(new Date());
-            serverQueryStartDate = startOfDay(subDays(serverQueryEndDate, 6)); 
+            const nowInColombia = new Date(new Date().toLocaleString("en-US", { timeZone: COLOMBIA_TIMEZONE }));
+            serverQueryEndDate = endOfDay(nowInColombia);
+            serverQueryStartDate = startOfDay(subDays(nowInColombia, 6)); 
         }
 
         // Apply the most basic filters at the query level. The most common one will be by date.
@@ -90,7 +95,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog);
         } else if (criteria.placa) {
             query = query.where('formData.placa', '==', criteria.placa);
-        } else if (serverQueryStartDate! && serverQueryEndDate!) {
+        } else if (serverQueryStartDate && serverQueryEndDate) {
             query = query.where('formData.fecha', '>=', serverQueryStartDate)
                          .where('formData.fecha', '<=', serverQueryEndDate);
         }
