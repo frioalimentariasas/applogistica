@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -177,7 +176,7 @@ const manualOperationSchema = z.object({
     }
     if (isInspeccionZfpc) {
         if (!data.details?.fmmNumber?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio.", path: ["details.fmmNumber"] });
-        if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details.container"] });
+        if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details", "container"] });
     }
 
     const specialConcepts = ['TOMA DE PESOS POR ETIQUETA HRS'];
@@ -696,7 +695,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                     {uploadType === 'FMM' ? (
                                         "Columnas requeridas: Fecha, Cliente, Concepto, Cantidad, Contenedor, Op. Logística, # FMM, Placa."
                                     ) : (
-                                        "Columnas requeridas: Fecha, Cliente, Concepto, Arin, # FMM, Placa, Hora Inicio, Hora Final, # Personas."
+                                        "Columnas requeridas: Fecha, Cliente, Concepto, Contenedor, Arin, # FMM, Placa, Hora Inicio, Hora Final, # Personas."
                                     )}
                                 </AlertDescription>
                             </Alert>

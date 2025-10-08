@@ -626,6 +626,7 @@ interface InspeccionRow {
   Fecha: Date | string | number;
   Cliente: string;
   Concepto: 'INSPECCIÓN ZFPC';
+  Contenedor: string;
   Arin: string;
   '# FMM': string;
   Placa: string;
@@ -637,6 +638,11 @@ interface InspeccionRow {
 
 const excelTimeToHHMM = (excelTime: number): string => {
   if (excelTime < 0 || excelTime >= 1) {
+    // Attempt to handle cases where time might be part of a full date-time number
+    const fractionalDay = excelTime - Math.floor(excelTime);
+    if (fractionalDay > 0) {
+        return excelTimeToHHMM(fractionalDay);
+    }
     throw new Error('Valor de hora de Excel inválido. Debe ser un número entre 0 y 1.');
   }
   const totalMinutes = Math.round(excelTime * 24 * 60);
@@ -757,6 +763,7 @@ export async function uploadInspeccionOperations(
             plate: String(row.Placa || ''),
             startTime: startTime,
             endTime: endTime,
+            container: String(row.Contenedor || ''),
           },
           createdAt: new Date().toISOString(),
           createdBy: createdBy,
