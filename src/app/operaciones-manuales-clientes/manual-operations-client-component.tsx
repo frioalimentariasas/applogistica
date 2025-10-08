@@ -39,6 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 
 
 const specificTariffEntrySchema = z.object({
@@ -168,7 +169,7 @@ const manualOperationSchema = z.object({
       if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details.container"] });
     }
 
-    const specialConcepts = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS'];
+    const specialConcepts = ['TOMA DE PESOS POR ETIQUETA HRS'];
     if (specialConcepts.includes(data.concept)) {
         if (!data.details?.container?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
@@ -178,6 +179,12 @@ const manualOperationSchema = z.object({
     if (data.concept === 'INSPECCIÓN ZFPC') {
         if (!data.details?.arin?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El ARIN es obligatorio para este concepto.", path: ["details", "arin"] });
+        }
+        if (!data.details?.fmmNumber?.trim()) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio para este concepto.", path: ["details.fmmNumber"] });
+        }
+        if (!data.details?.container?.trim()) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
         }
     }
 });
@@ -1285,22 +1292,35 @@ function ConceptFormBody(props: any) {
               )}
 
               {(showAdvancedFields || isElectricConnection || isArinZfpc) && (
-                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(showAdvancedFields || isElectricConnection || isArinZfpc) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(isElectricConnection || isArinZfpc || watchedConcept === 'INSPECCIÓN ZFPC') && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
               )}
               
               {(watchedConcept === 'INSPECCIÓN ZFPC' || isArinZfpc) && (
-                  <FormField
-                      control={form.control}
-                      name="details.arin"
-                      render={({ field }) => (
-                          <FormItem>
-                              <FormLabel># ARIN <span className="text-destructive">*</span></FormLabel>
-                              <FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
-                              <FormMessage />
-                          </FormItem>
-                      )}
-                  />
-              )}
+                  <>
+                      <FormField
+                          control={form.control}
+                          name="details.arin"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel># ARIN <span className="text-destructive">*</span></FormLabel>
+                                  <FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}    
+                      />
+                      <FormField
+                          control={form.control}
+                          name="details.fmmNumber"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel># FMM <span className="text-destructive">*</span></FormLabel>
+                                  <FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}    
+                      />
+                  </>
+                )}
               
                 {isFmmZfpc && (
                   <>
@@ -1330,5 +1350,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
-    
