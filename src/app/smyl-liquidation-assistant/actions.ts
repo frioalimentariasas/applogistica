@@ -68,6 +68,7 @@ async function getLotHistory(lotId: string, startDate: string, endDate: string):
     const querySnapshot = await submissionsRef
         .where('formData.cliente', '==', clientName)
         .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
+        .where('formData.tipoPedido', '==', 'GENERICO')
         .where('formData.fecha', '>=', startOfDay(parseISO(startDate)))
         .where('formData.fecha', '<=', endOfDay(parseISO(endDate)))
         .get();
@@ -78,12 +79,10 @@ async function getLotHistory(lotId: string, startDate: string, endDate: string):
         const data = doc.data().formData;
         const items = data.items || [];
         if (items.some((item: any) => item.lote === lotId)) {
-            if (data.tipoPedido === 'GENERICO') {
-                const totalCalculatedWeight = items.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
-                if (totalCalculatedWeight >= 20000) {
-                    initialReceptionDoc = doc;
-                    break;
-                }
+            const totalCalculatedWeight = items.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
+            if (totalCalculatedWeight >= 20000) {
+                initialReceptionDoc = doc;
+                break;
             }
         }
     }
@@ -221,7 +220,7 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
     }
 }
 
-export async function getSmylEligibleLots(startDate: string, endDate: string): Promise<EligibleLot[]> {
+export async function getSmylEligibleLots(startDate: string, endDate: string, filterPostGraceBalance: boolean): Promise<EligibleLot[]> {
   if (!firestore) throw new Error("Firestore no está configurado.");
 
   const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
@@ -255,5 +254,33 @@ export async function getSmylEligibleLots(startDate: string, endDate: string): P
     }
   });
 
-  return Array.from(eligibleLotsMap.values()).sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
+  const finalLots = Array.from(eligibleLotsMap.values());
+  
+  if (filterPostGraceBalance) {
+      const filteredResults: EligibleLot[] = [];
+      for (const lot of finalLots) {
+          const history = await getLotHistory(lot.lotId, lot.receptionDate, endDate);
+          if (history) {
+              const { initialReception, movements } = history;
+              
+              let currentBalance = initialReception.pallets;
+              const gracePeriodEndDate = addDays(initialReception.date, 4); 
+              
+              const relevantMovements = movements.filter(m => m.date <= gracePeriodEndDate);
+              
+              relevantMovements.forEach(mov => {
+                  if (mov.type === 'despacho') currentBalance -= mov.pallets;
+                  else if (mov.type === 'ingreso_saldos') currentBalance += mov.pallets;
+              });
+
+              if (currentBalance > 0) {
+                  filteredResults.push(lot);
+              }
+          }
+      }
+      return filteredResults.sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
+  }
+
+
+  return finalLots.sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
 }

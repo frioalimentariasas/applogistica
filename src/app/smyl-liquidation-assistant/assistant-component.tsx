@@ -24,6 +24,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 export function SmylLiquidationAssistantComponent() {
@@ -45,6 +46,7 @@ export function SmylLiquidationAssistantComponent() {
     const [eligibleLots, setEligibleLots] = useState<EligibleLot[]>([]);
     const [isLoadingLots, setIsLoadingLots] = useState(false);
     const [lotFinderSearch, setLotFinderSearch] = useState('');
+    const [filterPostGrace, setFilterPostGrace] = useState(true);
 
     useEffect(() => {
         // Set initial date range on the client to avoid hydration errors
@@ -62,7 +64,7 @@ export function SmylLiquidationAssistantComponent() {
         setIsLoadingLots(true);
         setIsLotFinderOpen(true);
         try {
-            const lots = await getSmylEligibleLots(format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'));
+            const lots = await getSmylEligibleLots(format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'), filterPostGrace);
             setEligibleLots(lots);
         } catch (e) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los lotes elegibles.' });
@@ -269,13 +271,18 @@ export function SmylLiquidationAssistantComponent() {
                                 Se muestran los lotes recibidos en el rango de fechas seleccionado que cumplen los criterios para liquidación.
                             </DialogDescription>
                         </DialogHeader>
+                        <div className="flex items-center space-x-2 my-4">
+                            <Checkbox id="filter-post-grace" checked={filterPostGrace} onCheckedChange={(checked) => setFilterPostGrace(checked as boolean)} />
+                            <label htmlFor="filter-post-grace" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Mostrar solo lotes con saldo post-gracia
+                            </label>
+                        </div>
                         <Input
                             placeholder="Filtrar por lote o pedido..."
                             value={lotFinderSearch}
                             onChange={(e) => setLotFinderSearch(e.target.value)}
-                            className="my-4"
                         />
-                        <ScrollArea className="h-72">
+                        <ScrollArea className="h-72 mt-4">
                             {isLoadingLots ? (
                                 <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>
                             ) : (
@@ -309,6 +316,10 @@ export function SmylLiquidationAssistantComponent() {
                             )}
                         </ScrollArea>
                         <DialogFooter>
+                             <Button variant="secondary" onClick={handleOpenLotFinder} disabled={isLoadingLots}>
+                                <RefreshCw className={cn("mr-2 h-4 w-4", isLoadingLots && "animate-spin")} />
+                                Refrescar
+                            </Button>
                             <Button variant="outline" onClick={() => setIsLotFinderOpen(false)}>Cerrar</Button>
                         </DialogFooter>
                     </DialogContent>
