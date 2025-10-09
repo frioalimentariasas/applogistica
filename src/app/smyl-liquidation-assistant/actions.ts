@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -58,23 +59,20 @@ const serializeTimestamps = (data: any): any => {
     return data;
 };
 
-async function getLotHistory(lotId: string, startDate: string, endDate: string): Promise<LotHistory | null> {
+async function getLotHistory(lotId: string): Promise<LotHistory | null> {
     if (!firestore) throw new Error("Firestore not configured.");
 
     const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
 
-    // 1. Find the initial reception by querying all receptions for the client in the date range
+    // 1. Find the initial reception without a date constraint
     const submissionsRef = firestore.collection('submissions');
     const querySnapshot = await submissionsRef
         .where('formData.cliente', '==', clientName)
         .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
         .where('formData.tipoPedido', '==', 'GENERICO')
-        .where('formData.fecha', '>=', startOfDay(parseISO(startDate)))
-        .where('formData.fecha', '<=', endOfDay(parseISO(endDate)))
         .get();
 
     let initialReceptionDoc = null;
-
     for (const doc of querySnapshot.docs) {
         const data = doc.data().formData;
         const items = data.items || [];
@@ -86,7 +84,6 @@ async function getLotHistory(lotId: string, startDate: string, endDate: string):
             }
         }
     }
-
 
     if (!initialReceptionDoc) return null;
 
@@ -165,17 +162,17 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
     if (!lotId) return { error: "Debe proporcionar un número de lote." };
 
     try {
-        const history = await getLotHistory(lotId, queryStartDate, queryEndDate);
-        if (!history) return { error: `No se encontró una recepción 'GENERICO' inicial para el lote '${lotId}' con peso >= 20000kg en el rango de fechas.` };
+        const history = await getLotHistory(lotId);
+        if (!history) return { error: `No se encontró una recepción 'GENERICO' inicial para el lote '${lotId}' con peso >= 20000kg.` };
 
         const { initialReception, movements } = history;
         const dailyBalances: DailyBalance[] = [];
         let currentBalance = initialReception.pallets;
 
-        const loopEndDate = addDays(parseISO(queryEndDate), 1); // Loop one day past query end to include its movements
+        const loopEndDate = addDays(parseISO(queryEndDate), 1); 
         const dateInterval = eachDayOfInterval({ start: startOfDay(initialReception.date), end: loopEndDate });
 
-        for (const [dayNumber, date] of dateInterval.entries()) {
+        for (const [dayIndex, date] of dateInterval.entries()) {
             const dateStr = format(date, 'yyyy-MM-dd');
             const initialBalanceForDay = currentBalance;
             
@@ -199,11 +196,12 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
             
             const queryStart = startOfDay(parseISO(queryStartDate));
             const queryEnd = endOfDay(parseISO(queryEndDate));
+            
             if (date >= queryStart && date <= queryEnd) {
                 dailyBalances.push({
                     date: dateStr,
-                    dayNumber: dayNumber + 1, // 1-based day number
-                    isGracePeriod: dayNumber < 4,
+                    dayNumber: dayIndex + 1,
+                    isGracePeriod: dayIndex < 4,
                     movementsDescription: descriptions.join('; ') || 'Sin movimientos',
                     initialBalance: initialBalanceForDay,
                     finalBalance: currentBalance
@@ -230,8 +228,6 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
     .where('formData.cliente', '==', clientName)
     .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
     .where('formData.tipoPedido', '==', 'GENERICO')
-    .where('formData.fecha', '>=', startOfDay(parseISO(startDate)))
-    .where('formData.fecha', '<=', endOfDay(parseISO(endDate)))
     .get();
 
   const eligibleLotsMap = new Map<string, EligibleLot>();
@@ -259,7 +255,7 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
   if (filterPostGraceBalance) {
       const filteredResults: EligibleLot[] = [];
       for (const lot of finalLots) {
-          const history = await getLotHistory(lot.lotId, lot.receptionDate, endDate);
+          const history = await getLotHistory(lot.lotId);
           if (history) {
               const { initialReception, movements } = history;
               const gracePeriodEndDate = addDays(initialReception.date, 3);

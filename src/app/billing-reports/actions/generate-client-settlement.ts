@@ -458,7 +458,7 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
-    return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
+    return `${h.toString().padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
 
@@ -582,9 +582,7 @@ export async function generateClientSettlement(criteria: {
   if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotIds && lotIds.length > 0) {
       try {
         let allSmylRows: ClientSettlementRow[] = [];
-        const smylConcepts = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
         
-        // Logic will run if EITHER no concepts are selected OR at least one SMYL-related concept IS selected.
         const shouldRunSmylLogic = selectedConcepts.length === 0 || hasSelectedSmylConcepts;
 
         if (shouldRunSmylLogic) {
@@ -594,7 +592,6 @@ export async function generateClientSettlement(criteria: {
             }
         }
         
-        // Always filter by selected concepts if any are selected
         if (selectedConcepts.length > 0) {
             const selectedConceptNames = selectedConcepts.map(c => c.conceptName.toUpperCase());
             allSmylRows = allSmylRows.filter(row => selectedConceptNames.includes(row.conceptName.toUpperCase()));
@@ -1340,7 +1337,7 @@ const timeToMinutes = (timeStr: string): number => {
 const minutesToTime = (minutes: number): string => {
     const h = Math.floor(minutes / 60);
     const m = Math.round(minutes % 60);
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
     
 
@@ -1365,6 +1362,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
