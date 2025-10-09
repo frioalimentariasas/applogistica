@@ -31,8 +31,6 @@ import { cn } from '@/lib/utils';
 const dailyEntrySchema = z.object({
   date: z.date(),
   initialBalance: z.number().default(0),
-  plate: z.string().optional(),
-  container: z.string().optional(),
   entries: z.coerce.number().int().min(0).default(0),
   exits: z.coerce.number().int().min(0).default(0),
   finalBalance: z.number().default(0),
@@ -44,6 +42,8 @@ const formSchema = z.object({
     from: z.date({ required_error: "La fecha de inicio es requerida."}),
     to: z.date({ required_error: "La fecha de fin es requerida."}),
   }),
+  plate: z.string().optional(),
+  container: z.string().optional(),
   initialBalance: z.coerce.number().int().min(0, "El saldo inicial no puede ser negativo.").default(0),
   dailyEntries: z.array(dailyEntrySchema),
 });
@@ -67,6 +67,8 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     defaultValues: {
       clientId: '',
       dateRange: undefined,
+      plate: '',
+      container: '',
       initialBalance: 0,
       dailyEntries: [],
     },
@@ -130,8 +132,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         const entry = {
             date: day,
             initialBalance: currentBalance,
-            plate: '',
-            container: '',
             entries,
             exits,
             finalBalance,
@@ -220,10 +220,10 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                 <Card>
                     <CardHeader>
                         <CardTitle>1. Configuración de la Liquidación</CardTitle>
-                        <CardDescription>Seleccione el cliente, el rango de fechas e ingrese el saldo inicial de paletas.</CardDescription>
+                        <CardDescription>Seleccione el cliente, el rango de fechas e ingrese los datos generales.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                             <FormField
                                 control={form.control}
                                 name="clientId"
@@ -281,6 +281,29 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                 </FormItem>
                                 )}
                             />
+                             <FormField
+                                control={form.control}
+                                name="plate"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Placa</FormLabel>
+                                    <Input placeholder="Ej: ABC123" {...field} />
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="container"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Contenedor</FormLabel>
+                                    <Input placeholder="Ej: ZCSU1234567" {...field} />
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+
                             <Button onClick={handleGenerateTable} disabled={!watchedClientId || !form.getValues('dateRange.from')}>
                                 <Search className="mr-2 h-4 w-4" />
                                 Generar Tabla
@@ -303,8 +326,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                         <TableRow>
                                             <TableHead className="w-32">Fecha</TableHead>
                                             <TableHead className="w-32 text-right">Saldo Inicial</TableHead>
-                                            <TableHead>Placa</TableHead>
-                                            <TableHead>Contenedor</TableHead>
                                             <TableHead className="w-32">Entradas</TableHead>
                                             <TableHead className="w-32">Salidas</TableHead>
                                             <TableHead className="w-32 text-right">Saldo Final</TableHead>
@@ -320,11 +341,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                             if (exits > initialBalanceForDay + entries) {
                                                 exits = initialBalanceForDay + entries;
                                                 form.setValue(`dailyEntries.${index}.exits`, exits);
-                                                toast({
-                                                    variant: "destructive",
-                                                    title: "Ajuste automático",
-                                                    description: `Las salidas no pueden exceder el saldo disponible. Se ajustó a ${exits}.`,
-                                                });
                                             }
 
                                             const finalBalanceForDay = initialBalanceForDay + entries - exits;
@@ -340,12 +356,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                             <TableRow key={field.id} className="hover:bg-muted/50">
                                                 <TableCell className="font-medium">{format(field.date, "dd MMM, yyyy", { locale: es })}</TableCell>
                                                 <TableCell className="text-right">{initialBalanceForDay}</TableCell>
-                                                <TableCell>
-                                                    <FormField control={form.control} name={`dailyEntries.${index}.plate`} render={({ field }) => (<Input {...field} className="h-8" />)}/>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <FormField control={form.control} name={`dailyEntries.${index}.container`} render={({ field }) => (<Input {...field} className="h-8" />)}/>
-                                                </TableCell>
                                                 <TableCell>
                                                     <FormField control={form.control} name={`dailyEntries.${index}.entries`} render={({ field }) => (<Input type="number" {...field} className="h-8 text-green-700 font-bold" />)}/>
                                                 </TableCell>
@@ -409,7 +419,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                             <CardTitle className="text-green-800">Mov. Entrada</CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <p>{liquidationSummary.totalEntries} paletas</p>
+                                            <p>{liquidationSummary.totalEntries.toLocaleString('es-CO')} paletas</p>
                                             <p className="text-2xl font-bold text-green-900">{liquidationSummary.totalEntryCost.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                             <p className="text-xs text-muted-foreground">Tarifa: {tariffs.entry.toLocaleString('es-CO')}/paleta</p>
                                         </CardContent>
@@ -419,7 +429,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                             <CardTitle className="text-red-800">Mov. Salida</CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <p>{liquidationSummary.totalExits} paletas</p>
+                                            <p>{liquidationSummary.totalExits.toLocaleString('es-CO')} paletas</p>
                                             <p className="text-2xl font-bold text-red-900">{liquidationSummary.totalExitCost.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                             <p className="text-xs text-muted-foreground">Tarifa: {tariffs.exit.toLocaleString('es-CO')}/paleta</p>
                                         </CardContent>
