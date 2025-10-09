@@ -123,7 +123,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         newEntries[i].finalBalance = currentBalance;
     }
     replace(newEntries);
-  }, [watchedInitialBalance, watchedDailyEntries.map(e => `${e.entries}-${e.exits}`).join(',')]); // Dependency array trick
+  }, [watchedInitialBalance, watchedDailyEntries]); 
 
   const { getValues } = form;
 
@@ -164,22 +164,28 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     let totalStorageDays = 0;
     let totalEntries = 0;
     let totalExits = 0;
+    let totalPalletsForAvg = 0;
+    let daysWithStock = 0;
 
     watchedDailyEntries.forEach(day => {
-        if (day.initialBalance > 0) {
-            totalStorageCost += day.initialBalance * tariffs.storage;
-            totalStorageDays++;
+        const initialBalance = Number(day.initialBalance) || 0;
+        if (initialBalance > 0) {
+            totalStorageCost += initialBalance * tariffs.storage;
+            totalPalletsForAvg += initialBalance;
+            daysWithStock++;
         }
-        totalEntries += day.entries;
-        totalExits += day.exits;
+        totalEntries += Number(day.entries) || 0;
+        totalExits += Number(day.exits) || 0;
     });
 
+    const avgPallets = daysWithStock > 0 ? totalPalletsForAvg / daysWithStock : 0;
     const totalEntryCost = totalEntries * tariffs.entry;
     const totalExitCost = totalExits * tariffs.exit;
     const grandTotal = totalStorageCost + totalEntryCost + totalExitCost;
 
     return {
-        totalStorageDays,
+        totalStorageDays: daysWithStock,
+        avgPallets,
         totalStorageCost,
         totalEntries,
         totalEntryCost,
@@ -188,6 +194,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         grandTotal,
     };
   }, [watchedDailyEntries, tariffs]);
+
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
@@ -347,7 +354,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                             <CardTitle className="text-blue-800">Almacenamiento</CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <p>{liquidationSummary.totalStorageDays} días x {liquidationSummary.totalStorageCost / liquidationSummary.totalStorageDays} paletas promedio</p>
+                                            <p>{liquidationSummary.totalStorageDays} días x {liquidationSummary.avgPallets.toFixed(2)} paletas promedio</p>
                                             <p className="text-2xl font-bold text-blue-900">{liquidationSummary.totalStorageCost.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                             <p className="text-xs text-muted-foreground">Tarifa: {tariffs.storage.toLocaleString('es-CO')}/paleta/día</p>
                                         </CardContent>
@@ -393,5 +400,3 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     </div>
   );
 }
-
-    
