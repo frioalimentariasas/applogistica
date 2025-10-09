@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -164,23 +165,26 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     let totalPalletsForAvg = 0;
     let daysWithStock = 0;
     
-    let currentBalance = Number(watchedInitialBalance)
+    let currentBalance = Number(watchedInitialBalance);
 
     watchedDailyEntries.forEach(day => {
-        const initialBalance = currentBalance;
-        if (initialBalance > 0) {
-            totalStorageCost += initialBalance * tariffs.storage;
-            totalPalletsForAvg += initialBalance;
-            daysWithStock++;
-        }
-        
+        const initialBalanceForDay = currentBalance;
         const entries = Number(day.entries) || 0;
         const exits = Number(day.exits) || 0;
 
+        const finalBalanceForDay = initialBalanceForDay + entries - exits;
+
+        // NEW LOGIC: Charge storage only if the FINAL balance of the day is > 0
+        if (finalBalanceForDay > 0) {
+            totalStorageCost += finalBalanceForDay * tariffs.storage;
+            totalPalletsForAvg += finalBalanceForDay;
+            daysWithStock++;
+        }
+        
         totalEntries += entries;
         totalExits += exits;
         
-        currentBalance = initialBalance + entries - exits;
+        currentBalance = finalBalanceForDay;
     });
 
     const avgPallets = daysWithStock > 0 ? totalPalletsForAvg / daysWithStock : 0;
@@ -198,7 +202,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         totalExitCost,
         grandTotal,
     };
-  }, [watchedDailyEntries, tariffs, watchedInitialBalance]);
+}, [watchedDailyEntries, tariffs, watchedInitialBalance]);
 
 
   const filteredClients = useMemo(() => {
@@ -320,14 +324,24 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {fields.map((field, index) => (
+                                        {fields.map((field, index) => {
+                                            const initialBalanceForDay = index === 0 ? Number(watchedInitialBalance) : watchedDailyEntries[index - 1]?.finalBalance || 0;
+                                            const entries = Number(watchedDailyEntries[index]?.entries) || 0;
+                                            const exits = Number(watchedDailyEntries[index]?.exits) || 0;
+                                            const finalBalanceForDay = initialBalanceForDay + entries - exits;
+                                            
+                                            // Update the form state silently if the calculated balance differs
+                                            if (watchedDailyEntries[index]?.initialBalance !== initialBalanceForDay) {
+                                                form.setValue(`dailyEntries.${index}.initialBalance`, initialBalanceForDay);
+                                            }
+                                            if (watchedDailyEntries[index]?.finalBalance !== finalBalanceForDay) {
+                                                form.setValue(`dailyEntries.${index}.finalBalance`, finalBalanceForDay);
+                                            }
+
+                                            return (
                                             <TableRow key={field.id} className="hover:bg-muted/50">
                                                 <TableCell className="font-medium">{format(field.date, "dd MMM, yyyy", { locale: es })}</TableCell>
-                                                <TableCell className="text-right">{
-                                                    index === 0 
-                                                        ? Number(watchedInitialBalance) 
-                                                        : (Number(getValues(`dailyEntries.${index-1}.finalBalance`)))
-                                                }</TableCell>
+                                                <TableCell className="text-right">{initialBalanceForDay}</TableCell>
                                                 <TableCell>
                                                     <FormField control={form.control} name={`dailyEntries.${index}.plate`} render={({ field }) => (<Input {...field} className="h-8" />)}/>
                                                 </TableCell>
@@ -340,15 +354,9 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                                 <TableCell>
                                                     <FormField control={form.control} name={`dailyEntries.${index}.exits`} render={({ field }) => (<Input type="number" {...field} className="h-8 text-red-700 font-bold" />)}/>
                                                 </TableCell>
-                                                <TableCell className="text-right font-bold text-lg">{
-                                                    (index === 0 
-                                                        ? Number(watchedInitialBalance) 
-                                                        : (Number(getValues(`dailyEntries.${index-1}.finalBalance`))))
-                                                        + (Number(getValues(`dailyEntries.${index}.entries`)) || 0)
-                                                        - (Number(getValues(`dailyEntries.${index}.exits`)) || 0)
-                                                }</TableCell>
+                                                <TableCell className="text-right font-bold text-lg">{finalBalanceForDay}</TableCell>
                                             </TableRow>
-                                        ))}
+                                        )})}
                                     </TableBody>
                                 </Table>
                             </ScrollArea>
