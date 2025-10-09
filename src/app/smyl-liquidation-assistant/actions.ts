@@ -264,16 +264,20 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
               const { initialReception, movements } = history;
               
               let currentBalance = initialReception.pallets;
-              const gracePeriodEndDate = addDays(initialReception.date, 4); 
+              const gracePeriodEndDate = addDays(initialReception.date, 3); // Day 4 is the end of grace period
               
-              const relevantMovements = movements.filter(m => m.date <= gracePeriodEndDate);
-              
-              relevantMovements.forEach(mov => {
-                  if (mov.type === 'despacho') currentBalance -= mov.pallets;
-                  else if (mov.type === 'ingreso_saldos') currentBalance += mov.pallets;
+              const relevantMovements = movements.filter(m => m.date > gracePeriodEndDate);
+
+              // First, calculate balance at the end of the grace period
+              const graceMovements = movements.filter(m => m.date <= gracePeriodEndDate);
+              let gracePeriodEndBalance = initialReception.pallets;
+              graceMovements.forEach(mov => {
+                   if (mov.type === 'despacho') gracePeriodEndBalance -= mov.pallets;
+                   else if (mov.type === 'ingreso_saldos') gracePeriodEndBalance += mov.pallets;
               });
 
-              if (currentBalance > 0) {
+              // If balance is > 0 after grace period, it's eligible
+              if (gracePeriodEndBalance > 0) {
                   filteredResults.push(lot);
               }
           }
