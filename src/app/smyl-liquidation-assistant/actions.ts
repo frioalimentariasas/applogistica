@@ -262,22 +262,31 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
           const history = await getLotHistory(lot.lotId, lot.receptionDate, endDate);
           if (history) {
               const { initialReception, movements } = history;
+              const gracePeriodEndDate = addDays(initialReception.date, 3);
               
               let currentBalance = initialReception.pallets;
-              const gracePeriodEndDate = addDays(initialReception.date, 3); // Day 4 is the end of grace period
-              
-              const relevantMovements = movements.filter(m => m.date > gracePeriodEndDate);
+              let hasBalanceAfterGrace = false;
 
-              // First, calculate balance at the end of the grace period
-              const graceMovements = movements.filter(m => m.date <= gracePeriodEndDate);
-              let gracePeriodEndBalance = initialReception.pallets;
-              graceMovements.forEach(mov => {
-                   if (mov.type === 'despacho') gracePeriodEndBalance -= mov.pallets;
-                   else if (mov.type === 'ingreso_saldos') gracePeriodEndBalance += mov.pallets;
-              });
+              const loopEndDate = addDays(parseISO(endDate), 1);
+              const dateInterval = eachDayOfInterval({ start: startOfDay(initialReception.date), end: loopEndDate });
 
-              // If balance is > 0 after grace period, it's eligible
-              if (gracePeriodEndBalance > 0) {
+              for (const date of dateInterval) {
+                  const dateStr = format(date, 'yyyy-MM-dd');
+                  const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
+                  
+                  movementsToday.forEach(mov => {
+                      if (mov.type === 'despacho') currentBalance -= mov.pallets;
+                      else if (mov.type === 'ingreso_saldos') currentBalance += mov.pallets;
+                  });
+
+                  // Check if the current day is after the grace period and has a balance
+                  if (date > gracePeriodEndDate && currentBalance > 0) {
+                      hasBalanceAfterGrace = true;
+                      break; // Found a day with balance, no need to check further
+                  }
+              }
+
+              if (hasBalanceAfterGrace) {
                   filteredResults.push(lot);
               }
           }
@@ -288,3 +297,5 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
 
   return finalLots.sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
 }
+
+    
