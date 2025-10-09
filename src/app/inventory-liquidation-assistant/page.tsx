@@ -1,16 +1,10 @@
-
 import { Suspense } from 'react';
-import { getClients } from '@/app/actions/clients';
-import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-import { LiquidationAssistantComponent } from './assistant-component';
+import AssistantComponentWrapper from './assistant-component-wrapper';
 
-export default async function InventoryLiquidationAssistantPage() {
-    const clients = await getClients();
-    const billingConcepts = await getClientBillingConcepts();
-
+export default function InventoryLiquidationAssistantPage() {
     return (
         <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Cargando...</div>}>
-            <LiquidationAssistantComponent clients={clients} billingConcepts={billingConcepts} />
+            <AssistantComponentWrapper />
         </Suspense>
     );
 }

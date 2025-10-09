@@ -53,7 +53,6 @@ const STORAGE_CONCEPT_NAME = 'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA';
 const ENTRY_CONCEPT_NAME = 'MOVIMIENTO ENTRADA PRODUCTO - PALETA';
 const EXIT_CONCEPT_NAME = 'MOVIMIENTO SALIDA PRODUCTO - PALETA';
 
-
 export function LiquidationAssistantComponent({ clients, billingConcepts }: { clients: ClientInfo[]; billingConcepts: ClientBillingConcept[] }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -66,10 +65,23 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     resolver: zodResolver(formSchema),
     defaultValues: {
       clientId: '',
+      dateRange: undefined,
       initialBalance: 0,
       dailyEntries: [],
     },
   });
+  
+  useEffect(() => {
+    form.reset({
+      clientId: '',
+      dateRange: {
+        from: new Date(),
+        to: new Date()
+      },
+      initialBalance: 0,
+      dailyEntries: []
+    })
+  }, []);
 
   const { fields, replace } = useFieldArray({
     control: form.control,
@@ -77,7 +89,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
   });
 
   const watchedClientId = useWatch({ control: form.control, name: 'clientId' });
-  const watchedDateRange = useWatch({ control: form.control, name: 'dateRange' });
   const watchedInitialBalance = useWatch({ control: form.control, name: 'initialBalance' });
   const watchedDailyEntries = useWatch({ control: form.control, name: 'dailyEntries' });
 
@@ -284,7 +295,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                 </FormItem>
                                 )}
                             />
-                            <Button onClick={handleGenerateTable} disabled={!watchedClientId || !watchedDateRange?.from}>
+                            <Button onClick={handleGenerateTable} disabled={!watchedClientId || !form.getValues('dateRange.from')}>
                                 <Search className="mr-2 h-4 w-4" />
                                 Generar Tabla
                             </Button>
