@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -260,7 +261,7 @@ export function SmylLiquidationAssistantComponent() {
                         <DialogHeader>
                             <DialogTitle>Buscar Lotes Elegibles de SMYL</DialogTitle>
                             <DialogDescription>
-                                Se muestran los lotes recibidos en el rango de fechas seleccionado que cumplen los criterios para liquidación.
+                                Se muestran los lotes que tienen saldo dentro del rango de fechas seleccionado.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="flex items-center space-x-2 my-4">

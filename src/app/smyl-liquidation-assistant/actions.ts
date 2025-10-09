@@ -200,7 +200,7 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
             if (date >= queryStart && date <= queryEnd) {
                 dailyBalances.push({
                     date: dateStr,
-                    dayNumber: dayIndex + 1,
+                    dayNumber: Math.ceil(dayIndex),
                     isGracePeriod: dayIndex < 4,
                     movementsDescription: descriptions.join('; ') || 'Sin movimientos',
                     initialBalance: initialBalanceForDay,
@@ -222,6 +222,8 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
   if (!firestore) throw new Error("Firestore no está configurado.");
 
   const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
+  const queryStart = startOfDay(parseISO(startDate));
+  const queryEnd = endOfDay(parseISO(endDate));
 
   // Find all potential lots, regardless of date.
   const querySnapshot = await firestore
@@ -252,45 +254,55 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
   });
 
   const finalLots: EligibleLot[] = [];
-  const queryStart = startOfDay(parseISO(startDate));
-  const queryEnd = endOfDay(parseISO(endDate));
 
-  // For each possible lot, check if it has a balance within the query range
   for (const lot of allPossibleLots.values()) {
     const history = await getLotHistory(lot.lotId);
     if (!history) continue;
 
     const { initialReception, movements } = history;
     let currentBalance = initialReception.pallets;
-    let hasBalanceInQueryRange = false;
+    let isEligible = false;
 
-    // We need to iterate from the lot's reception date up to the query's end date
+    // Iterate from the lot's reception date up to the query's end date
     const loopEndDate = addDays(queryEnd, 1);
     const dateInterval = eachDayOfInterval({ start: startOfDay(initialReception.date), end: loopEndDate });
 
-    for (const date of dateInterval) {
+    for (const [dayIndex, date] of dateInterval.entries()) {
         const dateStr = format(date, 'yyyy-MM-dd');
         const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
         
+        const initialBalanceForDay = currentBalance;
+        let despachosHoy = 0;
+        let ingresosHoy = 0;
+
         movementsToday.forEach(mov => {
-            if (mov.type === 'despacho') currentBalance -= mov.pallets;
-            else if (mov.type === 'ingreso_saldos') currentBalance += mov.pallets;
+            if (mov.type === 'despacho') despachosHoy += mov.pallets;
+            else if (mov.type === 'ingreso_saldos') ingresosHoy += mov.pallets;
         });
 
-        // Check if the current day is within the user's selected range AND has a balance
+        currentBalance = initialBalanceForDay - despachosHoy + ingresosHoy;
+        
+        // Check for eligibility
         if (date >= queryStart && date <= queryEnd && currentBalance > 0) {
-            hasBalanceInQueryRange = true;
-            break; // Found a day with balance in range, no need to check further
+            const isAfterGracePeriod = dayIndex >= 4;
+            
+            if (filterPostGraceBalance) {
+                if (isAfterGracePeriod) {
+                    isEligible = true;
+                    break; 
+                }
+            } else {
+                isEligible = true;
+                break;
+            }
         }
     }
 
-    if (hasBalanceInQueryRange) {
+    if (isEligible) {
         finalLots.push(lot);
     }
   }
 
   return finalLots.sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
 }
-
     
-
