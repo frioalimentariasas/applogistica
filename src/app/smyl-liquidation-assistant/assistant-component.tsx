@@ -48,14 +48,6 @@ export function SmylLiquidationAssistantComponent() {
     const [lotFinderSearch, setLotFinderSearch] = useState('');
     const [filterPostGrace, setFilterPostGrace] = useState(true);
 
-    useEffect(() => {
-        // Set initial date range on the client to avoid hydration errors
-        setDateRange({
-            from: new Date(),
-            to: addDays(new Date(), 7)
-        });
-    }, []);
-
     const handleOpenLotFinder = async () => {
         if (!dateRange?.from || !dateRange?.to) {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un rango de fechas primero.' });
