@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -392,3 +393,5 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     </div>
   );
 }
+
+    
