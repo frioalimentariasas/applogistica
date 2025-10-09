@@ -1,4 +1,3 @@
-
 import { Suspense } from 'react';
 import { SmylLiquidationAssistantComponent } from './assistant-component';
 
