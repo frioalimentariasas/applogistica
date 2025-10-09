@@ -458,7 +458,7 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
-    return `${h.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+    return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
 
@@ -470,11 +470,16 @@ async function generateSmylLiquidation(
 ): Promise<ClientSettlementRow[]> {
     const settlementRows: ClientSettlementRow[] = [];
     
-    const mainConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA');
-    const dailyConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
+    const conceptsToFind = [
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+        'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'
+    ];
+
+    const mainConcept = allConcepts.find(c => c.conceptName.toUpperCase() === conceptsToFind[0]);
+    const dailyConcept = allConcepts.find(c => c.conceptName.toUpperCase() === conceptsToFind[1]);
 
     if (!mainConcept?.value || !dailyConcept?.value) {
-        throw new Error(`No se encontraron los conceptos de SMYL ('MANIPULACIÓN CARGA', 'COBRO DIARIO') con tarifas definidas para el lote ${lotId}. Verifique la configuración.`);
+        throw new Error(`No se encontraron las tarifas para los conceptos de SMYL ('MANIPULACIÓN CARGA', 'COBRO DIARIO') para el lote ${lotId}. Verifique la configuración.`);
     }
     
     const mainTariff = mainConcept.value;
@@ -500,7 +505,13 @@ async function generateSmylLiquidation(
         unitOfMeasure: 'PALETA',
         unitValue: dailyPalletRate, // Este es el valor unitario por pallet para el período inicial
         totalValue: freezingTotal,
-        placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialPallets,
+        placa: '', 
+        container: lotId,
+        camara: 'CO', 
+        operacionLogistica: 'Recepción', 
+        pedidoSislog: initialReception.pedidoSislog, 
+        tipoVehiculo: '', 
+        totalPaletas: initialPallets,
     });
 
     settlementRows.push({
@@ -511,7 +522,13 @@ async function generateSmylLiquidation(
         unitOfMeasure: 'UNIDAD',
         unitValue: manipulationTotal, // The unit value is the calculated total for this single service
         totalValue: manipulationTotal,
-        placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: 0,
+        placa: '', 
+        container: lotId,
+        camara: 'CO', 
+        operacionLogistica: 'Recepción', 
+        pedidoSislog: initialReception.pedidoSislog, 
+        tipoVehiculo: '', 
+        totalPaletas: 0,
     });
     
     // --- Phase 2: Daily Billing ---
@@ -530,7 +547,13 @@ async function generateSmylLiquidation(
                     unitOfMeasure: 'PALETA/DIA',
                     unitValue: dailyPalletRate,
                     totalValue: day.finalBalance * dailyPalletRate,
-                    placa: '', container: '', camara: 'CO', operacionLogistica: 'Servicio Congelación', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: day.finalBalance
+                    placa: '', 
+                    container: lotId,
+                    camara: 'CO', 
+                    operacionLogistica: 'Servicio Congelación', 
+                    pedidoSislog: initialReception.pedidoSislog, 
+                    tipoVehiculo: '', 
+                    totalPaletas: day.finalBalance
                 });
             }
         }
@@ -551,15 +574,32 @@ export async function generateClientSettlement(criteria: {
   
   const { clientName, startDate, endDate, conceptIds, containerNumber, lotIds } = criteria;
   const allConcepts = await getClientBillingConcepts();
+  
+  const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
+  const hasSelectedSmylConcepts = selectedConcepts.some(c => c.conceptName.toUpperCase().includes('SERVICIO LOGÍSTICO'));
 
   // --- SPECIAL SMYL LOGIC ---
   if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotIds && lotIds.length > 0) {
       try {
         let allSmylRows: ClientSettlementRow[] = [];
-        for (const lotId of lotIds) {
-            const smylRowsForLot = await generateSmylLiquidation(startDate, endDate, lotId, allConcepts);
-            allSmylRows = allSmylRows.concat(smylRowsForLot);
+        const smylConcepts = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
+        
+        // Logic will run if EITHER no concepts are selected OR at least one SMYL-related concept IS selected.
+        const shouldRunSmylLogic = selectedConcepts.length === 0 || hasSelectedSmylConcepts;
+
+        if (shouldRunSmylLogic) {
+            for (const lotId of lotIds) {
+                const smylRowsForLot = await generateSmylLiquidation(startDate, endDate, lotId, allConcepts);
+                allSmylRows = allSmylRows.concat(smylRowsForLot);
+            }
         }
+        
+        // Always filter by selected concepts if any are selected
+        if (selectedConcepts.length > 0) {
+            const selectedConceptNames = selectedConcepts.map(c => c.conceptName.toUpperCase());
+            allSmylRows = allSmylRows.filter(row => selectedConceptNames.includes(row.conceptName.toUpperCase()));
+        }
+
         return { success: true, data: allSmylRows };
       } catch (e: any) {
         return { success: false, error: e.message || "Error al generar liquidación SMYL." };
@@ -597,7 +637,6 @@ export async function generateClientSettlement(criteria: {
         articleSessionMap.set(article.codigoProducto, article.sesion);
     });
 
-    const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
     const allOperations: BasicOperation[] = [];
 
     submissionsSnapshot.docs.forEach(doc => {
@@ -846,7 +885,7 @@ export async function generateClientSettlement(criteria: {
                 }
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
                  const allTemps: number[] = (op.formData.summary || []).flatMap((item: any) => 
-                    [item.temperatura1, item.temperatura2, item.temperatura3].filter((t): t is number => t !== null && t !== undefined && !isNaN(Number(t)))
+                    [item.temperatura1, item.temperatura2, item.temperatura3].filter((t: any): t is number => t !== null && t !== undefined && !isNaN(Number(t)))
                 );
             
                 if (allTemps.length > 0) {
@@ -1326,5 +1365,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
+
 
 
