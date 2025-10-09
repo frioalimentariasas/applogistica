@@ -458,7 +458,7 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
-    return `${h.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+    return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
 
@@ -469,6 +469,8 @@ async function generateSmylLiquidation(
   allConcepts: ClientBillingConcept[]
 ): Promise<ClientSettlementRow[]> {
     const settlementRows: ClientSettlementRow[] = [];
+    const queryStart = parseISO(startDate);
+    const queryEnd = parseISO(endDate);
     
     const conceptsToFind = [
         'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
@@ -492,70 +494,72 @@ async function generateSmylLiquidation(
     
     const { initialReception, dailyBalances } = report;
     const initialPallets = initialReception.pallets;
+    const receptionDate = startOfDay(initialReception.date);
+
+    // Only include the initial charge if the reception date is within the selected query range.
+    if (receptionDate >= queryStart && receptionDate <= queryEnd) {
+      const freezingTotal = initialPallets * dailyPalletRate * 4;
+      const manipulationTotal = mainTariff - freezingTotal;
+
+      settlementRows.push({
+          date: format(receptionDate, 'yyyy-MM-dd'),
+          conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+          subConceptName: 'Servicio logístico Congelación (4 Días)',
+          quantity: initialPallets,
+          unitOfMeasure: 'PALETA',
+          unitValue: dailyPalletRate,
+          totalValue: freezingTotal,
+          placa: '', 
+          container: lotId,
+          camara: 'CO', 
+          operacionLogistica: 'Recepción', 
+          pedidoSislog: initialReception.pedidoSislog, 
+          tipoVehiculo: '', 
+          totalPaletas: initialPallets,
+      });
+
+      settlementRows.push({
+          date: format(receptionDate, 'yyyy-MM-dd'),
+          conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+          subConceptName: 'Servicio de Manipulación',
+          quantity: 1, 
+          unitOfMeasure: 'UNIDAD',
+          unitValue: manipulationTotal,
+          totalValue: manipulationTotal,
+          placa: '', 
+          container: lotId,
+          camara: 'CO', 
+          operacionLogistica: 'Recepción', 
+          pedidoSislog: initialReception.pedidoSislog, 
+          tipoVehiculo: '', 
+          totalPaletas: 0,
+      });
+    }
     
-    // Fase 1: Facturación del Período de Gracia. El total es la tarifa principal, pero está desglosado.
-    const freezingTotal = initialPallets * dailyPalletRate * 4;
-    const manipulationTotal = mainTariff - freezingTotal;
-    
-    settlementRows.push({
-        date: format(initialReception.date, 'yyyy-MM-dd'),
-        conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-        subConceptName: 'Servicio logístico Congelación (4 Días)',
-        quantity: initialPallets,
-        unitOfMeasure: 'PALETA',
-        unitValue: dailyPalletRate, // Este es el valor unitario por pallet para el período inicial
-        totalValue: freezingTotal,
-        placa: '', 
-        container: lotId,
-        camara: 'CO', 
-        operacionLogistica: 'Recepción', 
-        pedidoSislog: initialReception.pedidoSislog, 
-        tipoVehiculo: '', 
-        totalPaletas: initialPallets,
+    // Daily Billing: Filter only for days within the query range AND after the grace period.
+    const gracePeriodEndDate = addDays(receptionDate, 3);
+    const relevantDailyBalances = dailyBalances.filter(day => {
+        const dayDate = parseISO(day.date);
+        return dayDate > gracePeriodEndDate && dayDate >= queryStart && dayDate <= queryEnd;
     });
 
-    settlementRows.push({
-        date: format(initialReception.date, 'yyyy-MM-dd'),
-        conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-        subConceptName: 'Servicio de Manipulación',
-        quantity: 1, 
-        unitOfMeasure: 'UNIDAD',
-        unitValue: manipulationTotal, // The unit value is the calculated total for this single service
-        totalValue: manipulationTotal,
-        placa: '', 
-        container: lotId,
-        camara: 'CO', 
-        operacionLogistica: 'Recepción', 
-        pedidoSislog: initialReception.pedidoSislog, 
-        tipoVehiculo: '', 
-        totalPaletas: 0,
-    });
-    
-    // --- Phase 2: Daily Billing ---
-    const gracePeriodEndDate = addDays(initialReception.date, 3);
-    const day4Balance = dailyBalances.find(b => b.date === format(gracePeriodEndDate, 'yyyy-MM-dd'));
-
-    if (day4Balance && day4Balance.finalBalance > 0) {
-        const subsequentDays = dailyBalances.filter(b => parseISO(b.date) > gracePeriodEndDate);
-        
-        for (const day of subsequentDays) {
-            if (day.finalBalance > 0) {
-                settlementRows.push({
-                    date: day.date,
-                    conceptName: 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-                    quantity: day.finalBalance,
-                    unitOfMeasure: 'PALETA/DIA',
-                    unitValue: dailyPalletRate,
-                    totalValue: day.finalBalance * dailyPalletRate,
-                    placa: '', 
-                    container: lotId,
-                    camara: 'CO', 
-                    operacionLogistica: 'Servicio Congelación', 
-                    pedidoSislog: initialReception.pedidoSislog, 
-                    tipoVehiculo: '', 
-                    totalPaletas: day.finalBalance
-                });
-            }
+    for (const day of relevantDailyBalances) {
+        if (day.finalBalance > 0) {
+            settlementRows.push({
+                date: day.date,
+                conceptName: 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+                quantity: day.finalBalance,
+                unitOfMeasure: 'PALETA/DIA',
+                unitValue: dailyPalletRate,
+                totalValue: day.finalBalance * dailyPalletRate,
+                placa: '', 
+                container: lotId,
+                camara: 'CO', 
+                operacionLogistica: 'Servicio Congelación', 
+                pedidoSislog: initialReception.pedidoSislog, 
+                tipoVehiculo: '', 
+                totalPaletas: day.finalBalance
+            });
         }
     }
     
@@ -1261,7 +1265,7 @@ export async function generateClientSettlement(criteria: {
 
     const conceptOrder = [
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
-        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', // Parent concept
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
         'Servicio logístico Congelación (4 Días)', // Child
         'Servicio de Manipulación', // Child
         'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
@@ -1328,12 +1332,6 @@ export async function generateClientSettlement(criteria: {
   }
 }
 
-const timeToMinutes = (timeStr: string): number => {
-    if (!timeStr || !timeStr.includes(':')) return 0;
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours * 60 + minutes;
-};
-
 const minutesToTime = (minutes: number): string => {
     const h = Math.floor(minutes / 60);
     const m = Math.round(minutes % 60);
@@ -1362,6 +1360,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
