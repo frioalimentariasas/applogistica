@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -630,13 +631,17 @@ interface InspeccionRow {
   Arin: string;
   '# FMM': string;
   Placa: string;
-  'Hora Inicio': string | number;
-  'Hora Final': string | number;
+  'Hora Inicio': string | number | Date;
+  'Hora Final': string | number | Date;
   '# Personas': number;
 }
 
-
 const excelTimeToHHMM = (excelTime: any): string => {
+  if (excelTime instanceof Date) {
+    const hours = String(excelTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(excelTime.getUTCMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
   if (typeof excelTime === 'number') {
     if (excelTime < 0 || excelTime >= 1) {
       const fractionalDay = excelTime - Math.floor(excelTime);
@@ -652,11 +657,9 @@ const excelTimeToHHMM = (excelTime: any): string => {
   }
 
   if (typeof excelTime === 'string') {
-    // Matches HH:MM or H:MM
     if (excelTime.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
         return excelTime;
     }
-    // Matches HH:MM:SS AM/PM
     const amPmMatch = excelTime.match(/(\d{1,2}):(\d{2}):(\d{2})\s*([ap]\.?\s*m\.?)/i);
     if (amPmMatch) {
         let hours = parseInt(amPmMatch[1], 10);
@@ -810,5 +813,3 @@ export async function uploadInspeccionOperations(
     return { success: false, message: errorMessage, createdCount: 0, errorCount: rows.length, errors: [errorMessage] };
   }
 }
-
-    
