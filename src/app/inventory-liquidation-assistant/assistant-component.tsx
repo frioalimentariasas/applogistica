@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -71,18 +71,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       dailyEntries: [],
     },
   });
-  
-  useEffect(() => {
-    form.reset({
-      clientId: '',
-      dateRange: {
-        from: new Date(),
-        to: new Date()
-      },
-      initialBalance: 0,
-      dailyEntries: []
-    })
-  }, [form]);
 
   const { fields, replace } = useFieldArray({
     control: form.control,
@@ -122,7 +110,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
   
   const { getValues } = form;
 
-  const handleGenerateTable = () => {
+  const handleGenerateTable = useCallback(() => {
     const { dateRange, initialBalance } = getValues();
     if (!dateRange?.from || !dateRange?.to) {
       toast({ variant: 'destructive', title: 'Error', description: 'Por favor seleccione un rango de fechas.' });
@@ -136,25 +124,25 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     
     let currentBalance = Number(initialBalance);
     const newDailyEntries = days.map(day => {
+        const entries = 0;
+        const exits = 0;
+        const finalBalance = currentBalance + entries - exits;
         const entry = {
             date: day,
             initialBalance: currentBalance,
             plate: '',
             container: '',
-            entries: 0,
-            exits: 0,
-            finalBalance: currentBalance,
+            entries,
+            exits,
+            finalBalance,
         };
-        const entries = Number(entry.entries) || 0;
-        const exits = Number(entry.exits) || 0;
-        currentBalance = currentBalance + entries - exits;
-        entry.finalBalance = currentBalance;
+        currentBalance = finalBalance;
         return entry;
     });
     
     replace(newDailyEntries);
-  };
-  
+  }, [getValues, toast, replace]);
+
   const liquidationSummary = useMemo(() => {
     if (!tariffs) return null;
 
@@ -174,7 +162,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
 
         const finalBalanceForDay = initialBalanceForDay + entries - exits;
 
-        // NEW LOGIC: Charge storage only if the FINAL balance of the day is > 0
         if (finalBalanceForDay > 0) {
             totalStorageCost += finalBalanceForDay * tariffs.storage;
             totalPalletsForAvg += finalBalanceForDay;
@@ -327,10 +314,21 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                         {fields.map((field, index) => {
                                             const initialBalanceForDay = index === 0 ? Number(watchedInitialBalance) : watchedDailyEntries[index - 1]?.finalBalance || 0;
                                             const entries = Number(watchedDailyEntries[index]?.entries) || 0;
-                                            const exits = Number(watchedDailyEntries[index]?.exits) || 0;
+                                            
+                                            // Ensure exits don't exceed initial balance for the day
+                                            let exits = Number(watchedDailyEntries[index]?.exits) || 0;
+                                            if (exits > initialBalanceForDay + entries) {
+                                                exits = initialBalanceForDay + entries;
+                                                form.setValue(`dailyEntries.${index}.exits`, exits);
+                                                toast({
+                                                    variant: "destructive",
+                                                    title: "Ajuste automático",
+                                                    description: `Las salidas no pueden exceder el saldo disponible. Se ajustó a ${exits}.`,
+                                                });
+                                            }
+
                                             const finalBalanceForDay = initialBalanceForDay + entries - exits;
                                             
-                                            // Update the form state silently if the calculated balance differs
                                             if (watchedDailyEntries[index]?.initialBalance !== initialBalanceForDay) {
                                                 form.setValue(`dailyEntries.${index}.initialBalance`, initialBalanceForDay);
                                             }
@@ -352,7 +350,31 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                                     <FormField control={form.control} name={`dailyEntries.${index}.entries`} render={({ field }) => (<Input type="number" {...field} className="h-8 text-green-700 font-bold" />)}/>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <FormField control={form.control} name={`dailyEntries.${index}.exits`} render={({ field }) => (<Input type="number" {...field} className="h-8 text-red-700 font-bold" />)}/>
+                                                   <FormField
+                                                        control={form.control}
+                                                        name={`dailyEntries.${index}.exits`}
+                                                        render={({ field }) => (
+                                                            <Input
+                                                                type="number"
+                                                                {...field}
+                                                                className="h-8 text-red-700 font-bold"
+                                                                max={initialBalanceForDay + entries}
+                                                                onChange={(e) => {
+                                                                    const val = Number(e.target.value);
+                                                                    if (val > initialBalanceForDay + entries) {
+                                                                        toast({
+                                                                            variant: "destructive",
+                                                                            title: "Límite de salidas excedido",
+                                                                            description: `No puede sacar más de ${initialBalanceForDay + entries} paletas.`,
+                                                                        });
+                                                                        field.onChange(initialBalanceForDay + entries);
+                                                                    } else {
+                                                                        field.onChange(val);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        )}
+                                                    />
                                                 </TableCell>
                                                 <TableCell className="text-right font-bold text-lg">{finalBalanceForDay}</TableCell>
                                             </TableRow>
