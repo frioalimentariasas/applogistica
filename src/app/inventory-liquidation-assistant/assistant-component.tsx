@@ -114,11 +114,11 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     const newEntries = [...getValues().dailyEntries];
     if (newEntries.length === 0) return;
 
-    let currentBalance = watchedInitialBalance;
+    let currentBalance = Number(watchedInitialBalance);
     for (let i = 0; i < newEntries.length; i++) {
         newEntries[i].initialBalance = currentBalance;
-        const entries = newEntries[i].entries || 0;
-        const exits = newEntries[i].exits || 0;
+        const entries = Number(newEntries[i].entries) || 0;
+        const exits = Number(newEntries[i].exits) || 0;
         currentBalance = currentBalance + entries - exits;
         newEntries[i].finalBalance = currentBalance;
     }
@@ -139,7 +139,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       end: endOfDay(dateRange.to),
     });
     
-    let currentBalance = initialBalance;
+    let currentBalance = Number(initialBalance);
     const newDailyEntries = days.map(day => {
         const entry = {
             date: day,
