@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { format, addDays, parseISO } from 'date-fns';
@@ -31,10 +31,7 @@ export function SmylLiquidationAssistantComponent() {
     const { toast } = useToast();
     
     const [lotId, setLotId] = useState('');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: new Date(),
-        to: addDays(new Date(), 7)
-    });
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
     
     const [reportData, setReportData] = useState<AssistantReport | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +45,14 @@ export function SmylLiquidationAssistantComponent() {
     const [eligibleLots, setEligibleLots] = useState<EligibleLot[]>([]);
     const [isLoadingLots, setIsLoadingLots] = useState(false);
     const [lotFinderSearch, setLotFinderSearch] = useState('');
+
+    useEffect(() => {
+        // Set initial date range on the client to avoid hydration errors
+        setDateRange({
+            from: new Date(),
+            to: addDays(new Date(), 7)
+        });
+    }, []);
 
     const handleOpenLotFinder = async () => {
         if (!dateRange?.from || !dateRange?.to) {
