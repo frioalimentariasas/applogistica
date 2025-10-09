@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -9,7 +10,7 @@ import { es } from 'date-fns/locale';
 import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
-import { getSmylLotAssistantReport, type AssistantReport, getSmylEligibleLots, type EligibleLot } from './actions';
+import { getSmylLotAssistantReport, type AssistantReport, getSmylEligibleLots, type EligibleLot, GraceFilter } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 export function SmylLiquidationAssistantComponent() {
@@ -46,7 +48,7 @@ export function SmylLiquidationAssistantComponent() {
     const [eligibleLots, setEligibleLots] = useState<EligibleLot[]>([]);
     const [isLoadingLots, setIsLoadingLots] = useState(false);
     const [lotFinderSearch, setLotFinderSearch] = useState('');
-    const [filterPostGrace, setFilterPostGrace] = useState(true);
+    const [graceFilter, setGraceFilter] = useState<GraceFilter>('all');
     const [selectedLotsInDialog, setSelectedLotsInDialog] = useState<Set<string>>(new Set());
 
     const handleOpenLotFinder = async () => {
@@ -57,7 +59,7 @@ export function SmylLiquidationAssistantComponent() {
         setIsLoadingLots(true);
         setIsLotFinderOpen(true);
         try {
-            const lots = await getSmylEligibleLots(format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'), filterPostGrace);
+            const lots = await getSmylEligibleLots(format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'), graceFilter);
             setEligibleLots(lots);
             
             const currentLotIds = lotIds.split(/[\s,]+/).filter(Boolean);
@@ -288,12 +290,20 @@ export function SmylLiquidationAssistantComponent() {
                                 Se muestran los lotes que tienen saldo dentro del rango de fechas seleccionado.
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="flex items-center space-x-2 my-4">
-                            <Checkbox id="filter-post-grace" checked={filterPostGrace} onCheckedChange={(checked) => setFilterPostGrace(checked as boolean)} />
-                            <label htmlFor="filter-post-grace" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                Mostrar solo lotes con saldo post-gracia
-                            </label>
-                        </div>
+                        <RadioGroup value={graceFilter} onValueChange={(value: GraceFilter) => setGraceFilter(value)} className="flex items-center space-x-4 my-4">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="all" id="r-all" />
+                                <Label htmlFor="r-all">Todos</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="in_grace" id="r-in_grace" />
+                                <Label htmlFor="r-in_grace">En Gracia</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="post_grace" id="r-post_grace" />
+                                <Label htmlFor="r-post_grace">Post-Gracia</Label>
+                            </div>
+                        </RadioGroup>
                         <Input
                             placeholder="Filtrar por lote o pedido..."
                             value={lotFinderSearch}
@@ -311,10 +321,11 @@ export function SmylLiquidationAssistantComponent() {
                                                     checked={eligibleLots.length > 0 && eligibleLots.every(l => selectedLotsInDialog.has(l.lotId))}
                                                     onCheckedChange={(checked) => {
                                                         const newSet = new Set(selectedLotsInDialog);
+                                                        const lotsToChange = eligibleLots.filter(l => l.lotId.toLowerCase().includes(lotFinderSearch.toLowerCase()) || l.pedidoSislog.includes(lotFinderSearch));
                                                         if (checked) {
-                                                            eligibleLots.forEach(l => newSet.add(l.lotId));
+                                                            lotsToChange.forEach(l => newSet.add(l.lotId));
                                                         } else {
-                                                            eligibleLots.forEach(l => newSet.delete(l.lotId));
+                                                            lotsToChange.forEach(l => newSet.delete(l.lotId));
                                                         }
                                                         setSelectedLotsInDialog(newSet);
                                                     }}

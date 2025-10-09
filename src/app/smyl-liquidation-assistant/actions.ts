@@ -200,7 +200,7 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
             if (date >= queryStart && date <= queryEnd) {
                 dailyBalances.push({
                     date: dateStr,
-                    dayNumber: Math.ceil(dayIndex),
+                    dayNumber: Math.ceil(dayIndex + 1), // Start from Day 1
                     isGracePeriod: dayIndex < 4,
                     movementsDescription: descriptions.join('; ') || 'Sin movimientos',
                     initialBalance: initialBalanceForDay,
@@ -218,7 +218,9 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
     }
 }
 
-export async function getSmylEligibleLots(startDate: string, endDate: string, filterPostGraceBalance: boolean): Promise<EligibleLot[]> {
+export type GraceFilter = "all" | "in_grace" | "post_grace";
+
+export async function getSmylEligibleLots(startDate: string, endDate: string, graceFilter: GraceFilter): Promise<EligibleLot[]> {
   if (!firestore) throw new Error("Firestore no está configurado.");
 
   const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
@@ -282,17 +284,20 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
 
         currentBalance = initialBalanceForDay - despachosHoy + ingresosHoy;
         
-        // Check for eligibility
+        // Check for eligibility based on the selected filter
         if (date >= queryStart && date <= queryEnd && currentBalance > 0) {
-            const isAfterGracePeriod = dayIndex >= 4;
-            
-            if (filterPostGraceBalance) {
-                if (isAfterGracePeriod) {
-                    isEligible = true;
-                    break; 
-                }
-            } else {
+            const isGracePeriod = dayIndex < 4;
+
+            if (graceFilter === 'all') {
                 isEligible = true;
+                break;
+            }
+            if (graceFilter === 'in_grace' && isGracePeriod) {
+                isEligible = true;
+                break;
+            }
+            if (graceFilter === 'post_grace' && !isGracePeriod) {
+                 isEligible = true;
                 break;
             }
         }
@@ -306,3 +311,4 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
   return finalLots.sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
 }
     
+
