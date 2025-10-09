@@ -6,7 +6,7 @@ import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
-import { format, eachDayOfInterval, startOfDay, endOfDay } from 'date-fns';
+import { format, eachDayOfInterval, startOfDay, endOfDay, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle } from 'lucide-react';
 
@@ -81,7 +81,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       initialBalance: 0,
       dailyEntries: []
     })
-  }, []);
+  }, [form]);
 
   const { fields, replace } = useFieldArray({
     control: form.control,
@@ -119,22 +119,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     }
   }, [watchedClientId, billingConcepts, toast]);
   
-  // Recalculate daily balances when inputs change
-  useEffect(() => {
-    const newEntries = [...getValues().dailyEntries];
-    if (newEntries.length === 0) return;
-
-    let currentBalance = Number(watchedInitialBalance);
-    for (let i = 0; i < newEntries.length; i++) {
-        newEntries[i].initialBalance = currentBalance;
-        const entries = Number(newEntries[i].entries) || 0;
-        const exits = Number(newEntries[i].exits) || 0;
-        currentBalance = currentBalance + entries - exits;
-        newEntries[i].finalBalance = currentBalance;
-    }
-    replace(newEntries);
-  }, [watchedInitialBalance, watchedDailyEntries]); 
-
   const { getValues } = form;
 
   const handleGenerateTable = () => {
@@ -160,7 +144,10 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
             exits: 0,
             finalBalance: currentBalance,
         };
-        currentBalance = entry.finalBalance;
+        const entries = Number(entry.entries) || 0;
+        const exits = Number(entry.exits) || 0;
+        currentBalance = currentBalance + entries - exits;
+        entry.finalBalance = currentBalance;
         return entry;
     });
     
@@ -176,16 +163,24 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     let totalExits = 0;
     let totalPalletsForAvg = 0;
     let daysWithStock = 0;
+    
+    let currentBalance = Number(watchedInitialBalance)
 
     watchedDailyEntries.forEach(day => {
-        const initialBalance = Number(day.initialBalance) || 0;
+        const initialBalance = currentBalance;
         if (initialBalance > 0) {
             totalStorageCost += initialBalance * tariffs.storage;
             totalPalletsForAvg += initialBalance;
             daysWithStock++;
         }
-        totalEntries += Number(day.entries) || 0;
-        totalExits += Number(day.exits) || 0;
+        
+        const entries = Number(day.entries) || 0;
+        const exits = Number(day.exits) || 0;
+
+        totalEntries += entries;
+        totalExits += exits;
+        
+        currentBalance = initialBalance + entries - exits;
     });
 
     const avgPallets = daysWithStock > 0 ? totalPalletsForAvg / daysWithStock : 0;
@@ -203,7 +198,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         totalExitCost,
         grandTotal,
     };
-  }, [watchedDailyEntries, tariffs]);
+  }, [watchedDailyEntries, tariffs, watchedInitialBalance]);
 
 
   const filteredClients = useMemo(() => {
@@ -328,7 +323,11 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                         {fields.map((field, index) => (
                                             <TableRow key={field.id} className="hover:bg-muted/50">
                                                 <TableCell className="font-medium">{format(field.date, "dd MMM, yyyy", { locale: es })}</TableCell>
-                                                <TableCell className="text-right">{field.initialBalance}</TableCell>
+                                                <TableCell className="text-right">{
+                                                    index === 0 
+                                                        ? Number(watchedInitialBalance) 
+                                                        : (Number(getValues(`dailyEntries.${index-1}.finalBalance`)))
+                                                }</TableCell>
                                                 <TableCell>
                                                     <FormField control={form.control} name={`dailyEntries.${index}.plate`} render={({ field }) => (<Input {...field} className="h-8" />)}/>
                                                 </TableCell>
@@ -341,7 +340,13 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                                 <TableCell>
                                                     <FormField control={form.control} name={`dailyEntries.${index}.exits`} render={({ field }) => (<Input type="number" {...field} className="h-8 text-red-700 font-bold" />)}/>
                                                 </TableCell>
-                                                <TableCell className="text-right font-bold text-lg">{field.finalBalance}</TableCell>
+                                                <TableCell className="text-right font-bold text-lg">{
+                                                    (index === 0 
+                                                        ? Number(watchedInitialBalance) 
+                                                        : (Number(getValues(`dailyEntries.${index-1}.finalBalance`))))
+                                                        + (Number(getValues(`dailyEntries.${index}.entries`)) || 0)
+                                                        - (Number(getValues(`dailyEntries.${index}.exits`)) || 0)
+                                                }</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -374,7 +379,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                             <CardTitle className="text-green-800">Mov. Entrada</CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <p>{(liquidationSummary.totalEntries).toLocaleString('es-CO')} paletas</p>
+                                            <p>{liquidationSummary.totalEntries} paletas</p>
                                             <p className="text-2xl font-bold text-green-900">{liquidationSummary.totalEntryCost.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                             <p className="text-xs text-muted-foreground">Tarifa: {tariffs.entry.toLocaleString('es-CO')}/paleta</p>
                                         </CardContent>
@@ -384,7 +389,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                             <CardTitle className="text-red-800">Mov. Salida</CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <p>{(liquidationSummary.totalExits).toLocaleString('es-CO')} paletas</p>
+                                            <p>{liquidationSummary.totalExits} paletas</p>
                                             <p className="text-2xl font-bold text-red-900">{liquidationSummary.totalExitCost.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                             <p className="text-xs text-muted-foreground">Tarifa: {tariffs.exit.toLocaleString('es-CO')}/paleta</p>
                                         </CardContent>
