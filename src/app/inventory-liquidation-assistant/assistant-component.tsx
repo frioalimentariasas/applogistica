@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -364,7 +363,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                             <CardTitle className="text-green-800">Mov. Entrada</CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <p>{liquidationSummary.totalEntries} paletas</p>
+                                            <p>{(liquidationSummary.totalEntries).toLocaleString('es-CO')} paletas</p>
                                             <p className="text-2xl font-bold text-green-900">{liquidationSummary.totalEntryCost.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                             <p className="text-xs text-muted-foreground">Tarifa: {tariffs.entry.toLocaleString('es-CO')}/paleta</p>
                                         </CardContent>
@@ -374,7 +373,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                             <CardTitle className="text-red-800">Mov. Salida</CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <p>{liquidationSummary.totalExits} paletas</p>
+                                            <p>{(liquidationSummary.totalExits).toLocaleString('es-CO')} paletas</p>
                                             <p className="text-2xl font-bold text-red-900">{liquidationSummary.totalExitCost.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                             <p className="text-xs text-muted-foreground">Tarifa: {tariffs.exit.toLocaleString('es-CO')}/paleta</p>
                                         </CardContent>
