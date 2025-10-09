@@ -223,6 +223,7 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
 
   const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
 
+  // Find all potential lots, regardless of date.
   const querySnapshot = await firestore
     .collection('submissions')
     .where('formData.cliente', '==', clientName)
@@ -230,7 +231,7 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
     .where('formData.tipoPedido', '==', 'GENERICO')
     .get();
 
-  const eligibleLotsMap = new Map<string, EligibleLot>();
+  const allPossibleLots = new Map<string, EligibleLot>();
 
   querySnapshot.docs.forEach(doc => {
     const data = doc.data().formData;
@@ -239,8 +240,8 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
 
     if (totalWeight >= 20000) {
       items.forEach((item: any) => {
-        if (item.lote && !eligibleLotsMap.has(item.lote)) {
-          eligibleLotsMap.set(item.lote, {
+        if (item.lote && !allPossibleLots.has(item.lote)) {
+          allPossibleLots.set(item.lote, {
             lotId: item.lote,
             receptionDate: format(data.fecha.toDate(), 'yyyy-MM-dd'),
             pedidoSislog: data.pedidoSislog,
@@ -250,48 +251,46 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, fi
     }
   });
 
-  const finalLots = Array.from(eligibleLotsMap.values());
-  
-  if (filterPostGraceBalance) {
-      const filteredResults: EligibleLot[] = [];
-      for (const lot of finalLots) {
-          const history = await getLotHistory(lot.lotId);
-          if (history) {
-              const { initialReception, movements } = history;
-              const gracePeriodEndDate = addDays(initialReception.date, 3);
-              
-              let currentBalance = initialReception.pallets;
-              let hasBalanceAfterGrace = false;
+  const finalLots: EligibleLot[] = [];
+  const queryStart = startOfDay(parseISO(startDate));
+  const queryEnd = endOfDay(parseISO(endDate));
 
-              const loopEndDate = addDays(parseISO(endDate), 1);
-              const dateInterval = eachDayOfInterval({ start: startOfDay(initialReception.date), end: loopEndDate });
+  // For each possible lot, check if it has a balance within the query range
+  for (const lot of allPossibleLots.values()) {
+    const history = await getLotHistory(lot.lotId);
+    if (!history) continue;
 
-              for (const date of dateInterval) {
-                  const dateStr = format(date, 'yyyy-MM-dd');
-                  const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
-                  
-                  movementsToday.forEach(mov => {
-                      if (mov.type === 'despacho') currentBalance -= mov.pallets;
-                      else if (mov.type === 'ingreso_saldos') currentBalance += mov.pallets;
-                  });
+    const { initialReception, movements } = history;
+    let currentBalance = initialReception.pallets;
+    let hasBalanceInQueryRange = false;
 
-                  // Check if the current day is after the grace period and has a balance
-                  if (date > gracePeriodEndDate && currentBalance > 0) {
-                      hasBalanceAfterGrace = true;
-                      break; // Found a day with balance, no need to check further
-                  }
-              }
+    // We need to iterate from the lot's reception date up to the query's end date
+    const loopEndDate = addDays(queryEnd, 1);
+    const dateInterval = eachDayOfInterval({ start: startOfDay(initialReception.date), end: loopEndDate });
 
-              if (hasBalanceAfterGrace) {
-                  filteredResults.push(lot);
-              }
-          }
-      }
-      return filteredResults.sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
+    for (const date of dateInterval) {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
+        
+        movementsToday.forEach(mov => {
+            if (mov.type === 'despacho') currentBalance -= mov.pallets;
+            else if (mov.type === 'ingreso_saldos') currentBalance += mov.pallets;
+        });
+
+        // Check if the current day is within the user's selected range AND has a balance
+        if (date >= queryStart && date <= queryEnd && currentBalance > 0) {
+            hasBalanceInQueryRange = true;
+            break; // Found a day with balance in range, no need to check further
+        }
+    }
+
+    if (hasBalanceInQueryRange) {
+        finalLots.push(lot);
+    }
   }
-
 
   return finalLots.sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
 }
 
     
+
