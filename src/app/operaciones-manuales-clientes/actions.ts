@@ -636,19 +636,43 @@ interface InspeccionRow {
 }
 
 
-const excelTimeToHHMM = (excelTime: number): string => {
-  if (excelTime < 0 || excelTime >= 1) {
-    // Attempt to handle cases where time might be part of a full date-time number
-    const fractionalDay = excelTime - Math.floor(excelTime);
-    if (fractionalDay > 0) {
-        return excelTimeToHHMM(fractionalDay);
+const excelTimeToHHMM = (excelTime: any): string => {
+  if (typeof excelTime === 'number') {
+    if (excelTime < 0 || excelTime >= 1) {
+      const fractionalDay = excelTime - Math.floor(excelTime);
+      if (fractionalDay > 0) {
+          return excelTimeToHHMM(fractionalDay);
+      }
+      throw new Error(`Valor de hora de Excel inválido: ${excelTime}. Debe ser un número entre 0 y 1.`);
     }
-    throw new Error('Valor de hora de Excel inválido. Debe ser un número entre 0 y 1.');
+    const totalMinutes = Math.round(excelTime * 24 * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   }
-  const totalMinutes = Math.round(excelTime * 24 * 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+  if (typeof excelTime === 'string') {
+    // Matches HH:MM or H:MM
+    if (excelTime.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+        return excelTime;
+    }
+    // Matches HH:MM:SS AM/PM
+    const amPmMatch = excelTime.match(/(\d{1,2}):(\d{2}):(\d{2})\s*([ap]\.?\s*m\.?)/i);
+    if (amPmMatch) {
+        let hours = parseInt(amPmMatch[1], 10);
+        const minutes = amPmMatch[2];
+        const period = amPmMatch[4].toLowerCase().replace(/\./g, '').replace(/\s/g, '');
+        if (period === 'pm' && hours < 12) {
+            hours += 12;
+        }
+        if (period === 'am' && hours === 12) {
+            hours = 0;
+        }
+        return `${String(hours).padStart(2, '0')}:${minutes}`;
+    }
+  }
+
+  throw new Error(`Formato de hora no reconocido: ${excelTime}`);
 };
 
 export async function uploadInspeccionOperations(
@@ -721,21 +745,17 @@ export async function uploadInspeccionOperations(
         operationDate.setUTCHours(operationDate.getUTCHours() + 5);
 
         let startTime, endTime: string;
-
-        if (typeof row['Hora Inicio'] === 'number') {
+        
+        try {
             startTime = excelTimeToHHMM(row['Hora Inicio']);
-        } else if (typeof row['Hora Inicio'] === 'string' && row['Hora Inicio'].match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
-            startTime = row['Hora Inicio'];
-        } else {
-            throw new Error("Formato de Hora Inicio inválido. Debe ser HH:MM o un número de Excel.");
+        } catch (e) {
+            throw new Error("Formato de Hora Inicio inválido. " + (e as Error).message);
         }
 
-        if (typeof row['Hora Final'] === 'number') {
+        try {
             endTime = excelTimeToHHMM(row['Hora Final']);
-        } else if (typeof row['Hora Final'] === 'string' && row['Hora Final'].match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
-            endTime = row['Hora Final'];
-        } else {
-            throw new Error("Formato de Hora Final inválido. Debe ser HH:MM o un número de Excel.");
+        } catch (e) {
+            throw new Error("Formato de Hora Final inválido. " + (e as Error).message);
         }
 
 
@@ -790,3 +810,5 @@ export async function uploadInspeccionOperations(
     return { success: false, message: errorMessage, createdCount: 0, errorCount: rows.length, errors: [errorMessage] };
   }
 }
+
+    
