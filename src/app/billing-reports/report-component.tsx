@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -228,7 +229,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [settlementClient, setSettlementClient] = useState<string | undefined>(undefined);
     const [settlementDateRange, setSettlementDateRange] = useState<DateRange | undefined>();
     const [settlementContainer, setSettlementContainer] = useState<string>('');
-    const [settlementLotId, setSettlementLotId] = useState(''); // New state for Lot ID
+    const [settlementLotIds, setSettlementLotIds] = useState(''); // New state for Lot IDs
     const [availableConcepts, setAvailableConcepts] = useState<ClientBillingConcept[]>([]);
     const [isLoadingAvailableConcepts, setIsLoadingAvailableConcepts] = useState(false);
     const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
@@ -260,7 +261,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
             
             // If SMYL is selected and Lot ID is provided, no need to fetch manual concepts
-            const isSmylWithLot = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && settlementLotId.trim() !== '';
+            const isSmylWithLot = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && settlementLotIds.trim() !== '';
             if (isSmylWithLot) {
                 setAvailableConcepts([]);
                 setSelectedConcepts([]);
@@ -287,7 +288,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             setAvailableConcepts([]);
             setSelectedConcepts([]);
         }
-    }, [settlementClient, settlementDateRange, settlementLotId, toast]);
+    }, [settlementClient, settlementDateRange, settlementLotIds, toast]);
 
     useEffect(() => {
         handleFetchApplicableConcepts();
@@ -1117,10 +1118,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
 
         const isSmyl = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
-        const usesSpecialSmylLogic = isSmyl && (settlementLotId.trim() !== '' || selectedConcepts.some(c => availableConcepts.find(ac => ac.id === c)?.calculationType === 'SALDO_INVENTARIO'));
+        const lotIdsArray = settlementLotIds.split(/[\s,]+/).filter(Boolean); // Split by space or comma, remove empty
+        
+        const usesSpecialSmylLogic = isSmyl && (lotIdsArray.length > 0 || selectedConcepts.some(c => availableConcepts.find(ac => ac.id === c)?.calculationType === 'LÓGICA ESPECIAL'));
 
-        if (isSmyl && usesSpecialSmylLogic && !settlementLotId.trim()) {
-            toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe ingresar un lote para liquidar con conceptos especiales de SMYL.' });
+        if (isSmyl && usesSpecialSmylLogic && lotIdsArray.length === 0) {
+            toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe ingresar al menos un lote para liquidar con conceptos especiales de SMYL.' });
             return;
         }
         
@@ -1141,7 +1144,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
                 conceptIds: selectedConcepts,
                 containerNumber: settlementContainer,
-                lotId: settlementLotId,
+                lotIds: lotIdsArray,
             });
             
             if (result.success && result.data) {
@@ -1391,15 +1394,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order;
-
-            const finalOrderA = orderA === -1 ? Infinity : orderA;
-            const finalOrderB = orderB === -1 ? Infinity : orderB;
-
-            if (finalOrderA !== finalOrderB) {
-                return finalOrderA - finalOrderB;
-            }
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
     
@@ -2543,9 +2540,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </Dialog>
                                     </div>
                                     {settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' ? (
-                                        <div className="space-y-2">
-                                            <Label>No. de Lote (Opcional)</Label>
-                                            <Input placeholder="Si aplica, ingrese el lote" value={settlementLotId} onChange={(e) => setSettlementLotId(e.target.value.toUpperCase())} />
+                                        <div className="space-y-2 lg:col-span-2">
+                                            <Label>No. de Lotes (Opcional)</Label>
+                                            <Textarea placeholder="Ingrese uno o más lotes separados por comas, espacios o saltos de línea" value={settlementLotIds} onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} />
                                         </div>
                                     ) : (
                                         <div className="space-y-2">
@@ -2573,7 +2570,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <Button
                                                     variant="outline"
                                                     className="w-full justify-between"
-                                                    disabled={!settlementClient || !settlementDateRange || (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && settlementLotId !== '')}
+                                                    disabled={!settlementClient || !settlementDateRange || (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && settlementLotIds !== '')}
                                                 >
                                                     <span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>
                                                     {isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}
@@ -2613,7 +2610,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="flex gap-2">
                                         <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
-                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotId(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
+                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                     </div>
                                 </div>
 

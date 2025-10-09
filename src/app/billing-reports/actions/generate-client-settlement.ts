@@ -474,7 +474,7 @@ async function generateSmylLiquidation(
     const dailyConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
 
     if (!mainConcept?.value || !dailyConcept?.value) {
-        throw new Error("No se encontraron los conceptos de SMYL ('MANIPULACIÓN CARGA', 'COBRO DIARIO') con tarifas definidas. Verifique la configuración.");
+        throw new Error(`No se encontraron los conceptos de SMYL ('MANIPULACIÓN CARGA', 'COBRO DIARIO') con tarifas definidas para el lote ${lotId}. Verifique la configuración.`);
     }
     
     const mainTariff = mainConcept.value;
@@ -546,17 +546,21 @@ export async function generateClientSettlement(criteria: {
   endDate: string;
   conceptIds: string[];
   containerNumber?: string;
-  lotId?: string;
+  lotIds?: string[]; // Changed from lotId to lotIds
 }): Promise<ClientSettlementResult> {
   
-  const { clientName, startDate, endDate, conceptIds, containerNumber, lotId } = criteria;
+  const { clientName, startDate, endDate, conceptIds, containerNumber, lotIds } = criteria;
   const allConcepts = await getClientBillingConcepts();
 
   // --- SPECIAL SMYL LOGIC ---
-  if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotId) {
+  if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotIds && lotIds.length > 0) {
       try {
-        const smylRows = await generateSmylLiquidation(startDate, endDate, lotId, allConcepts);
-        return { success: true, data: smylRows };
+        let allSmylRows: ClientSettlementRow[] = [];
+        for (const lotId of lotIds) {
+            const smylRowsForLot = await generateSmylLiquidation(startDate, endDate, lotId, allConcepts);
+            allSmylRows = allSmylRows.concat(smylRowsForLot);
+        }
+        return { success: true, data: allSmylRows };
       } catch (e: any) {
         return { success: false, error: e.message || "Error al generar liquidación SMYL." };
       }
@@ -1322,4 +1326,5 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
