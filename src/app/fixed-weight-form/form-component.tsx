@@ -164,7 +164,8 @@ const createFormSchema = (isReception: boolean) => z.object({
       message: "La hora de fin no puede ser igual a la de inicio.",
       path: ["horaFin"],
   }).superRefine((data, ctx) => {
-      if (isReception) {
+    if (isReception) {
+        const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'MAQUILA';
         if (!data.tipoPedido) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de pedido es obligatorio.", path: ['tipoPedido'] });
         }
@@ -175,20 +176,25 @@ const createFormSchema = (isReception: boolean) => z.object({
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
         }
 
-        const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'MAQUILA';
         if (!isSpecialReception) {
             if (!data.nombreConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['nombreConductor'] });
             if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
-            if (data.placa?.trim() && !/^[A-Z]{3}[0-9]{3}$/.test(data.placa.trim())) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123).', path: ['placa'] });
             if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
             if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
-            const contenedorValue = data.contenedor?.toUpperCase() || '';
+            if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
+        }
+        
+        if (data.placa?.trim() && !/^[A-Z]{3}[0-9]{3}$/.test(data.placa.trim())) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123).', path: ['placa'] });
+        }
+        
+        const contenedorValue = data.contenedor?.toUpperCase() || '';
+        if (contenedorValue && !['N/A', 'NO APLICA'].includes(contenedorValue)) {
             const format1 = /^[A-Z]{4}[0-9]{7}$/;
             const format2 = /^[A-Z]{2}[0-9]{6}-[0-9]{4}$/;
-            if (contenedorValue && !['N/A', 'NO APLICA'].includes(contenedorValue) && !format1.test(contenedorValue) && !format2.test(contenedorValue)) {
+            if (!format1.test(contenedorValue) && !format2.test(contenedorValue)) {
                 ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Formato inválido. Debe ser 'No Aplica', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números.", path: ['contenedor'] });
             }
-            if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
         }
 
         if (data.tipoPedido !== 'INGRESO DE SALDOS' && !data.aplicaCuadrilla) {
@@ -344,7 +350,6 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedObservations = useWatch({ control: form.control, name: 'observaciones' });
-  const isSpecialReception = isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA');
   
   const watchedNombreCliente = form.watch('nombreCliente');
   const isGrupoFrutelliDespacho = !isReception && watchedNombreCliente === 'GRUPO FRUTELLI SAS';
@@ -727,7 +732,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
     }
     setIsSubmitting(true);
     try {
-        
+        const isSpecialReception = isReception && (data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'MAQUILA');
         let dataToSave = { ...data };
         if (isSpecialReception) {
             dataToSave = {
@@ -1117,9 +1122,9 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                       )}/>
                       <FormField control={form.control} name="precinto" render={({ field }) => (
                       <FormItem>
-                          <FormLabel>Precinto/Sello de Seguridad {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
+                          <FormLabel>Precinto/Sello de Seguridad {!(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <span className="text-destructive">*</span>}</FormLabel>
                           <FormControl><Input placeholder="Precinto/sello (máx. 40)" {...field} /></FormControl>
-                          {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}
+                          {(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}
                           <FormMessage />
                       </FormItem>
                       )}/>
@@ -1325,14 +1330,14 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                   <CardHeader><CardTitle>Información del Vehículo</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
                       <FormField control={form.control} name="nombreConductor" render={({ field }) => (
-                          <FormItem><FormLabel>Nombre Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>{isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
+                          <FormItem><FormLabel>Nombre Conductor {!(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>{(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
                       )}/>
                       <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
-                          <FormItem><FormLabel>Cédula Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} type="text" inputMode="numeric" pattern="[0-9]*" /></FormControl>{isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
+                          <FormItem><FormLabel>Cédula Conductor {!(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} type="text" inputMode="numeric" pattern="[0-9]*" /></FormControl>{(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
                       )}/>
                       <FormField control={form.control} name="placa" render={({ field }) => (
                           <FormItem>
-                              <FormLabel>Placa {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
+                              <FormLabel>Placa {!(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <span className="text-destructive">*</span>}</FormLabel>
                               <FormControl>
                                   <Input
                                       placeholder="ABC123"
@@ -1341,7 +1346,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                       maxLength={6}
                                   />
                               </FormControl>
-                              {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}
+                              {(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}
                               <FormMessage />
                           </FormItem>
                       )}/>
@@ -1349,12 +1354,12 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                           <FormItem><FormLabel>Muelle <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un muelle" /></SelectTrigger></FormControl><SelectContent>{muelles.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                       )}/>
                       <FormField control={form.control} name="contenedor" render={({ field }) => (
-                          <FormItem><FormLabel>Contenedor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input
+                          <FormItem><FormLabel>Contenedor {!(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input
                                       placeholder="ABCD1234567 o No Aplica"
                                       {...field}
                                       onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                                       value={field.value ?? ''}
-                                  /></FormControl>{isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
+                                  /></FormControl>{(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
                       )}/>
                       <FormField control={form.control} name="setPoint" render={({ field }) => (
                           <FormItem>
@@ -1904,3 +1909,6 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
+
+    
