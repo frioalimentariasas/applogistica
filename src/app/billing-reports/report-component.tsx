@@ -19,7 +19,8 @@ import { getBillingReport, DailyReportData } from '@/app/actions/billing-report'
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
-import { generateClientSettlement, type ClientSettlementRow, findApplicableConcepts, type ClientBillingConcept } from './actions/generate-client-settlement';
+import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
+import { findApplicableConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -1218,8 +1219,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-            'Servicio logístico Congelación (4 Días)', 
-            'Servicio de Manipulación',
+            'Servicio logístico Congelación (4 Días)', // Child
+            'Servicio de Manipulación', // Child
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
@@ -1348,11 +1349,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         totalSumRow.getCell(6).numFmt = '$ #,##0.00';
         totalSumRow.getCell(6).font = { bold: true, size: 12 };
 
-        const smylConceptName = 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA';
-        if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => row.conceptName === smylConceptName)) {
+        const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
+        if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
             const containerNumbers = [...new Set(
                 visibleRows
-                    .filter(row => row.conceptName === smylConceptName && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
+                    .filter(row => smylConceptNames.includes(row.conceptName) && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
                     .map(row => row.container)
             )];
 
@@ -1600,11 +1601,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
             didDrawPage: (data) => {
-                const smylConceptName = 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA';
-                if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => row.conceptName === smylConceptName)) {
+                const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
+                if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
                      const containerNumbers = [...new Set(
                         visibleRows
-                            .filter(row => row.conceptName === smylConceptName && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
+                            .filter(row => smylConceptNames.includes(row.conceptName) && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
                             .map(row => row.container)
                     )];
 
@@ -2954,5 +2955,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 

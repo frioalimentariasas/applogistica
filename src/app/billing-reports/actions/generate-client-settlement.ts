@@ -458,7 +458,7 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
-    return `${String(h).padStart(2, '0')}:${minutes} ${ampm}`;
+    return `${h.toString().padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
 
@@ -553,7 +553,7 @@ async function generateSmylLiquidation(
                 unitValue: dailyPalletRate,
                 totalValue: day.finalBalance * dailyPalletRate,
                 placa: '', 
-                container: lotId,
+                container: initialReception.container,
                 camara: 'CO', 
                 operacionLogistica: 'Servicio Congelación', 
                 pedidoSislog: initialReception.pedidoSislog, 
@@ -1367,3 +1367,6 @@ const minutesToTime = (minutes: number): string => {
 
 
 
+
+
+    
