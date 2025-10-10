@@ -4,6 +4,10 @@
 
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
+import admin from 'firebase-admin';
+import { startOfDay, endOfDay, parseISO } from 'date-fns';
+import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
+import type { ArticuloData } from '@/app/actions/articulos';
 
 export interface TariffRange {
   minTons: number;
@@ -73,6 +77,173 @@ export interface ClientBillingConcept {
   tariffRangesTemperature?: TemperatureTariffRange[];
   specificTariffs?: SpecificTariff[];
   fixedTimeConfig?: FixedTimeConfig; // New field for TIEMPO EXTRA FRIOAL (FIJO)
+}
+
+const serializeTimestamps = (data: any): any => {
+    if (data === null || data === undefined || typeof data !== 'object') {
+        return data;
+    }
+    if (data instanceof admin.firestore.Timestamp) {
+      return data.toDate().toISOString();
+    }
+    if (Array.isArray(data)) {
+        return data.map(serializeTimestamps);
+    }
+    const newObj: { [key: string]: any } = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+            newObj[key] = serializeTimestamps(data[key]);
+      }
+    }
+    return newObj;
+};
+
+const getFilteredItems = (
+    op: any,
+    sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
+    articleSessionMap: Map<string, string>
+): any[] => {
+    const allItems = (op.formData.productos || [])
+        .concat(op.formData.items || [])
+        .concat((op.formData.destinos || []).flatMap((d: any) => d.items || []))
+        .concat((op.formData.placas || []).flatMap((p: any) => p.items || []));
+
+    if (!sessionFilter || sessionFilter === 'AMBOS') {
+        return allItems;
+    }
+
+    return allItems.filter((item: any) => {
+        if (!item || !item.codigo) return false;
+        const itemSession = articleSessionMap.get(item.codigo);
+        return itemSession === sessionFilter;
+    });
+};
+
+export async function findApplicableConcepts(clientName: string, startDate: string, endDate: string): Promise<ClientBillingConcept[]> {
+    if (!firestore) return [];
+
+    const allConcepts = await getClientBillingConcepts();
+    const applicableConcepts = new Map<string, ClientBillingConcept>();
+
+    const serverQueryStartDate = startOfDay(parseISO(startDate));
+    const serverQueryEndDate = endOfDay(parseISO(endDate));
+    
+    // Fetch all submissions in the date range
+    const submissionsSnapshot = await firestore.collection('submissions')
+        .where('formData.fecha', '>=', serverQueryStartDate)
+        .where('formData.fecha', '<=', serverQueryEndDate)
+        .get();
+
+    // Fetch all manual operations in the date range. Client will be filtered later.
+    const manualOpsSnapshot = await firestore.collection('manual_client_operations')
+        .where('operationDate', '>=', serverQueryStartDate)
+        .where('operationDate', '<=', serverQueryEndDate)
+        .get();
+        
+    const clientArticlesSnapshot = await firestore.collection('articulos').where('razonSocial', '==', clientName).get();
+    const articleSessionMap = new Map<string, string>();
+    clientArticlesSnapshot.forEach(doc => {
+        const article = doc.data() as ArticuloData;
+        articleSessionMap.set(article.codigoProducto, article.sesion);
+    });
+
+    const clientSubmissions = submissionsSnapshot.docs.filter(doc => {
+        const docData = doc.data();
+        const docClientName = docData.formData?.cliente || docData.formData?.nombreCliente;
+        return docClientName === clientName;
+    });
+    
+    let conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+    
+    for (const concept of conceptsForClient) {
+        if (concept.calculationType === 'REGLAS') {
+            const hasApplicableOperation = clientSubmissions.some(doc => {
+                const submission = serializeTimestamps(doc.data());
+                
+                const isRecepcion = submission.formType.includes('recepcion') || submission.formType.includes('reception');
+                const isDespacho = submission.formType.includes('despacho');
+
+                const opTypeMatch = concept.filterOperationType === 'ambos' ||
+                                    (concept.filterOperationType === 'recepcion' && isRecepcion) ||
+                                    (concept.filterOperationType === 'despacho' && isDespacho);
+                if (!opTypeMatch) return false;
+                
+                const isFixed = submission.formType.includes('fixed-weight');
+                const isVariable = submission.formType.includes('variable-weight');
+
+                const prodTypeMatch = concept.filterProductType === 'ambos' ||
+                                      (concept.filterProductType === 'fijo' && isFixed) ||
+                                      (concept.filterProductType === 'variable' && isVariable);
+                if (!prodTypeMatch) return false;
+
+                const pedidoType = submission.formData?.tipoPedido;
+                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0) {
+                    if (!pedidoType || !concept.filterPedidoTypes.includes(pedidoType)) {
+                        return false;
+                    }
+                }
+                
+                const items = getFilteredItems(submission, concept.filterSesion, articleSessionMap);
+                if (items.length === 0) return false;
+
+                
+                return true;
+            });
+
+            if (hasApplicableOperation) {
+                 if (!applicableConcepts.has(concept.id)) {
+                    applicableConcepts.set(concept.id, concept);
+                }
+            }
+
+        } else if (concept.calculationType === 'OBSERVACION') {
+            for (const doc of clientSubmissions) {
+                const formData = doc.data().formData;
+                if (Array.isArray(formData.observaciones) && formData.observaciones.some((obs: any) => obs.type === concept.associatedObservation)) {
+                     if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
+                    break;
+                }
+            }
+        } else if (concept.calculationType === 'MANUAL') {
+             for (const doc of manualOpsSnapshot.docs) {
+                const opData = doc.data();
+                if (opData.clientName === clientName && concept.conceptName === opData.concept) {
+                    if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
+                    break;
+                }
+            }
+        } else if (concept.calculationType === 'SALDO_INVENTARIO') {
+            if (!concept.inventorySesion) continue;
+            const targetSesion = concept.inventorySesion;
+
+            const consolidatedReportForConcept = await getConsolidatedMovementReport({
+                clientName: clientName,
+                startDate: startDate,
+                endDate: endDate,
+                sesion: targetSesion,
+            });
+
+            const hasBalanceInPeriod = consolidatedReportForConcept.some(day => day.posicionesAlmacenadas > 0);
+
+            if (hasBalanceInPeriod) {
+                if (!applicableConcepts.has(concept.id)) {
+                    applicableConcepts.set(concept.id, concept);
+                }
+            }
+        } else if (concept.calculationType === 'LÓGICA ESPECIAL') {
+            if (!applicableConcepts.has(concept.id)) {
+                applicableConcepts.set(concept.id, concept);
+            }
+        }
+    }
+    
+    const sortedConcepts = Array.from(applicableConcepts.values());
+    sortedConcepts.sort((a, b) => a.conceptName.localeCompare(b.conceptName));
+    return sortedConcepts;
 }
 
 // Fetches all concepts
