@@ -7,7 +7,7 @@ import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
-import { format, eachDayOfInterval, startOfDay, endOfDay, addDays } from 'date-fns';
+import { format, eachDayOfInterval, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle, Send } from 'lucide-react';
 
@@ -538,4 +538,3 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     </div>
   );
 }
-

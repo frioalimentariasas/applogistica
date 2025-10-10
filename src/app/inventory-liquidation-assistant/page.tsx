@@ -1,3 +1,4 @@
+
 import { Suspense } from 'react';
 import AssistantComponentWrapper from './assistant-component-wrapper';
 
