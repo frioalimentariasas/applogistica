@@ -1347,6 +1347,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         totalSumRow.getCell(6).value = settlementTotalGeneral;
         totalSumRow.getCell(6).numFmt = '$ #,##0.00';
         totalSumRow.getCell(6).font = { bold: true, size: 12 };
+
+        const smylConceptName = 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA';
+        if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => row.conceptName === smylConceptName)) {
+            const containerNumbers = [...new Set(
+                visibleRows
+                    .filter(row => row.conceptName === smylConceptName && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
+                    .map(row => row.container)
+            )];
+
+            if (containerNumbers.length > 0) {
+                summaryWorksheet.addRow([]); // Spacer
+                const containerRow = summaryWorksheet.addRow([]);
+                containerRow.getCell(1).value = 'Contenedor(es):';
+                containerRow.getCell(1).font = { bold: true };
+                containerRow.getCell(2).value = containerNumbers.join(', ');
+                summaryWorksheet.mergeCells(containerRow.number, 2, containerRow.number, 6);
+            }
+        }
     
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
         
@@ -1580,7 +1598,26 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
             styles: { fontSize: 7, cellPadding: 1.5 },
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
-            footStyles: { fontStyle: 'bold' }
+            footStyles: { fontStyle: 'bold' },
+            didDrawPage: (data) => {
+                const smylConceptName = 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA';
+                if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => row.conceptName === smylConceptName)) {
+                     const containerNumbers = [...new Set(
+                        visibleRows
+                            .filter(row => row.conceptName === smylConceptName && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
+                            .map(row => row.container)
+                    )];
+
+                    if (containerNumbers.length > 0 && data.pageNumber === 1) {
+                         const finalY = (doc as any).lastAutoTable.finalY || data.cursor?.y || 0;
+                         doc.setFontSize(8);
+                         doc.setFont('helvetica', 'bold');
+                         doc.text('Contenedor(es):', margin, finalY + 8);
+                         doc.setFont('helvetica', 'normal');
+                         doc.text(containerNumbers.join(', '), margin + 30, finalY + 8);
+                    }
+                }
+            }
         });
 
         doc.addPage();
@@ -1619,7 +1656,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 ]);
              });
              detailBody.push([
-                { content: `Subtotal ${conceptName}:`, colSpan: 13, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: `Subtotal ${conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: groupedByConcept[conceptName].subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: '', colSpan: 2 },
                 { content: groupedByConcept[conceptName].subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
@@ -1630,7 +1667,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
             body: detailBody,
             foot: [[
-                { content: 'TOTAL GENERAL:', colSpan: 13, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: 'TOTAL GENERAL:', colSpan: 12, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: '', colSpan: 2, styles: {fillColor: [26, 144, 200]} },
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
@@ -1639,7 +1676,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             pageBreak: 'auto',
             headStyles: { fillColor: [26, 144, 200], fontSize: 6, cellPadding: 1 },
             styles: { fontSize: 6, cellPadding: 1 },
-            columnStyles: { 13: { halign: 'right' }, 15: { halign: 'right' }, 16: { halign: 'right' } },
+            columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' }
         });
     
@@ -2541,8 +2578,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     {settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' ? (
                                         <div className="space-y-2 lg:col-span-2">
-                                            <Label>No. de Lotes (Opcional)</Label>
-                                            <Textarea placeholder="Ingrese uno o más lotes separados por comas, espacios o saltos de línea" value={settlementLotIds} onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} />
+                                            <Label>No. de Contenedor(es) (Opcional)</Label>
+                                            <Textarea placeholder="Ingrese uno o más contenedores separados por comas, espacios o saltos de línea" value={settlementLotIds} onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} />
                                         </div>
                                     ) : (
                                         <div className="space-y-2">
@@ -2917,3 +2954,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
+
