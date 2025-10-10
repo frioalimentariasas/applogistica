@@ -510,7 +510,7 @@ async function generateSmylLiquidation(
           unitValue: dailyPalletRate,
           totalValue: freezingTotal,
           placa: '', 
-          container: lotId,
+          container: initialReception.container, // Use the real container number
           camara: 'CO', 
           operacionLogistica: 'Recepción', 
           pedidoSislog: initialReception.pedidoSislog, 
@@ -527,7 +527,7 @@ async function generateSmylLiquidation(
           unitValue: manipulationTotal,
           totalValue: manipulationTotal,
           placa: '', 
-          container: lotId,
+          container: initialReception.container, // Use the real container number
           camara: 'CO', 
           operacionLogistica: 'Recepción', 
           pedidoSislog: initialReception.pedidoSislog, 
@@ -1360,6 +1360,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 

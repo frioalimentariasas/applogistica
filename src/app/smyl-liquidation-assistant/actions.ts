@@ -19,6 +19,7 @@ interface LotHistory {
         pallets: number;
         grossWeight: number;
         pedidoSislog: string;
+        container: string;
     };
     movements: Movement[];
 }
@@ -100,6 +101,7 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
         pallets: initialPallets,
         grossWeight: initialGrossWeight,
         pedidoSislog: initialData.pedidoSislog,
+        container: initialData.contenedor || 'N/A',
     };
 
     // 2. Find all subsequent movements
@@ -311,4 +313,3 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, gr
   return finalLots.sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
 }
     
-
