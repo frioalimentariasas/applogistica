@@ -136,16 +136,9 @@ const createFormSchema = (isReception: boolean) => z.object({
     totalPesoBrutoKg: z.coerce.number({ required_error: "El peso bruto total es requerido."}).min(0, "El peso bruto total no puede ser negativo."),
     nombreConductor: z.string(),
     cedulaConductor: z.string().regex(/^[0-9]*$/, "La cédula solo puede contener números."),
-    placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
+    placa: z.string(),
     muelle: z.string().min(1, "Seleccione un muelle."),
-    contenedor: z.string().refine(value => {
-        const format1 = /^[A-Z]{4}[0-9]{7}$/;
-        const format2 = /^[A-Z]{2}[0-9]{6}-[0-9]{4}$/;
-        const upperValue = value.toUpperCase();
-        return upperValue === 'N/A' || upperValue === 'NO APLICA' || format1.test(upperValue) || format2.test(upperValue);
-    }, {
-        message: "Formato inválido. Debe ser 'No Aplica', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números."
-    }),
+    contenedor: z.string(),
     setPoint: z.preprocess(
         (val) => (val === "" || val === null ? null : val),
         z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
@@ -186,8 +179,15 @@ const createFormSchema = (isReception: boolean) => z.object({
         if (!isSpecialReception) {
             if (!data.nombreConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['nombreConductor'] });
             if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
+            if (data.placa?.trim() && !/^[A-Z]{3}[0-9]{3}$/.test(data.placa.trim())) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123).', path: ['placa'] });
             if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
             if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
+            const contenedorValue = data.contenedor?.toUpperCase() || '';
+            const format1 = /^[A-Z]{4}[0-9]{7}$/;
+            const format2 = /^[A-Z]{2}[0-9]{6}-[0-9]{4}$/;
+            if (contenedorValue && !['N/A', 'NO APLICA'].includes(contenedorValue) && !format1.test(contenedorValue) && !format2.test(contenedorValue)) {
+                ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Formato inválido. Debe ser 'No Aplica', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números.", path: ['contenedor'] });
+            }
             if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
         }
 
@@ -201,9 +201,15 @@ const createFormSchema = (isReception: boolean) => z.object({
         }
         if (!data.nombreConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['nombreConductor'] });
         if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
-        if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
+        if (!data.placa?.trim() || !/^[A-Z]{3}[0-9]{3}$/.test(data.placa.trim())) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria y debe tener el formato ABC123.', path: ['placa'] });
         if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
         if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
+        const contenedorValue = data.contenedor?.toUpperCase() || '';
+        const format1 = /^[A-Z]{4}[0-9]{7}$/;
+        const format2 = /^[A-Z]{2}[0-9]{6}-[0-9]{4}$/;
+        if (!['N/A', 'NO APLICA'].includes(contenedorValue) && !format1.test(contenedorValue) && !format2.test(contenedorValue)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Formato inválido. Debe ser 'No Aplica', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números.", path: ['contenedor'] });
+        }
         if (!data.aplicaCuadrilla) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
         }
