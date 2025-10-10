@@ -124,20 +124,18 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       end: endOfDay(dateRange.to),
     });
     
-    let currentBalance = Number(initialBalance);
-    const newDailyEntries = days.map(day => {
+    const newDailyEntries = days.map((day, index) => {
+        const initialBalanceForDay = (index === 0) ? Number(initialBalance) : 0; // The hook will calculate subsequent days
         const entries = 0;
         const exits = 0;
-        const finalBalance = currentBalance + entries - exits;
-        const entry = {
+        const finalBalance = initialBalanceForDay + entries - exits;
+        return {
             date: day,
-            initialBalance: currentBalance,
+            initialBalance: initialBalanceForDay,
             entries,
             exits,
             finalBalance,
         };
-        currentBalance = finalBalance;
-        return entry;
     });
     
     replace(newDailyEntries);
@@ -155,8 +153,8 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     
     let currentBalance = Number(watchedInitialBalance);
 
-    watchedDailyEntries.forEach(day => {
-        const initialBalanceForDay = currentBalance;
+    watchedDailyEntries.forEach((day, index) => {
+        const initialBalanceForDay = index === 0 ? Number(watchedInitialBalance) : watchedDailyEntries[index - 1].finalBalance;
         const entries = Number(day.entries) || 0;
         const exits = Number(day.exits) || 0;
 
