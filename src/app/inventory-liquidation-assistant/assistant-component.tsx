@@ -110,7 +110,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     }
   }, [watchedClientId, billingConcepts, toast]);
   
-  const { getValues } = form;
+  const { getValues, setValue } = form;
 
   const handleGenerateTable = useCallback(() => {
     const { dateRange, initialBalance } = getValues();
@@ -125,17 +125,27 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     });
     
     const newDailyEntries = days.map((day, index) => {
-        const initialBalanceForDay = (index === 0) ? Number(initialBalance) : 0; // The hook will calculate subsequent days
-        const entries = 0;
-        const exits = 0;
-        const finalBalance = initialBalanceForDay + entries - exits;
-        return {
-            date: day,
-            initialBalance: initialBalanceForDay,
-            entries,
-            exits,
-            finalBalance,
-        };
+        if (index === 0) {
+            // Special logic for the first day
+            const entriesForDay = Number(initialBalance) || 0;
+            const exitsForDay = 0;
+            const finalBalance = 0 + entriesForDay - exitsForDay; // Initial balance for the very first day is 0
+            return {
+                date: day,
+                initialBalance: 0,
+                entries: entriesForDay,
+                exits: exitsForDay,
+                finalBalance,
+            };
+        } else {
+            return {
+                date: day,
+                initialBalance: 0, // This will be calculated in the table render
+                entries: 0,
+                exits: 0,
+                finalBalance: 0,
+            };
+        }
     });
     
     replace(newDailyEntries);
@@ -145,18 +155,15 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     if (!tariffs) return null;
 
     let totalStorageCost = 0;
-    let totalStorageDays = 0;
     let totalEntries = 0;
     let totalExits = 0;
     let totalPalletsForAvg = 0;
     let daysWithStock = 0;
-    
-    let currentBalance = Number(watchedInitialBalance);
 
     watchedDailyEntries.forEach((day, index) => {
-        const initialBalanceForDay = index === 0 ? Number(watchedInitialBalance) : watchedDailyEntries[index - 1].finalBalance;
+        const initialBalanceForDay = index === 0 ? 0 : watchedDailyEntries[index - 1].finalBalance;
         const entries = Number(day.entries) || 0;
-        const exits = Number(day.exits) || 0;
+        let exits = Number(day.exits) || 0;
 
         const finalBalanceForDay = initialBalanceForDay + entries - exits;
 
@@ -168,8 +175,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         
         totalEntries += entries;
         totalExits += exits;
-        
-        currentBalance = finalBalanceForDay;
     });
 
     const avgPallets = daysWithStock > 0 ? totalPalletsForAvg / daysWithStock : 0;
@@ -187,7 +192,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         totalExitCost,
         grandTotal,
     };
-}, [watchedDailyEntries, tariffs, watchedInitialBalance]);
+}, [watchedDailyEntries, tariffs]);
 
 
   const filteredClients = useMemo(() => {
@@ -331,23 +336,22 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                     </TableHeader>
                                     <TableBody>
                                         {fields.map((field, index) => {
-                                            const initialBalanceForDay = index === 0 ? Number(watchedInitialBalance) : watchedDailyEntries[index - 1]?.finalBalance || 0;
+                                            const initialBalanceForDay = index === 0 ? 0 : watchedDailyEntries[index - 1]?.finalBalance || 0;
                                             const entries = Number(watchedDailyEntries[index]?.entries) || 0;
                                             
-                                            // Ensure exits don't exceed initial balance for the day
                                             let exits = Number(watchedDailyEntries[index]?.exits) || 0;
                                             if (exits > initialBalanceForDay + entries) {
                                                 exits = initialBalanceForDay + entries;
-                                                form.setValue(`dailyEntries.${index}.exits`, exits);
+                                                setValue(`dailyEntries.${index}.exits`, exits);
                                             }
 
                                             const finalBalanceForDay = initialBalanceForDay + entries - exits;
                                             
                                             if (watchedDailyEntries[index]?.initialBalance !== initialBalanceForDay) {
-                                                form.setValue(`dailyEntries.${index}.initialBalance`, initialBalanceForDay);
+                                                setValue(`dailyEntries.${index}.initialBalance`, initialBalanceForDay);
                                             }
                                             if (watchedDailyEntries[index]?.finalBalance !== finalBalanceForDay) {
-                                                form.setValue(`dailyEntries.${index}.finalBalance`, finalBalanceForDay);
+                                                setValue(`dailyEntries.${index}.finalBalance`, finalBalanceForDay);
                                             }
 
                                             return (
