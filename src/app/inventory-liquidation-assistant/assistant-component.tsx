@@ -132,14 +132,14 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       end: endOfDay(dateRange.to),
     });
     
-    let balance = initialBalance;
-    const newDailyEntries = days.map((day) => {
+    let balance = 0; // Balance always starts at 0 for calculation, initialBalance is treated as a day 1 entry
+    const newDailyEntries = days.map((day, index) => {
         const newEntry = {
             date: day,
             initialBalance: balance,
-            entries: 0,
+            entries: index === 0 ? initialBalance : 0, // Treat initialBalance as an entry on the first day
             exits: 0,
-            finalBalance: balance,
+            finalBalance: balance + (index === 0 ? initialBalance : 0),
         };
         balance = newEntry.finalBalance;
         return newEntry;
@@ -157,14 +157,14 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     let totalPalletsForAvg = 0;
     let daysWithStock = 0;
 
-    let currentBalance = getValues('initialBalance');
+    let currentBalance = 0;
 
-    watchedDailyEntries.forEach((day) => {
+    watchedDailyEntries.forEach((day, index) => {
         const entries = Number(day.entries) || 0;
         const exits = Number(day.exits) || 0;
 
-        currentBalance = currentBalance + entries - exits;
-
+        currentBalance = (index === 0 ? 0 : watchedDailyEntries[index - 1].finalBalance) + entries - exits;
+        
         if (currentBalance > 0) {
             totalStorageCost += currentBalance * tariffs.storage;
             totalPalletsForAvg += currentBalance;
@@ -190,7 +190,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         totalExitCost,
         grandTotal,
     };
-}, [watchedDailyEntries, tariffs, getValues]);
+}, [watchedDailyEntries, tariffs]);
 
 
   const filteredClients = useMemo(() => {
@@ -390,7 +390,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                     </TableHeader>
                                     <TableBody>
                                         {fields.map((field, index) => {
-                                            const initialBalanceForDay = index === 0 ? getValues('initialBalance') : watchedDailyEntries[index - 1]?.finalBalance || 0;
+                                            const initialBalanceForDay = index === 0 ? 0 : watchedDailyEntries[index - 1]?.finalBalance || 0;
                                             const entries = Number(watchedDailyEntries[index]?.entries) || 0;
                                             
                                             let exits = Number(watchedDailyEntries[index]?.exits) || 0;
@@ -538,3 +538,4 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     </div>
   );
 }
+
