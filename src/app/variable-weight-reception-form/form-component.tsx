@@ -24,7 +24,7 @@ import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
 import { PedidoType } from "@/app/gestion-tipos-pedido/actions";
-
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -2311,6 +2311,14 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   }) {
       const [search, setSearch] = useState("");
   
+      const getSessionName = (sesionCode: string | undefined) => {
+        switch (sesionCode) {
+            case 'CO': return 'Congelado';
+            case 'RE': return 'Refrigerado';
+            case 'SE': return 'Seco';
+            default: return 'N/A';
+        }
+    }
       const filteredArticulos = useMemo(() => {
           if (!search) return articulos;
           return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
@@ -2345,19 +2353,20 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                   {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
                                   {filteredArticulos.map((p, i) => (
                                       <Button
-                                          key={`${p.id}-${i}`}
-                                          variant="ghost"
-                                          className="w-full justify-start h-auto text-wrap"
-                                          onClick={() => {
-                                              onSelect(p);
-                                              onOpenChange(false);
-                                          }}
-                                      >
-                                          <div className="flex flex-col items-start">
-                                              <span>{p.denominacionArticulo}</span>
-                                              <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
-                                          </div>
-                                      </Button>
+                                      key={`${p.id}-${i}`}
+                                      variant="ghost"
+                                      className="w-full justify-between h-auto text-wrap"
+                                      onClick={() => {
+                                          onSelect(p);
+                                          onOpenChange(false);
+                                      }}
+                                  >
+                                      <div className="flex flex-col items-start text-left">
+                                          <span>{p.denominacionArticulo}</span>
+                                          <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
+                                      </div>
+                                      <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
+                                  </Button>                                  
                                   ))}
                               </div>
                           </ScrollArea>

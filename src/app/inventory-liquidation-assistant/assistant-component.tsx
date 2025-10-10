@@ -9,11 +9,14 @@ import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
 import { format, eachDayOfInterval, startOfDay, endOfDay, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle } from 'lucide-react';
+import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle, Send } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
 import type { ClientInfo } from '@/app/actions/clients';
 import type { ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
+import { saveAssistantLiquidation, type AssistantLiquidationData } from './actions';
+import { useAuth } from '@/hooks/use-auth';
+
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -26,6 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 
 const dailyEntrySchema = z.object({
@@ -57,10 +61,13 @@ const EXIT_CONCEPT_NAME = 'MOVIMIENTO SALIDA PRODUCTO - PALETA';
 export function LiquidationAssistantComponent({ clients, billingConcepts }: { clients: ClientInfo[]; billingConcepts: ClientBillingConcept[] }) {
   const router = useRouter();
   const { toast } = useToast();
-  
+  const { user, displayName } = useAuth();
+
   const [tariffs, setTariffs] = useState<{ storage: number; entry: number; exit: number } | null>(null);
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConfirmSendOpen, setIsConfirmSendOpen] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -80,14 +87,14 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
   });
 
   const watchedClientId = useWatch({ control: form.control, name: 'clientId' });
-  const watchedInitialBalance = useWatch({ control: form.control, name: 'initialBalance' });
   const watchedDailyEntries = useWatch({ control: form.control, name: 'dailyEntries' });
 
   // Update tariffs when client changes
   useEffect(() => {
     if (watchedClientId) {
       const getTariff = (conceptName: string) => {
-        const concept = billingConcepts.find(c => c.conceptName === conceptName && (c.clientNames.includes(watchedClientId) || c.clientNames.includes('TODOS (Cualquier Cliente)')));
+        const clientInfo = clients.find(c => c.id === watchedClientId);
+        const concept = billingConcepts.find(c => c.conceptName === conceptName && (c.clientNames.includes(clientInfo?.razonSocial || '') || c.clientNames.includes('TODOS (Cualquier Cliente)')));
         return concept?.value || 0;
       };
       
@@ -98,17 +105,18 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       };
 
       if (newTariffs.storage === 0 || newTariffs.entry === 0 || newTariffs.exit === 0) {
+        const clientInfo = clients.find(c => c.id === watchedClientId);
         toast({
             variant: "destructive",
             title: "Tarifas no encontradas",
-            description: `Asegúrese de que los conceptos de Almacenamiento y Movimiento estén configurados para "${watchedClientId}".`
+            description: `Asegúrese de que los conceptos de Almacenamiento y Movimiento estén configurados para "${clientInfo?.razonSocial}".`
         });
       }
       setTariffs(newTariffs);
     } else {
       setTariffs(null);
     }
-  }, [watchedClientId, billingConcepts, toast]);
+  }, [watchedClientId, billingConcepts, clients, toast]);
   
   const { getValues, setValue } = form;
 
@@ -124,33 +132,22 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       end: endOfDay(dateRange.to),
     });
     
-    const newDailyEntries = days.map((day, index) => {
-        if (index === 0) {
-            // Special logic for the first day
-            const entriesForDay = Number(initialBalance) || 0;
-            const exitsForDay = 0;
-            const finalBalance = 0 + entriesForDay - exitsForDay; // Initial balance for the very first day is 0
-            return {
-                date: day,
-                initialBalance: 0,
-                entries: entriesForDay,
-                exits: exitsForDay,
-                finalBalance,
-            };
-        } else {
-            return {
-                date: day,
-                initialBalance: 0, // This will be calculated in the table render
-                entries: 0,
-                exits: 0,
-                finalBalance: 0,
-            };
-        }
+    let balance = initialBalance;
+    const newDailyEntries = days.map((day) => {
+        const newEntry = {
+            date: day,
+            initialBalance: balance,
+            entries: 0,
+            exits: 0,
+            finalBalance: balance,
+        };
+        balance = newEntry.finalBalance;
+        return newEntry;
     });
     
     replace(newDailyEntries);
   }, [getValues, toast, replace]);
-
+  
   const liquidationSummary = useMemo(() => {
     if (!tariffs) return null;
 
@@ -160,16 +157,17 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     let totalPalletsForAvg = 0;
     let daysWithStock = 0;
 
-    watchedDailyEntries.forEach((day, index) => {
-        const initialBalanceForDay = index === 0 ? 0 : watchedDailyEntries[index - 1].finalBalance;
+    let currentBalance = getValues('initialBalance');
+
+    watchedDailyEntries.forEach((day) => {
         const entries = Number(day.entries) || 0;
-        let exits = Number(day.exits) || 0;
+        const exits = Number(day.exits) || 0;
 
-        const finalBalanceForDay = initialBalanceForDay + entries - exits;
+        currentBalance = currentBalance + entries - exits;
 
-        if (finalBalanceForDay > 0) {
-            totalStorageCost += finalBalanceForDay * tariffs.storage;
-            totalPalletsForAvg += finalBalanceForDay;
+        if (currentBalance > 0) {
+            totalStorageCost += currentBalance * tariffs.storage;
+            totalPalletsForAvg += currentBalance;
             daysWithStock++;
         }
         
@@ -192,13 +190,69 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         totalExitCost,
         grandTotal,
     };
-}, [watchedDailyEntries, tariffs]);
+}, [watchedDailyEntries, tariffs, getValues]);
 
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
     return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clients]);
+
+  const handleSendToLiquidation = async () => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para realizar esta acción." });
+        return;
+    }
+
+    const values = getValues();
+    if (!liquidationSummary || liquidationSummary.grandTotal <= 0) {
+        toast({ variant: "destructive", title: "Sin datos", description: "No hay nada para liquidar." });
+        return;
+    }
+
+    setIsSubmitting(true);
+    
+    const clientInfo = clients.find(c => c.id === values.clientId);
+
+    const payload: AssistantLiquidationData = {
+        clientName: clientInfo?.razonSocial || 'Desconocido',
+        dateRange: {
+            from: values.dateRange.from.toISOString(),
+            to: values.dateRange.to.toISOString(),
+        },
+        plate: values.plate,
+        container: values.container,
+        dailyEntries: values.dailyEntries.map(d => ({
+            date: d.date.toISOString(),
+            initialBalance: d.initialBalance,
+            entries: d.entries,
+            exits: d.exits,
+            finalBalance: d.initialBalance + d.entries - d.exits
+        })),
+        createdBy: {
+            uid: user.uid,
+            displayName: displayName || user.email!
+        }
+    };
+
+    try {
+        const result = await saveAssistantLiquidation(payload);
+        if (result.success) {
+            toast({
+                title: "Éxito",
+                description: `Se han enviado ${result.count} registros a la liquidación de clientes.`,
+            });
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (e) {
+        const error = e instanceof Error ? e.message : "Ocurrió un error inesperado.";
+        toast({ variant: "destructive", title: "Error al Enviar", description: error });
+    } finally {
+        setIsSubmitting(false);
+        setIsConfirmSendOpen(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -236,7 +290,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                     <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
                                         <DialogTrigger asChild>
                                             <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                {field.value ? clients.find(c => c.razonSocial === field.value)?.razonSocial : "Seleccione un cliente..."}
+                                                {field.value ? clients.find(c => c.id === field.value)?.razonSocial : "Seleccione un cliente..."}
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </DialogTrigger>
@@ -246,7 +300,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                                 <Input placeholder="Buscar cliente..." value={clientSearch} onChange={e => setClientSearch(e.target.value)} className="mt-4" />
                                             </DialogHeader>
                                             <ScrollArea className="h-72 mt-4">
-                                                {filteredClients.map(c => <Button key={c.id} variant="ghost" className="w-full justify-start" onClick={() => { field.onChange(c.razonSocial); setClientDialogOpen(false); }}>{c.razonSocial}</Button>)}
+                                                {filteredClients.map(c => <Button key={c.id} variant="ghost" className="w-full justify-start" onClick={() => { field.onChange(c.id); setClientDialogOpen(false); }}>{c.razonSocial}</Button>)}
                                             </ScrollArea>
                                         </DialogContent>
                                     </Dialog>
@@ -289,7 +343,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                 name="plate"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Placa</FormLabel>
+                                    <FormLabel>Placa (Opcional)</FormLabel>
                                     <Input placeholder="Ej: ABC123" {...field} />
                                     <FormMessage />
                                 </FormItem>
@@ -300,7 +354,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                 name="container"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Contenedor</FormLabel>
+                                    <FormLabel>Contenedor (Opcional)</FormLabel>
                                     <Input placeholder="Ej: ZCSU1234567" {...field} />
                                     <FormMessage />
                                 </FormItem>
@@ -336,7 +390,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                     </TableHeader>
                                     <TableBody>
                                         {fields.map((field, index) => {
-                                            const initialBalanceForDay = index === 0 ? 0 : watchedDailyEntries[index - 1]?.finalBalance || 0;
+                                            const initialBalanceForDay = index === 0 ? getValues('initialBalance') : watchedDailyEntries[index - 1]?.finalBalance || 0;
                                             const entries = Number(watchedDailyEntries[index]?.entries) || 0;
                                             
                                             let exits = Number(watchedDailyEntries[index]?.exits) || 0;
@@ -399,7 +453,13 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>3. Resumen de Liquidación</CardTitle>
+                            <div className="flex justify-between items-center">
+                                <CardTitle>3. Resumen de Liquidación</CardTitle>
+                                <Button onClick={() => setIsConfirmSendOpen(true)} disabled={!liquidationSummary || liquidationSummary.grandTotal <= 0}>
+                                    <Send className="mr-2 h-4 w-4"/>
+                                    Enviar a Liquidación
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             {!tariffs || !liquidationSummary ? (
@@ -453,7 +513,29 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                 )}
             </div>
         </Form>
+        <AlertDialog open={isConfirmSendOpen} onOpenChange={setIsConfirmSendOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>¿Confirmar envío a liquidación?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Esta acción creará registros de operaciones manuales para cada movimiento y día de almacenamiento. Estos registros aparecerán en el reporte de "Liquidación de Clientes".
+                        <br/><br/>
+                        <strong>Total a enviar: {liquidationSummary?.grandTotal.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</strong>
+                        <br/>
+                        ¿Desea continuar?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSendToLiquidation} disabled={isSubmitting}>
+                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Sí, Enviar
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
 }
+
