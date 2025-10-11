@@ -219,16 +219,13 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     
     let conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
     
-    // This is the key change: For SMYL, exclude the special logic concepts from this manual/rule-based search.
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS') {
         const smylSpecialConceptsToExclude = [
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
         ];
         conceptsForClient = conceptsForClient.filter(c => 
-            !smylSpecialConceptsToExclude.some(special => c.conceptName.toUpperCase() === special.toUpperCase()) &&
-            c.calculationType !== 'SALDO_INVENTARIO' &&
-            c.calculationType !== 'LÓGICA ESPECIAL'
+            !smylSpecialConceptsToExclude.some(special => c.conceptName.toUpperCase() === special.toUpperCase())
         );
     }
 
@@ -310,6 +307,36 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
             if (hasBalanceInPeriod) {
                 if (!applicableConcepts.has(concept.id)) {
                     applicableConcepts.set(concept.id, concept);
+                }
+            }
+        } else if (concept.calculationType === 'LÓGICA ESPECIAL') {
+            // Check if special logic applies for SMYL within the date range
+            if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && 
+                (concept.conceptName.includes('CARGUE Y ALMACENAMIENTO 1 DÍA'))) {
+                
+                const recepciones = clientSubmissions
+                    .filter(doc => (doc.data().formType === 'variable-weight-reception' || doc.data().formType === 'variable-weight-recepcion') && doc.data().formData.tipoPedido === 'GENERICO')
+                    .map(doc => doc.data());
+                
+                let foundMatch = false;
+                for (const recepcion of recepciones) {
+                    const pesoTotalRecepcion = (recepcion.formData.items || []).reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
+                    const weightCondition = (concept.conceptName.includes('VEHICULO LIVIANO'))
+                        ? (pesoTotalRecepcion > 0 && pesoTotalRecepcion < 20000)
+                        : (pesoTotalRecepcion >= 20000);
+
+                    if (weightCondition) {
+                        // If any reception meets the weight criteria, assume it's potentially applicable.
+                        // A full check is too expensive here, so we just check for potential.
+                        foundMatch = true;
+                        break;
+                    }
+                }
+                
+                if (foundMatch) {
+                    if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
                 }
             }
         }
@@ -576,31 +603,22 @@ export async function generateClientSettlement(criteria: {
   lotIds?: string[]; // Changed from lotId to lotIds
 }): Promise<ClientSettlementResult> {
   
-  const { clientName, startDate, endDate, conceptIds, containerNumber, lotIds } = criteria;
-  const allConcepts = await getClientBillingConcepts();
+  const { clientName, startDate, endDate, conceptIds, lotIds } = criteria;
   
+  const allConcepts = await getClientBillingConcepts();
   const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
-  const hasSelectedSmylConcepts = selectedConcepts.some(c => c.conceptName.toUpperCase().includes('SERVICIO LOGÍSTICO'));
-
+  
   // --- SPECIAL SMYL LOGIC ---
   if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotIds && lotIds.length > 0) {
+      if (selectedConcepts.length > 0) {
+          return { success: false, error: "No puede seleccionar conceptos manuales al liquidar por lote en SMYL." };
+      }
       try {
         let allSmylRows: ClientSettlementRow[] = [];
-        
-        const shouldRunSmylLogic = selectedConcepts.length === 0 || hasSelectedSmylConcepts;
-
-        if (shouldRunSmylLogic) {
-            for (const lotId of lotIds) {
-                const smylRowsForLot = await generateSmylLiquidation(startDate, endDate, lotId, allConcepts);
-                allSmylRows = allSmylRows.concat(smylRowsForLot);
-            }
+        for (const lotId of lotIds) {
+            const smylRowsForLot = await generateSmylLiquidation(startDate, endDate, lotId, allConcepts);
+            allSmylRows = allSmylRows.concat(smylRowsForLot);
         }
-        
-        if (selectedConcepts.length > 0) {
-            const selectedConceptNames = selectedConcepts.map(c => c.conceptName.toUpperCase());
-            allSmylRows = allSmylRows.filter(row => selectedConceptNames.includes(row.conceptName.toUpperCase()));
-        }
-
         return { success: true, data: allSmylRows };
       } catch (e: any) {
         return { success: false, error: e.message || "Error al generar liquidación SMYL." };
@@ -612,7 +630,9 @@ export async function generateClientSettlement(criteria: {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
   
-  if (!clientName || !startDate || !endDate) {
+  const { containerNumber } = criteria;
+
+  if (!clientName || !startDate || !endDate || selectedConcepts.length === 0) {
     return { success: false, error: 'Faltan criterios para la liquidación.' };
   }
 
@@ -1370,3 +1390,4 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
