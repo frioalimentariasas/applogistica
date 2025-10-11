@@ -418,7 +418,11 @@ const calculatePalletsForOperation = (
           if (formType.includes('despacho') && formData.despachoPorDestino) {
               return Number(formData.totalPaletasDespacho) || 0;
           }
-          return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || Number(i.paletasCompletas) || 0), 0);
+           if (formType.includes('despacho')) {
+              // Correctly sum `paletasCompletas` for summary dispatches
+              return items.reduce((sum: number, i: any) => sum + (Number(i.paletasCompletas) || 0), 0);
+          }
+          return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || 0), 0);
       }
       const uniquePallets = new Set<number>();
       let pallets999Count = 0;
@@ -719,7 +723,6 @@ export async function generateClientSettlement(criteria: {
         }
     };
     
-    // Logic for the two special SMYL concepts
     const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
         await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000);
@@ -1329,36 +1332,3 @@ const minutesToTime = (minutes: number): string => {
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
     
-
-    
-
-    
-
-
-
-    
-
-    
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-    
-
-

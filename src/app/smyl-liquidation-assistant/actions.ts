@@ -120,7 +120,16 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
         const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap((d:any) => d.items) : (data.items || []);
         const lotItems = allItems.filter((item: any) => item.lote === lotId);
         if (lotItems.length > 0) {
-            const palletsInMovement = new Set(lotItems.filter((item: any) => !item.esPicking).map((item: any) => item.paleta)).size;
+            
+            const isSummaryFormat = lotItems.some((item: any) => Number(item.paleta) === 0);
+            let palletsInMovement = 0;
+
+            if (isSummaryFormat) {
+                palletsInMovement = lotItems.reduce((sum: number, item: any) => sum + (Number(item.paletasCompletas) || 0), 0);
+            } else {
+                palletsInMovement = new Set(lotItems.filter((item: any) => !item.esPicking).map((item: any) => item.paleta)).size;
+            }
+
             if (palletsInMovement > 0) {
                 movements.push({
                     date: data.fecha,
