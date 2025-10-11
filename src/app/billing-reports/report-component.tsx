@@ -230,7 +230,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [settlementClient, setSettlementClient] = useState<string | undefined>(undefined);
     const [settlementDateRange, setSettlementDateRange] = useState<DateRange | undefined>();
     const [settlementContainer, setSettlementContainer] = useState<string>('');
-    const [settlementLotIds, setSettlementLotIds] = useState(''); // New state for Lot IDs
+    const [settlementLotIds, setSettlementLotIds] = useState('');
     const [availableConcepts, setAvailableConcepts] = useState<ClientBillingConcept[]>([]);
     const [isLoadingAvailableConcepts, setIsLoadingAvailableConcepts] = useState(false);
     const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
@@ -1105,23 +1105,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleSettlementSearch = async () => {
+        const isSmylClient = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
+        const lotIdsArray = settlementLotIds.split(/[\s,]+/).filter(Boolean);
+
         if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
             toast({ variant: 'destructive', title: 'Filtros incompletos', description: 'Seleccione cliente y rango de fechas.' });
             return;
         }
 
-        const isSmyl = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
-        const lotIdsArray = settlementLotIds.split(/[\s,]+/).filter(Boolean);
-        
-        const usesSpecialSmylLotLogic = isSmyl && lotIdsArray.length > 0;
-        const usesSpecialSmylAutoLogic = isSmyl && selectedConcepts.some(c => availableConcepts.find(ac => ac.id === c)?.calculationType === 'LÓGICA ESPECIAL');
-
-        if (usesSpecialSmylLotLogic && selectedConcepts.length > 0) {
-            toast({ variant: "destructive", title: "Filtro Inválido", description: "No puede seleccionar conceptos manuales al liquidar por lote en SMYL." });
+        if (isSmylClient && lotIdsArray.length === 0 && selectedConcepts.length === 0) {
+            toast({ variant: "destructive", title: "Filtro Inválido para SMYL", description: "Para SMYL, debe ingresar al menos un lote o seleccionar un concepto a liquidar." });
             return;
         }
         
-        if (!usesSpecialSmylLotLogic && !usesSpecialSmylAutoLogic && selectedConcepts.length === 0) {
+        if (!isSmylClient && selectedConcepts.length === 0) {
             toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe seleccionar al menos un concepto a liquidar.' });
             return;
         }
@@ -1645,7 +1642,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
                     row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
                     formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
-                    row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                    row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
                     row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
                 ]);
              });
@@ -1762,7 +1759,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         return settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
     }, [settlementClient]);
     
-    // Logic to disable concept selector if a lot ID is entered for SMYL
     const isConceptSelectorDisabled = useMemo(() => {
         return showSmylLotInput && settlementLotIds.trim() !== '';
     }, [showSmylLotInput, settlementLotIds]);
@@ -2961,6 +2957,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 

@@ -192,13 +192,11 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     const serverQueryStartDate = startOfDay(parseISO(startDate));
     const serverQueryEndDate = endOfDay(parseISO(endDate));
     
-    // Fetch all submissions in the date range
     const submissionsSnapshot = await firestore.collection('submissions')
         .where('formData.fecha', '>=', serverQueryStartDate)
         .where('formData.fecha', '<=', serverQueryEndDate)
         .get();
 
-    // Fetch all manual operations in the date range. Client will be filtered later.
     const manualOpsSnapshot = await firestore.collection('manual_client_operations')
         .where('operationDate', '>=', serverQueryStartDate)
         .where('operationDate', '<=', serverQueryEndDate)
@@ -310,7 +308,6 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 }
             }
         } else if (concept.calculationType === 'LÓGICA ESPECIAL') {
-            // Check if special logic applies for SMYL within the date range
             if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && 
                 (concept.conceptName.includes('CARGUE Y ALMACENAMIENTO 1 DÍA'))) {
                 
@@ -326,8 +323,6 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                         : (pesoTotalRecepcion >= 20000);
 
                     if (weightCondition) {
-                        // If any reception meets the weight criteria, assume it's potentially applicable.
-                        // A full check is too expensive here, so we just check for potential.
                         foundMatch = true;
                         break;
                     }
@@ -492,12 +487,12 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
 async function generateSmylLiquidation(
   startDate: string,
   endDate: string,
-  lotId: string,
+  lotIds: string[],
   allConcepts: ClientBillingConcept[]
 ): Promise<ClientSettlementRow[]> {
-    const settlementRows: ClientSettlementRow[] = [];
-    const queryStart = parseISO(startDate);
-    const queryEnd = parseISO(endDate);
+    if (lotIds.length === 0) return [];
+    
+    let allLotRows: ClientSettlementRow[] = [];
     
     const conceptsToFind = [
         'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
@@ -506,91 +501,75 @@ async function generateSmylLiquidation(
 
     const mainConcept = allConcepts.find(c => c.conceptName.toUpperCase() === conceptsToFind[0]);
     const dailyConcept = allConcepts.find(c => c.conceptName.toUpperCase() === conceptsToFind[1]);
-
+    
     if (!mainConcept?.value || !dailyConcept?.value) {
-        throw new Error(`No se encontraron las tarifas para los conceptos de SMYL ('MANIPULACIÓN CARGA', 'COBRO DIARIO') para el lote ${lotId}. Verifique la configuración.`);
+        throw new Error(`No se encontraron las tarifas para los conceptos de SMYL ('MANIPULACIÓN CARGA', 'COBRO DIARIO'). Verifique la configuración.`);
     }
     
     const mainTariff = mainConcept.value;
     const dailyPalletRate = dailyConcept.value;
 
-    const report = await getSmylLotAssistantReport(lotId, startDate, endDate);
-    if ('error' in report) {
-        throw new Error(report.error);
-    }
-    
-    const { initialReception, dailyBalances } = report;
-    const initialPallets = initialReception.pallets;
-    const receptionDate = startOfDay(initialReception.date);
+    for (const lotId of lotIds) {
+        const report = await getSmylLotAssistantReport(lotId, startDate, endDate);
+        if ('error' in report) {
+            console.warn(`Skipping lot ${lotId}: ${report.error}`);
+            continue;
+        }
 
-    // Only include the initial charge if the reception date is within the selected query range.
-    if (receptionDate >= queryStart && receptionDate <= queryEnd) {
-      const freezingTotal = initialPallets * dailyPalletRate * 4;
-      const manipulationTotal = mainTariff - freezingTotal;
+        const { initialReception, dailyBalances } = report;
+        const receptionDate = startOfDay(initialReception.date);
+        const queryStart = startOfDay(parseISO(startDate));
+        const queryEnd = endOfDay(parseISO(endDate));
+        
+        if (receptionDate >= queryStart && receptionDate <= queryEnd) {
+            const freezingTotal = initialReception.pallets * dailyPalletRate * 4;
+            const manipulationTotal = mainTariff - freezingTotal;
 
-      settlementRows.push({
-          date: format(receptionDate, 'yyyy-MM-dd'),
-          conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-          subConceptName: 'Servicio logístico Congelación (4 Días)',
-          quantity: initialPallets,
-          unitOfMeasure: 'PALETA',
-          unitValue: dailyPalletRate,
-          totalValue: freezingTotal,
-          placa: '', 
-          container: initialReception.container, // Use the real container number
-          camara: 'CO', 
-          operacionLogistica: 'Recepción', 
-          pedidoSislog: initialReception.pedidoSislog, 
-          tipoVehiculo: '', 
-          totalPaletas: initialPallets,
-      });
-
-      settlementRows.push({
-          date: format(receptionDate, 'yyyy-MM-dd'),
-          conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-          subConceptName: 'Servicio de Manipulación',
-          quantity: 1, 
-          unitOfMeasure: 'UNIDAD',
-          unitValue: manipulationTotal,
-          totalValue: manipulationTotal,
-          placa: '', 
-          container: initialReception.container, // Use the real container number
-          camara: 'CO', 
-          operacionLogistica: 'Recepción', 
-          pedidoSislog: initialReception.pedidoSislog, 
-          tipoVehiculo: '', 
-          totalPaletas: 0,
-      });
-    }
-    
-    // Daily Billing: Filter only for days within the query range AND after the grace period.
-    const gracePeriodEndDate = addDays(receptionDate, 3);
-    const relevantDailyBalances = dailyBalances.filter(day => {
-        const dayDate = parseISO(day.date);
-        return dayDate > gracePeriodEndDate && dayDate >= queryStart && dayDate <= queryEnd;
-    });
-
-    for (const day of relevantDailyBalances) {
-        if (day.finalBalance > 0) {
-            settlementRows.push({
-                date: day.date,
-                conceptName: 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-                quantity: day.finalBalance,
-                unitOfMeasure: 'PALETA/DIA',
+            allLotRows.push({
+                date: format(receptionDate, 'yyyy-MM-dd'),
+                conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+                subConceptName: 'Servicio logístico Congelación (4 Días)',
+                quantity: initialReception.pallets,
+                unitOfMeasure: 'PALETA',
                 unitValue: dailyPalletRate,
-                totalValue: day.finalBalance * dailyPalletRate,
-                placa: '', 
-                container: initialReception.container,
-                camara: 'CO', 
-                operacionLogistica: 'Servicio Congelación', 
-                pedidoSislog: initialReception.pedidoSislog, 
-                tipoVehiculo: '', 
-                totalPaletas: day.finalBalance
+                totalValue: freezingTotal,
+                placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Recepción', 
+                pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialReception.pallets,
             });
+
+            allLotRows.push({
+                date: format(receptionDate, 'yyyy-MM-dd'),
+                conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+                subConceptName: 'Servicio de Manipulación',
+                quantity: 1, unitOfMeasure: 'UNIDAD', unitValue: manipulationTotal, totalValue: manipulationTotal,
+                placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Recepción', 
+                pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: 0,
+            });
+        }
+        
+        const gracePeriodEndDate = addDays(receptionDate, 3);
+        const relevantDailyBalances = dailyBalances.filter(day => {
+            const dayDate = parseISO(day.date);
+            return dayDate > gracePeriodEndDate && dayDate >= queryStart && dayDate <= queryEnd;
+        });
+
+        for (const day of relevantDailyBalances) {
+            if (day.finalBalance > 0) {
+                allLotRows.push({
+                    date: day.date,
+                    conceptName: 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+                    quantity: day.finalBalance,
+                    unitOfMeasure: 'PALETA/DIA',
+                    unitValue: dailyPalletRate,
+                    totalValue: day.finalBalance * dailyPalletRate,
+                    placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Servicio Congelación',
+                    pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: day.finalBalance
+                });
+            }
         }
     }
     
-    return settlementRows;
+    return allLotRows;
 }
 
 
@@ -600,37 +579,34 @@ export async function generateClientSettlement(criteria: {
   endDate: string;
   conceptIds: string[];
   containerNumber?: string;
-  lotIds?: string[]; // Changed from lotId to lotIds
+  lotIds?: string[];
 }): Promise<ClientSettlementResult> {
   
   const { clientName, startDate, endDate, conceptIds, lotIds } = criteria;
   
   const allConcepts = await getClientBillingConcepts();
-  const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
-  
-  // --- SPECIAL SMYL LOGIC ---
+
+  // --- SPECIAL SMYL by LOT ID LOGIC ---
   if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotIds && lotIds.length > 0) {
-      if (selectedConcepts.length > 0) {
+      if (conceptIds.length > 0) {
           return { success: false, error: "No puede seleccionar conceptos manuales al liquidar por lote en SMYL." };
       }
       try {
-        let allSmylRows: ClientSettlementRow[] = [];
-        for (const lotId of lotIds) {
-            const smylRowsForLot = await generateSmylLiquidation(startDate, endDate, lotId, allConcepts);
-            allSmylRows = allSmylRows.concat(smylRowsForLot);
-        }
-        return { success: true, data: allSmylRows };
+        const smylRows = await generateSmylLiquidation(startDate, endDate, lotIds, allConcepts);
+        return { success: true, data: smylRows };
       } catch (e: any) {
         return { success: false, error: e.message || "Error al generar liquidación SMYL." };
       }
   }
 
-  // --- STANDARD LOGIC FOR ALL OTHER CLIENTS (AND SMYL WITHOUT LOT) ---
+  // --- STANDARD LOGIC FOR ALL OTHER CASES ---
   if (!firestore) {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
   
   const { containerNumber } = criteria;
+
+  const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
 
   if (!clientName || !startDate || !endDate || selectedConcepts.length === 0) {
     return { success: false, error: 'Faltan criterios para la liquidación.' };
@@ -644,12 +620,7 @@ export async function generateClientSettlement(criteria: {
         firestore.collection('articulos').where('razonSocial', '==', clientName).get(),
         firestore.collection('submissions').where('formData.fecha', '>=', serverQueryStartDate).where('formData.fecha', '<=', serverQueryEndDate).get(),
         firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get(),
-        // New query for crew manual operations
-        firestore.collection('manual_operations')
-            .where('operationDate', '>=', serverQueryStartDate)
-            .where('operationDate', '<=', serverQueryEndDate)
-            .where('clientName', '==', clientName)
-            .get(),
+        firestore.collection('manual_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).where('clientName', '==', clientName).get(),
     ]);
     
     const articleSessionMap = new Map<string, string>();
@@ -1359,7 +1330,6 @@ const minutesToTime = (minutes: number): string => {
 };
     
 
-
     
 
     
@@ -1390,4 +1360,5 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
