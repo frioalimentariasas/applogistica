@@ -261,14 +261,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const handleFetchApplicableConcepts = useCallback(async () => {
         if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
             
-            // If SMYL is selected and Lot ID is provided, no need to fetch manual concepts
-            const isSmylWithLot = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && settlementLotIds.trim() !== '';
-            if (isSmylWithLot) {
-                setAvailableConcepts([]);
-                setSelectedConcepts([]);
-                return;
-            }
-
             setIsLoadingAvailableConcepts(true);
             try {
                 const result = await findApplicableConcepts(
@@ -289,7 +281,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             setAvailableConcepts([]);
             setSelectedConcepts([]);
         }
-    }, [settlementClient, settlementDateRange, settlementLotIds, toast]);
+    }, [settlementClient, settlementDateRange, toast]);
 
     useEffect(() => {
         handleFetchApplicableConcepts();
@@ -1119,16 +1111,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
 
         const isSmyl = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
-        const lotIdsArray = settlementLotIds.split(/[\s,]+/).filter(Boolean); // Split by space or comma, remove empty
+        const lotIdsArray = settlementLotIds.split(/[\s,]+/).filter(Boolean);
         
-        const usesSpecialSmylLogic = isSmyl && (lotIdsArray.length > 0 || selectedConcepts.some(c => availableConcepts.find(ac => ac.id === c)?.calculationType === 'LÓGICA ESPECIAL'));
+        const usesSpecialSmylLotLogic = isSmyl && lotIdsArray.length > 0;
+        const usesSpecialSmylAutoLogic = isSmyl && selectedConcepts.some(c => availableConcepts.find(ac => ac.id === c)?.calculationType === 'LÓGICA ESPECIAL');
 
-        if (isSmyl && usesSpecialSmylLogic && lotIdsArray.length === 0) {
-            toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe ingresar al menos un lote para liquidar con conceptos especiales de SMYL.' });
+        if (usesSpecialSmylLotLogic && selectedConcepts.length > 0) {
+            toast({ variant: "destructive", title: "Filtro Inválido", description: "No puede seleccionar conceptos manuales al liquidar por lote en SMYL." });
             return;
         }
         
-        if (!usesSpecialSmylLogic && selectedConcepts.length === 0) {
+        if (!usesSpecialSmylLotLogic && !usesSpecialSmylAutoLogic && selectedConcepts.length === 0) {
             toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe seleccionar al menos un concepto a liquidar.' });
             return;
         }
@@ -1764,6 +1757,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const settlementTotalGeneral = useMemo(() => {
         return visibleSettlementData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
     }, [visibleSettlementData]);
+
+    const showSmylLotInput = useMemo(() => {
+        return settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
+    }, [settlementClient]);
+    
+    // Logic to disable concept selector if a lot ID is entered for SMYL
+    const isConceptSelectorDisabled = useMemo(() => {
+        return showSmylLotInput && settlementLotIds.trim() !== '';
+    }, [showSmylLotInput, settlementLotIds]);
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -2577,10 +2579,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </DialogContent>
                                         </Dialog>
                                     </div>
-                                    {settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' ? (
+                                    {showSmylLotInput ? (
                                         <div className="space-y-2 lg:col-span-2">
-                                            <Label>No. de Contenedor(es) (Opcional)</Label>
-                                            <Textarea placeholder="Ingrese uno o más contenedores separados por comas, espacios o saltos de línea" value={settlementLotIds} onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} />
+                                            <Label>No. de Contenedor(es)/Lote(s) (Opcional)</Label>
+                                            <Textarea 
+                                                placeholder="Para liquidación automática de SMYL. Separados por coma, espacio o salto de línea." 
+                                                value={settlementLotIds} 
+                                                onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} 
+                                            />
                                         </div>
                                     ) : (
                                         <div className="space-y-2">
@@ -2608,7 +2614,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <Button
                                                     variant="outline"
                                                     className="w-full justify-between"
-                                                    disabled={!settlementClient || !settlementDateRange || (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && settlementLotIds !== '')}
+                                                    disabled={isConceptSelectorDisabled || !settlementClient || !settlementDateRange}
                                                 >
                                                     <span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>
                                                     {isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}
@@ -2955,6 +2961,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 
