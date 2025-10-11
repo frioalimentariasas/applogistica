@@ -30,6 +30,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { getSmylEligibleLots, type EligibleLot, GraceFilter } from '../smyl-liquidation-assistant/actions';
+import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const dailyEntrySchema = z.object({
@@ -132,14 +138,15 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       end: endOfDay(dateRange.to),
     });
     
-    let balance = 0; // Balance always starts at 0 for calculation, initialBalance is treated as a day 1 entry
+    let balance = 0;
     const newDailyEntries = days.map((day, index) => {
+        const entries = index === 0 ? Number(initialBalance) : 0;
         const newEntry = {
             date: day,
             initialBalance: balance,
-            entries: index === 0 ? initialBalance : 0, // Treat initialBalance as an entry on the first day
+            entries: entries,
             exits: 0,
-            finalBalance: balance + (index === 0 ? initialBalance : 0),
+            finalBalance: balance + entries,
         };
         balance = newEntry.finalBalance;
         return newEntry;
@@ -156,14 +163,14 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     let totalExits = 0;
     let totalPalletsForAvg = 0;
     let daysWithStock = 0;
-
     let currentBalance = 0;
 
     watchedDailyEntries.forEach((day, index) => {
+        const initialBalanceForDay = index === 0 ? 0 : (watchedDailyEntries[index - 1].finalBalance || 0);
         const entries = Number(day.entries) || 0;
         const exits = Number(day.exits) || 0;
 
-        currentBalance = (index === 0 ? 0 : watchedDailyEntries[index - 1].finalBalance) + entries - exits;
+        currentBalance = initialBalanceForDay + entries - exits;
         
         if (currentBalance > 0) {
             totalStorageCost += currentBalance * tariffs.storage;
@@ -253,6 +260,55 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         setIsConfirmSendOpen(false);
     }
   }
+
+    const [lotIds, setLotIds] = useState('');
+    
+    const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
+    const [indexErrorMessage, setIndexErrorMessage] = useState('');
+
+    const [isLotFinderOpen, setIsLotFinderOpen] = useState(false);
+    const [eligibleLots, setEligibleLots] = useState<EligibleLot[]>([]);
+    const [isLoadingLots, setIsLoadingLots] = useState(false);
+    const [lotFinderSearch, setLotFinderSearch] = useState('');
+    const [graceFilter, setGraceFilter] = useState<GraceFilter>('all');
+    const [selectedLotsInDialog, setSelectedLotsInDialog] = useState<Set<string>>(new Set());
+
+    const handleOpenLotFinder = async () => {
+        if (!dateRange?.from || !dateRange?.to) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un rango de fechas primero.' });
+            return;
+        }
+        setIsLoadingLots(true);
+        setIsLotFinderOpen(true);
+        try {
+            const lots = await getSmylEligibleLots(format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'), graceFilter);
+            setEligibleLots(lots);
+            
+            const currentLotIds = lotIds.split(/[\s,]+/).filter(Boolean);
+            setSelectedLotsInDialog(new Set(currentLotIds));
+
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los lotes elegibles.' });
+        } finally {
+            setIsLoadingLots(false);
+        }
+    };
+    
+    const handleConfirmLotSelection = () => {
+      setLotIds(Array.from(selectedLotsInDialog).join(', '));
+      setIsLotFinderOpen(false);
+    };
+
+    const handleSearch = () => {
+      // Dummy implementation to satisfy onClick, real logic is in parent component or elsewhere
+      console.log("Search initiated");
+    };
+
+    const handleClear = () => {
+        setLotIds('');
+        setDateRange(undefined);
+        form.reset();
+    };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -390,22 +446,17 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                     </TableHeader>
                                     <TableBody>
                                         {fields.map((field, index) => {
-                                            const initialBalanceForDay = index === 0 ? 0 : watchedDailyEntries[index - 1]?.finalBalance || 0;
+                                            const initialBalanceForDay = index === 0 ? 0 : (Number(watchedDailyEntries[index - 1]?.finalBalance) || 0);
                                             const entries = Number(watchedDailyEntries[index]?.entries) || 0;
-                                            
-                                            let exits = Number(watchedDailyEntries[index]?.exits) || 0;
-                                            if (exits > initialBalanceForDay + entries) {
-                                                exits = initialBalanceForDay + entries;
-                                                setValue(`dailyEntries.${index}.exits`, exits);
-                                            }
-
+                                            const exits = Number(watchedDailyEntries[index]?.exits) || 0;
                                             const finalBalanceForDay = initialBalanceForDay + entries - exits;
                                             
+                                            // This check helps prevent infinite loops
                                             if (watchedDailyEntries[index]?.initialBalance !== initialBalanceForDay) {
-                                                setValue(`dailyEntries.${index}.initialBalance`, initialBalanceForDay);
+                                                setTimeout(() => setValue(`dailyEntries.${index}.initialBalance`, initialBalanceForDay), 0);
                                             }
                                             if (watchedDailyEntries[index]?.finalBalance !== finalBalanceForDay) {
-                                                setValue(`dailyEntries.${index}.finalBalance`, finalBalanceForDay);
+                                                setTimeout(() => setValue(`dailyEntries.${index}.finalBalance`, finalBalanceForDay), 0);
                                             }
 
                                             return (
@@ -413,7 +464,18 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                                 <TableCell className="font-medium">{format(field.date, "dd MMM, yyyy", { locale: es })}</TableCell>
                                                 <TableCell className="text-right">{initialBalanceForDay}</TableCell>
                                                 <TableCell>
-                                                    <FormField control={form.control} name={`dailyEntries.${index}.entries`} render={({ field }) => (<Input type="number" {...field} className="h-8 text-green-700 font-bold" />)}/>
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`dailyEntries.${index}.entries`}
+                                                        render={({ field }) => (
+                                                            <Input
+                                                                type="number"
+                                                                {...field}
+                                                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                                                className="h-8 text-green-700 font-bold"
+                                                            />
+                                                        )}
+                                                    />
                                                 </TableCell>
                                                 <TableCell>
                                                    <FormField
@@ -427,13 +489,14 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                                                 max={initialBalanceForDay + entries}
                                                                 onChange={(e) => {
                                                                     const val = Number(e.target.value);
-                                                                    if (val > initialBalanceForDay + entries) {
+                                                                    const maxAllowed = initialBalanceForDay + entries;
+                                                                    if (val > maxAllowed) {
                                                                         toast({
                                                                             variant: "destructive",
                                                                             title: "Límite de salidas excedido",
-                                                                            description: `No puede sacar más de ${initialBalanceForDay + entries} paletas.`,
+                                                                            description: `No puede sacar más de ${maxAllowed} paletas.`,
                                                                         });
-                                                                        field.onChange(initialBalanceForDay + entries);
+                                                                        field.onChange(maxAllowed);
                                                                     } else {
                                                                         field.onChange(val);
                                                                     }
@@ -534,8 +597,14 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+        <IndexCreationDialog 
+            isOpen={isIndexErrorOpen}
+            onOpenChange={setIsIndexErrorOpen}
+            errorMessage={indexErrorMessage}
+        />
       </div>
     </div>
   );
 }
 
+    
