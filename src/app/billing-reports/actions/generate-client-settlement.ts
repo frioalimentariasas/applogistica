@@ -414,12 +414,10 @@ const calculatePalletsForOperation = (
   if (formType?.startsWith('variable-weight')) {
       const isSummary = items.some((i: any) => Number(i.paleta) === 0);
       if (isSummary) {
-          // For dispatch, the total pallets is a dedicated field when by destination
           if (formType.includes('despacho') && formData.despachoPorDestino) {
               return Number(formData.totalPaletasDespacho) || 0;
           }
            if (formType.includes('despacho')) {
-              // Correctly sum `paletasCompletas` for summary dispatches
               return items.reduce((sum: number, i: any) => sum + (Number(i.paletasCompletas) || 0), 0);
           }
           return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || 0), 0);
@@ -694,7 +692,7 @@ export async function generateClientSettlement(criteria: {
                     );
 
                     if (despachoDelDiaSiguiente) {
-                        const paletasEnDespacho = new Set(
+                         const paletasEnDespacho = new Set(
                             (despachoDelDiaSiguiente.data.formData.items || [])
                                 .filter((item: any) => item.lote === loteId && !item.esPicking)
                                 .map((item: any) => item.paleta)
@@ -1269,7 +1267,8 @@ export async function generateClientSettlement(criteria: {
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-        'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
+        'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+        'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
     ];
     
     const roleOrder = ['SUPERVISOR', 'MONTACARGUISTA TRILATERAL', 'MONTACARGUISTA NORMAL', 'OPERARIO'];
