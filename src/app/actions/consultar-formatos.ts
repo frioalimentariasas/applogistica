@@ -75,10 +75,8 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
         if (criteria.searchDateStart && criteria.searchDateEnd) {
             // Adjust dates to Colombia timezone (UTC-5)
-            serverQueryStartDate = new Date(criteria.searchDateStart + 'T05:00:00.000Z');
-            // End of the day in Colombia is start of next day UTC-5
-            const endDateUTC = new Date(criteria.searchDateEnd + 'T05:00:00.000Z');
-            serverQueryEndDate = endOfDay(endDateUTC);
+            serverQueryStartDate = new Date(`${criteria.searchDateStart}T00:00:00-05:00`);
+            serverQueryEndDate = new Date(`${criteria.searchDateEnd}T23:59:59.999-05:00`);
 
         } else if (criteria.pedidoSislog || criteria.placa) {
              // No date range, but unique ID provided. Fetch all data for this ID.
