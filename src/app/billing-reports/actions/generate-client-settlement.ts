@@ -254,29 +254,29 @@ const calculatePalletsForOperation = (
   }
 
   if (formType?.startsWith('variable-weight')) {
-      const isSummary = items.some((i: any) => Number(i.paleta) === 0);
-      if (isSummary) {
-          if (formType.includes('despacho') && formData.despachoPorDestino) {
-              return Number(formData.totalPaletasDespacho) || 0;
-          }
-           if (formType.includes('despacho')) {
-              return items.reduce((sum: number, i: any) => sum + (Number(i.paletasCompletas) || 0), 0);
-          }
-          return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || 0), 0);
+    const isSummary = items.some((i: any) => Number(i.paleta) === 0);
+    if (isSummary) {
+      if (formType.includes('despacho') && formData.despachoPorDestino) {
+        return Number(formData.totalPaletasDespacho) || 0;
       }
-      const uniquePallets = new Set<number>();
-      let pallets999Count = 0;
-      items.forEach((item: any) => {
-        const paletaNum = Number(item.paleta);
-        if (!isNaN(paletaNum) && paletaNum > 0) {
-            if (paletaNum === 999) {
-                pallets999Count++;
-            } else if (!item.esPicking) {
-                uniquePallets.add(paletaNum);
-            }
+      if (formType.includes('despacho')) {
+        return items.reduce((sum: number, i: any) => sum + (Number(i.paletasCompletas) || 0), 0);
+      }
+      return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || 0), 0);
+    }
+    const uniquePallets = new Set<number>();
+    let pallets999Count = 0;
+    items.forEach((item: any) => {
+      const paletaNum = Number(item.paleta);
+      if (!isNaN(paletaNum) && paletaNum > 0) {
+        if (paletaNum === 999) {
+          pallets999Count++;
+        } else if (!item.esPicking) {
+          uniquePallets.add(paletaNum);
         }
-      });
-      return uniquePallets.size + pallets999Count;
+      }
+    });
+    return uniquePallets.size + pallets999Count;
   }
   
   return 0;
@@ -707,16 +707,18 @@ export async function generateClientSettlement(criteria: {
                 
                 const matchingTariff = findMatchingTariff(totalTons, concept);
 
-                if (matchingTariff) {
-                    vehicleTypeForReport = matchingTariff.vehicleType;
-                    if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
-                        unitOfMeasureForReport = vehicleTypeForReport as any;
-                        if (operacionLogistica === 'Diurno') unitValue = matchingTariff.dayTariff;
-                        else if (operacionLogistica === 'Nocturno') unitValue = matchingTariff.nightTariff;
-                        else if (operacionLogistica === 'Extra') unitValue = matchingTariff.extraTariff;
-                    } else {
-                        unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
-                    }
+                if (!matchingTariff) {
+                    continue; // If no range matches, skip this operation
+                }
+
+                vehicleTypeForReport = matchingTariff.vehicleType;
+                if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
+                    unitOfMeasureForReport = vehicleTypeForReport as any;
+                    if (operacionLogistica === 'Diurno') unitValue = matchingTariff.dayTariff;
+                    else if (operacionLogistica === 'Nocturno') unitValue = matchingTariff.nightTariff;
+                    else if (operacionLogistica === 'Extra') unitValue = matchingTariff.extraTariff;
+                } else {
+                    unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                 }
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
                  const allTemps: number[] = (op.formData.summary || []).flatMap((item: any) => 

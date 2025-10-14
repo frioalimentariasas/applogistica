@@ -156,6 +156,9 @@ export default function Home() {
         {displayName && (
             <div className="text-center">
                 <p className="text-lg text-gray-800">Bienvenido, <span className="font-semibold">{displayName}</span></p>
+                        <CardHeader>
+                            <CardTitle className="text-lg md:text-xl text-center text-primary">Control de Operaciones Logísticas</CardTitle>
+                        </CardHeader>
             </div>
         )}
         
@@ -163,9 +166,6 @@ export default function Home() {
             {permissions.canGenerateForms && (
                 <div>
                     <Card className="flex flex-col">
-                        <CardHeader>
-                            <CardTitle className="text-lg md:text-xl text-center text-primary">Control de Operaciones Logísticas</CardTitle>
-                        </CardHeader>
                         <CardContent className="flex-grow flex flex-col justify-between">
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <fieldset>
