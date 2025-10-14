@@ -731,7 +731,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        const fileName = `Reporte_Inventario_Pivot_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `Reporte_Inventario_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         link.download = fileName;
         link.click();
     };
@@ -1211,6 +1211,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
             'Servicio logístico Congelación (4 Días)', // Child
             'Servicio de Manipulación', // Child
+            'OPERACIÓN DESCARGUE/TONELADAS',
+            'OPERACIÓN CARGUE/TONELADAS',
+            'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
+            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
+            'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
@@ -1248,7 +1254,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     
-        const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
+        const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación de Servicios Clientes');
         
         const summaryColumns = [
             { header: 'Item', key: 'item', width: 10 },
@@ -1261,7 +1267,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         summaryWorksheet.columns = summaryColumns.map(c => ({ key: c.key, width: c.width }));
         summaryWorksheet.getRow(1).hidden = true;
-        addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación", summaryColumns);
+        addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación de Servicios Clientes", summaryColumns);
     
         const summaryHeaderRow = summaryWorksheet.getRow(5);
         summaryHeaderRow.values = summaryColumns.map(c => c.header);
@@ -1359,7 +1365,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
         }
     
-        const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
+        const detailWorksheet = workbook.addWorksheet('Detalle Liquidación de Servicios Clientes');
         
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
@@ -1383,7 +1389,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         detailWorksheet.columns = detailColumns.map(c => ({ key: c.key, width: c.width }));
         detailWorksheet.getRow(1).hidden = true;
-        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación", detailColumns);
+        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación de Servicios Clientes", detailColumns);
         
         const detailHeaderRow = detailWorksheet.getRow(5);
         detailHeaderRow.values = detailColumns.map(c => c.header);
@@ -1474,7 +1480,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `Liquidacion_de_Servicios_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         link.download = fileName;
         link.click();
     };
@@ -1492,7 +1498,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
             'Servicio logístico Congelación (4 Días)', // Child
             'Servicio de Manipulación', // Child
+            'OPERACIÓN DESCARGUE/TONELADAS',
+            'OPERACIÓN CARGUE/TONELADAS',
+            'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
+            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
+            'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+            'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1525,7 +1538,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return currentY + 10;
         };
     
-        let lastY = addHeader(doc, "Resumen de Liquidación");
+        let lastY = addHeader(doc, "Resumen Liquidación de Servicios Clientes");
     
         const summaryByConcept = visibleRows.reduce((acc, row) => {
              let conceptName: string;
@@ -1615,7 +1628,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
 
         doc.addPage();
-        lastY = addHeader(doc, "Detalle de Liquidación");
+        lastY = addHeader(doc, "Detalle Liquidación de Servicios Clientes");
 
         const groupedByConcept = visibleRows.reduce((acc, row) => {
             const conceptKey = row.conceptName;
@@ -1674,7 +1687,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             footStyles: { fontStyle: 'bold' }
         });
     
-        const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `Liquidacion_de_Servicios_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
 
@@ -1709,10 +1722,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     const settlementGroupedData = useMemo(() => {
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
+           'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
             'Servicio logístico Congelación (4 Días)', // Child
             'Servicio de Manipulación', // Child
+            'OPERACIÓN DESCARGUE/TONELADAS',
+            'OPERACIÓN CARGUE/TONELADAS',
+            'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
+            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
+            'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
@@ -1801,7 +1820,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         <TabsTrigger value="detailed-operation">Operaciones Detalladas</TabsTrigger>
                         <TabsTrigger value="inventory">Inventario Acumulado</TabsTrigger>
                         <TabsTrigger value="consolidated-report">Consolidado Movimientos/Inventario</TabsTrigger>
-                        <TabsTrigger value="client-settlement">Liquidación de Clientes</TabsTrigger>
+                        <TabsTrigger value="client-settlement">Liquidación de Servicios Clientes</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="detailed-operation">
@@ -2553,7 +2572,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     <TabsContent value="client-settlement">
                          <Card>
                              <CardHeader>
-                                <CardTitle>Liquidación de Clientes</CardTitle>
+                                <CardTitle>Liquidación de Servicios Clientes</CardTitle>
                                 <CardDescription>Genere un reporte de liquidación para los servicios prestados a un cliente.</CardDescription>
                             </CardHeader>
                             <CardContent>
