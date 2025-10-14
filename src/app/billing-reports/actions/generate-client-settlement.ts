@@ -261,10 +261,8 @@ const calculatePalletsForOperation = (
     
     if (isSummary) {
       if (formType.includes('despacho') && formData.despachoPorDestino) {
-        // For destination-based dispatch in summary mode, the manually entered total is the source of truth.
         return Number(formData.totalPaletasDespacho) || 0;
       }
-      // For other summary modes, sum the individual summary rows.
       return items.reduce((sum: number, i: any) => sum + (Number(i.paletasCompletas) || 0) + (Number(i.paletasPicking) || 0) + (Number(i.totalPaletas) || 0), 0);
     }
     
@@ -291,20 +289,54 @@ const calculateUnitsForOperation = (
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
     articleSessionMap: Map<string, string>
 ): number => {
-  const { formType } = op;
+  const { formType, formData } = op;
   const items = getFilteredItems(op, sessionFilter, articleSessionMap);
   if (items.length === 0) return 0;
   
+  const clientName = formData.cliente || formData.nombreCliente;
+  const isFrutelli = clientName === 'GRUPO FRUTELLI SAS';
+
   if (formType?.startsWith('fixed-weight')) {
-      return items.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+      return items.reduce((sum: number, p: any) => {
+          const quantity = Number(p.cajas) || 0;
+          if (isFrutelli) {
+              return sum + quantity;
+          }
+          // For other clients, only count if it's picking
+          const paletasPicking = Number(p.paletasPicking) || 0;
+          if (paletasPicking > 0) {
+              return sum + quantity;
+          }
+          return sum;
+      }, 0);
   }
 
   if (formType?.startsWith('variable-weight')) {
       const isSummary = items.some((i: any) => Number(i.paleta) === 0);
       if (isSummary) {
-          return items.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
+          return items.reduce((sum: number, i: any) => {
+              const quantity = Number(i.totalCantidad) || 0;
+              if (isFrutelli) {
+                  return sum + quantity;
+              }
+              const paletasPicking = Number(i.paletasPicking) || 0;
+              if (paletasPicking > 0) {
+                  return sum + quantity;
+              }
+              return sum;
+          }, 0);
       }
-      return items.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
+      // Detailed variable weight
+      return items.reduce((sum: number, i: any) => {
+          const quantity = Number(i.cantidadPorPaleta) || 0;
+          if (isFrutelli) {
+              return sum + quantity;
+          }
+          if (i.esPicking === true) {
+              return sum + quantity;
+          }
+          return sum;
+      }, 0);
   }
 
   return 0;
@@ -1345,3 +1377,4 @@ const minutesToTime = (minutes: number): string => {
 
 
   
+
