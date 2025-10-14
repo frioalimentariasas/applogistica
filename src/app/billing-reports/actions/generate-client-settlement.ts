@@ -254,16 +254,20 @@ const calculatePalletsForOperation = (
   }
 
   if (formType?.startsWith('variable-weight')) {
-    const isSummary = items.some((i: any) => Number(i.paleta) === 0);
+    const allItemsFromOp = (formData.items || [])
+      .concat((formData.destinos || []).flatMap((d: any) => d.items || []));
+      
+    const isSummary = allItemsFromOp.some((i: any) => Number(i.paleta) === 0);
+    
     if (isSummary) {
       if (formType.includes('despacho') && formData.despachoPorDestino) {
+        // For destination-based dispatch in summary mode, the manually entered total is the source of truth.
         return Number(formData.totalPaletasDespacho) || 0;
       }
-      if (formType.includes('despacho')) {
-        return items.reduce((sum: number, i: any) => sum + (Number(i.paletasCompletas) || 0), 0);
-      }
-      return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || 0), 0);
+      // For other summary modes, sum the individual summary rows.
+      return items.reduce((sum: number, i: any) => sum + (Number(i.paletasCompletas) || 0) + (Number(i.paletasPicking) || 0) + (Number(i.totalPaletas) || 0), 0);
     }
+    
     const uniquePallets = new Set<number>();
     let pallets999Count = 0;
     items.forEach((item: any) => {
@@ -326,6 +330,162 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
     h = h ? h : 12; // the hour '0' should be '12'
     return `${h.toString().padStart(2, '0')}:${minutes} ${ampm}`;
 };
+
+export async function findApplicableConcepts(clientName: string, startDate: string, endDate: string): Promise<ClientBillingConcept[]> {
+    if (!firestore) return [];
+
+    const allConcepts = await getClientBillingConcepts();
+    const applicableConcepts = new Map<string, ClientBillingConcept>();
+
+    const serverQueryStartDate = startOfDay(parseISO(startDate));
+    const serverQueryEndDate = endOfDay(parseISO(endDate));
+    
+    const submissionsSnapshot = await firestore.collection('submissions')
+        .where('formData.fecha', '>=', serverQueryStartDate)
+        .where('formData.fecha', '<=', serverQueryEndDate)
+        .get();
+
+    const manualOpsSnapshot = await firestore.collection('manual_client_operations')
+        .where('operationDate', '>=', serverQueryStartDate)
+        .where('operationDate', '<=', serverQueryEndDate)
+        .get();
+        
+    const clientArticlesSnapshot = await firestore.collection('articulos').where('razonSocial', '==', clientName).get();
+    const articleSessionMap = new Map<string, string>();
+    clientArticlesSnapshot.forEach(doc => {
+        const article = doc.data() as ArticuloData;
+        articleSessionMap.set(article.codigoProducto, article.sesion);
+    });
+
+    const clientSubmissions = submissionsSnapshot.docs.filter(doc => {
+        const docData = doc.data();
+        const docClientName = docData.formData?.cliente || docData.formData?.nombreCliente;
+        return docClientName === clientName;
+    });
+    
+    let conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+    
+    for (const concept of conceptsForClient) {
+        if (concept.calculationType === 'REGLAS') {
+             const hasApplicableOperation = clientSubmissions.some(doc => {
+                const submission = serializeTimestamps(doc.data());
+                
+                const isRecepcion = submission.formType.includes('recepcion') || submission.formType.includes('reception');
+                const isDespacho = submission.formType.includes('despacho');
+
+                const opTypeMatch = concept.filterOperationType === 'ambos' ||
+                                    (concept.filterOperationType === 'recepcion' && isRecepcion) ||
+                                    (concept.filterOperationType === 'despacho' && isDespacho);
+                if (!opTypeMatch) return false;
+                
+                const isFixed = submission.formType.includes('fixed-weight');
+                const isVariable = submission.formType.includes('variable-weight');
+
+                const prodTypeMatch = concept.filterProductType === 'ambos' ||
+                                      (concept.filterProductType === 'fijo' && isFixed) ||
+                                      (concept.filterProductType === 'variable' && isVariable);
+                if (!prodTypeMatch) return false;
+
+                const pedidoType = submission.formData?.tipoPedido;
+                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0) {
+                    if (!pedidoType || !concept.filterPedidoTypes.includes(pedidoType)) {
+                        return false;
+                    }
+                }
+                
+                // --- START OF NEW VALIDATION ---
+                let quantity = 0;
+                switch (concept.calculationBase) {
+                    case 'TONELADAS': 
+                    case 'KILOGRAMOS':
+                        quantity = calculateWeightForOperation(submission, concept.filterSesion, articleSessionMap);
+                        break;
+                    case 'CANTIDAD_PALETAS':
+                        quantity = calculatePalletsForOperation(submission, concept.filterSesion, articleSessionMap);
+                        break;
+                    case 'CANTIDAD_CAJAS':
+                        quantity = calculateUnitsForOperation(submission, concept.filterSesion, articleSessionMap);
+                        break;
+                    case 'NUMERO_OPERACIONES':
+                    case 'NUMERO_CONTENEDORES':
+                        quantity = 1; // If it matches so far, it counts as 1
+                        break;
+                    case 'PALETAS_SALIDA_MAQUILA_CONGELADOS':
+                        if ((submission.formType === 'variable-weight-reception' || submission.formType === 'variable-weight-recepcion') && submission.formData.tipoPedido === 'MAQUILA') {
+                            quantity = Number(submission.formData.salidaPaletasMaquilaCO) || 0;
+                        }
+                        break;
+                    case 'PALETAS_SALIDA_MAQUILA_SECO':
+                         if ((submission.formType === 'variable-weight-reception' || submission.formType === 'variable-weight-recepcion') && submission.formData.tipoPedido === 'MAQUILA') {
+                            quantity = Number(submission.formData.salidaPaletasMaquilaSE) || 0;
+                        }
+                        break;
+                    case 'CANTIDAD_SACOS_MAQUILA':
+                        if ((submission.formType.includes('reception') || submission.formType.includes('recepcion')) && submission.formData.tipoPedido === 'MAQUILA' && submission.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
+                            quantity = calculateUnitsForOperation(submission, concept.filterSesion, articleSessionMap);
+                        }
+                        break;
+                }
+
+                return quantity > 0;
+                // --- END OF NEW VALIDATION ---
+            });
+
+            if (hasApplicableOperation) {
+                 if (!applicableConcepts.has(concept.id)) {
+                    applicableConcepts.set(concept.id, concept);
+                }
+            }
+
+        } else if (concept.calculationType === 'OBSERVACION') {
+            for (const doc of clientSubmissions) {
+                const formData = doc.data().formData;
+                if (Array.isArray(formData.observaciones) && formData.observaciones.some((obs: any) => obs.type === concept.associatedObservation && Number(obs.quantity) > 0)) {
+                     if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
+                    break;
+                }
+            }
+        } else if (concept.calculationType === 'MANUAL') {
+             for (const doc of manualOpsSnapshot.docs) {
+                const opData = doc.data();
+                if (opData.clientName === clientName && concept.conceptName === opData.concept) {
+                    if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
+                    break;
+                }
+            }
+        } else if (concept.calculationType === 'SALDO_INVENTARIO') {
+            if (!concept.inventorySesion) continue;
+            const targetSesion = concept.inventorySesion;
+
+            const consolidatedReportForConcept = await getConsolidatedMovementReport({
+                clientName: clientName,
+                startDate: startDate,
+                endDate: endDate,
+                sesion: targetSesion,
+            });
+
+            const hasBalanceInPeriod = consolidatedReportForConcept.some(day => day.posicionesAlmacenadas > 0);
+
+            if (hasBalanceInPeriod) {
+                if (!applicableConcepts.has(concept.id)) {
+                    applicableConcepts.set(concept.id, concept);
+                }
+            }
+        } else if (concept.calculationType === 'LÓGICA ESPECIAL') {
+            if (!applicableConcepts.has(concept.id)) {
+                applicableConcepts.set(concept.id, concept);
+            }
+        }
+    }
+    
+    const sortedConcepts = Array.from(applicableConcepts.values());
+    sortedConcepts.sort((a, b) => a.conceptName.localeCompare(b.conceptName));
+    return sortedConcepts;
+}
 
 
 async function generateSmylLiquidation(
@@ -800,7 +960,7 @@ export async function generateClientSettlement(criteria: {
         c.conceptName === 'MOVIMIENTO ENTRADA PRODUCTOS - PALLET' ||
         c.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET'
     );
-    const manualOpsFiltered = allOperations.filter(op => op.type === 'manual');
+    const manualOpsFiltered = allOperations.filter(op => op.type === 'manual' || op.type === 'crew_manual');
 
     if (manualOpsFiltered.length > 0 && conceptsToProcessManually.length > 0) {
         for (const op of manualOpsFiltered) {
@@ -1104,7 +1264,14 @@ export async function generateClientSettlement(criteria: {
         'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
         'Servicio logístico Congelación (4 Días)', // Child
         'Servicio de Manipulación', // Child
+        'OPERACIÓN DESCARGUE/TONELADAS',
+        'OPERACIÓN CARGUE/TONELADAS',
+        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+        'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
+        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
+        'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
         'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+        'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA',
         'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
         'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
         'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
