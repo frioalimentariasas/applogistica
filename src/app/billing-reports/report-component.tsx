@@ -168,7 +168,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const { toast } = useToast();
     const uploadFormRef = useRef<HTMLFormElement>(null);
     const today = new Date();
+    const tomorrow = addDays(today, 1);
     const sixtyTwoDaysAgo = subDays(today, 62);
+    
     
     // State for detailed operation report
     const [detailedReportDateRange, setDetailedReportDateRange] = useState<DateRange | undefined>(undefined);
@@ -2624,7 +2626,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 } else {
                                                     setSettlementDateRange(range);
                                                 }
-                                            }} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} /></PopoverContent>
+                                            }} numberOfMonths={2} locale={es} disabled={{ after: tomorrow, before: sixtyTwoDaysAgo }} /></PopoverContent>
                                         </Popover>
                                     </div>
                                     <div className="space-y-2">
@@ -2981,6 +2983,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 
