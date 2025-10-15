@@ -248,9 +248,18 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
     });
 
-    const watchedConcept = form.watch('concept');
-    
+    const { setValue, watch } = form;
+    const watchedConcept = watch('concept');
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
+    
+    useEffect(() => {
+        if (watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)') {
+            setValue('details.opLogistica', 'DESCARGUE');
+        } else if (watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)') {
+            setValue('details.opLogistica', 'CARGUE');
+        }
+    }, [watchedConcept, setValue]);
+
     
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || watchedConcept === 'SERVICIO APOYO JORNAL';
     const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
@@ -1358,7 +1367,13 @@ function ConceptFormBody(props: any) {
                       <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
                           <FormItem>
                               <FormLabel>Op. Logística <span className="text-destructive">*</span></FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una opción" /></SelectTrigger></FormControl><SelectContent><SelectItem value="CARGUE">CARGUE</SelectItem><SelectItem value="DESCARGUE">DESCARGUE</SelectItem></SelectContent></Select>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}>
+                                  <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una opción" /></SelectTrigger></FormControl>
+                                  <SelectContent>
+                                      <SelectItem value="CARGUE">CARGUE</SelectItem>
+                                      <SelectItem value="DESCARGUE">DESCARGUE</SelectItem>
+                                  </SelectContent>
+                              </Select>
                               <FormMessage />
                           </FormItem>
                       )} />
