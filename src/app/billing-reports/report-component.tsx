@@ -1229,7 +1229,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
-        ];
+    ];
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
             const titleRow = ws.getRow(2);
@@ -1257,7 +1257,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación de Servicios Clientes');
-        
         const summaryColumns = [
             { header: 'Item', key: 'item', width: 10 },
             { header: 'Concepto', key: 'concept', width: 50 },
@@ -1482,7 +1481,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        const fileName = `Liquidacion_de_Servicios_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `FA-GFC-F13_Liquidacion_de_Servicios_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         link.download = fileName;
         link.click();
     };
@@ -1539,8 +1538,41 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
             return currentY + 10;
         };
-    
+
+        const addInfoBox = (docInstance: jsPDF, pageNumber: number) => {
+            if (pageNumber > 0) { // Only draw on subsequent pages if needed, or adjust logic
+                // The main `addHeader` will draw it on the first page
+            }
+            const tableWidth = 55;
+            const startX = pageWidth - margin - tableWidth;
+        
+            autoTable(docInstance, {
+                startY: 10,
+                margin: { left: startX },
+                tableWidth: tableWidth,
+                body: [
+                    [{ content: 'CÓDIGO:', styles: { fontStyle: 'bold' } }, 'FA-GFC-F13'],
+                    [{ content: 'VERSIÓN:', styles: { fontStyle: 'bold' } }, '01'],
+                    [{ content: 'FECHA:', styles: { fontStyle: 'bold' } }, '15/10/2025'],
+                ],
+                theme: 'grid',
+                styles: {
+                    fontSize: 7,
+                    cellPadding: 1.5,
+                    fillColor: [248, 249, 250], // Very light grey
+                    textColor: '#000000',
+                    lineColor: '#cccccc',
+                    lineWidth: 0.1,
+                },
+                columnStyles: {
+                    0: { cellWidth: 25, fontStyle: 'bold' },
+                    1: { cellWidth: 'auto' },
+                },
+            });
+        };
+
         let lastY = addHeader(doc, "Resumen Liquidación de Servicios Clientes");
+        addInfoBox(doc, 1);
     
         const summaryByConcept = visibleRows.reduce((acc, row) => {
              let conceptName: string;
@@ -1609,6 +1641,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
             didDrawPage: (data) => {
+                addInfoBox(doc, data.pageNumber);
                 const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
                 if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
                      const containerNumbers = [...new Set(
@@ -1631,6 +1664,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         doc.addPage();
         lastY = addHeader(doc, "Detalle Liquidación de Servicios Clientes");
+        addInfoBox(doc, (doc as any).internal.getNumberOfPages());
+
 
         const groupedByConcept = visibleRows.reduce((acc, row) => {
             const conceptKey = row.conceptName;
@@ -1686,10 +1721,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             headStyles: { fillColor: [26, 144, 200], fontSize: 6, cellPadding: 1 },
             styles: { fontSize: 6, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
-            footStyles: { fontStyle: 'bold' }
+            footStyles: { fontStyle: 'bold' },
+            didDrawPage: (data) => addInfoBox(doc, data.pageNumber)
         });
     
-        const fileName = `Liquidacion_de_Servicios_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `FA-GFC-F13_Liquidacion_de_Servicios_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
 
@@ -2983,6 +3019,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 

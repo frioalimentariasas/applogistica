@@ -1362,7 +1362,7 @@ function ConceptFormBody(props: any) {
                   </>
                 )}
               
-                {isFmmZfpc && (
+                {isFmmZfpc &&  (
                   <>
                       <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
                           <FormItem>
