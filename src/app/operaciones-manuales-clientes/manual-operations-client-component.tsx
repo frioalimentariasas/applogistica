@@ -100,7 +100,7 @@ const manualOperationSchema = z.object({
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isFmmZfpc = data.concept === 'FMM DE INGRESO ZFPC (MANUAL)' || data.concept === 'FMM DE SALIDA ZFPC (MANUAL)';
-    const isArinZfpc = data.concept === 'ARIN DE INGRESO ZFPC (MANUAL)' || data.concept === 'ARIN DE SALIDA ZFPC (MANUAL)';
+    const isArinZfpc = data.concept === 'ARIN DE INGRESO ZFPC (MANUAL)' || data.concept === 'ARIN DE SALIDA ZFPC (MANUAL)' || data.concept === 'ARIN DE INGRESO ZFPC (NACIONALIZADO)' || data.concept === 'ARIN DE SALIDA ZFPC (NACIONALIZADO)';
     const isInspeccionZfpc = data.concept === 'INSPECCIÓN ZFPC';
 
     if (isBulkMode) {
@@ -266,7 +266,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isFmmZfpc = watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)';
-    const isArinZfpc = watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE SALIDA ZFPC (MANUAL)';
+    const isArinZfpc = watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'ARIN DE INGRESO ZFPC (NACIONALIZADO)' || watchedConcept === 'ARIN DE SALIDA ZFPC (NACIONALIZADO)';
     const isInspeccionZfpc = watchedConcept === 'INSPECCIÓN ZFPC';
     const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
@@ -283,7 +283,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     
     useEffect(() => {
         if (isArinZfpc) {
-            const opLogistica = watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' ? 'DESCARGUE' : 'CARGUE';
+            const opLogistica = (watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE INGRESO ZFPC (NACIONALIZADO)') ? 'DESCARGUE' : 'CARGUE';
             form.setValue('details.opLogistica', opLogistica);
         }
     }, [watchedConcept, isArinZfpc, form]);

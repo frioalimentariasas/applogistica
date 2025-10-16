@@ -295,14 +295,14 @@ const calculateUnitsForOperation = (
   
   const clientName = formData.cliente || formData.nombreCliente;
   const isFrutelli = clientName === 'GRUPO FRUTELLI SAS';
+  const isDispatch = formType?.includes('despacho');
 
   if (formType?.startsWith('fixed-weight')) {
       return items.reduce((sum: number, p: any) => {
           const quantity = Number(p.cajas) || 0;
-          if (isFrutelli) {
+          if (!isDispatch || isFrutelli) {
               return sum + quantity;
           }
-          // For other clients, only count if it's picking
           const paletasPicking = Number(p.paletasPicking) || 0;
           if (paletasPicking > 0) {
               return sum + quantity;
@@ -316,7 +316,7 @@ const calculateUnitsForOperation = (
       if (isSummary) {
           return items.reduce((sum: number, i: any) => {
               const quantity = Number(i.totalCantidad) || 0;
-              if (isFrutelli) {
+              if (!isDispatch || isFrutelli) {
                   return sum + quantity;
               }
               const paletasPicking = Number(i.paletasPicking) || 0;
@@ -329,7 +329,7 @@ const calculateUnitsForOperation = (
       // Detailed variable weight
       return items.reduce((sum: number, i: any) => {
           const quantity = Number(i.cantidadPorPaleta) || 0;
-          if (isFrutelli) {
+          if (!isDispatch || isFrutelli) {
               return sum + quantity;
           }
           if (i.esPicking === true) {
@@ -1186,7 +1186,7 @@ export async function generateClientSettlement(criteria: {
                         ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
                         : 'No Aplica';
                 } else if (opData.concept.includes('ARIN')) {
-                    const opLogisticaValue = opData.concept === 'ARIN DE INGRESO ZFPC (MANUAL)' ? 'DESCARGUE' : 'CARGUE';
+                    const opLogisticaValue = opData.concept.includes('INGRESO') ? 'DESCARGUE' : 'CARGUE';
                     operacionLogistica = opLogisticaValue || 'No Aplica';
                 }
 
@@ -1377,4 +1377,5 @@ const minutesToTime = (minutes: number): string => {
 
 
   
+
 
