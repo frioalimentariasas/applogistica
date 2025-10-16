@@ -446,6 +446,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Placa Vehículo', key: 'placa', width: 15 },
             { header: 'No. Contenedor', key: 'contenedor', width: 18 },
             { header: 'Cliente', key: 'cliente', width: 30 },
+            { header: 'Tipo Formato', key: 'tipoFormato', width: 15 },
             { header: 'Tipo Operación', key: 'tipoOperacion', width: 15 },
             { header: 'Tipo Pedido', key: 'tipoPedido', width: 15 },
             { header: 'Cámara Almacenamiento', key: 'camara', width: 20 },
@@ -479,6 +480,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 placa: row.placa,
                 contenedor: row.contenedor,
                 cliente: row.cliente,
+                tipoFormato: row.tipoFormato,
                 tipoOperacion: row.tipoOperacion,
                 tipoPedido: row.tipoPedido,
                 camara: getSessionName(row.sesion),
@@ -535,7 +537,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
 
         const head = [[
-            'Fecha', 'Op. Logística', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Cámara', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)', 'Observaciones'
+            'Fecha', 'Op. Logística', 'Duración', 'Cliente', 'Tipo Formato', 'Tipo Op.', 'Tipo Pedido', 'Cámara', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)', 'Observaciones'
         ]];
         
         const body = detailedReportData.map(row => [
@@ -543,6 +545,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             row.operacionLogistica,
             formatDuration(row.duracionMinutos),
             row.cliente,
+            row.tipoFormato,
             row.tipoOperacion,
             row.tipoPedido,
             getSessionName(row.sesion),
@@ -560,7 +563,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             [
                 { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
                 { content: formatDuration(totalDuration) }, 
-                { content: '', colSpan: 10},
+                { content: '', colSpan: 11},
                 { content: totalGeneralPesoKg.toFixed(2), styles: {fontStyle: 'bold'} },
                 { content: ''}
             ]
@@ -581,7 +584,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                  1: { cellWidth: 20 }, // Op. Log.
                  2: { cellWidth: 20 }, // Duración
                  3: { cellWidth: 'auto' }, // Cliente
-                 14: { cellWidth: 35 }, // Observaciones column
+                 15: { cellWidth: 35 }, // Observaciones column
             }
         });
 
@@ -1481,7 +1484,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        const fileName = `FA-GFC-F13_Liquidacion_de_Servicios_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         link.download = fileName;
         link.click();
     };
@@ -1518,6 +1521,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     ];
     
         const addHeader = (docInstance: jsPDF, pageTitle: string) => {
+            addInfoBox(docInstance);
             const logoWidth = 30;
             const aspectRatio = logoDimensions!.width / logoDimensions!.height;
             const logoHeight = logoWidth / aspectRatio;
@@ -1539,10 +1543,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return currentY + 10;
         };
 
-        const addInfoBox = (docInstance: jsPDF, pageNumber: number) => {
-            if (pageNumber > 0) { // Only draw on subsequent pages if needed, or adjust logic
-                // The main `addHeader` will draw it on the first page
-            }
+        const addInfoBox = (docInstance: jsPDF) => {
             const tableWidth = 55;
             const startX = pageWidth - margin - tableWidth;
         
@@ -1559,7 +1560,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 styles: {
                     fontSize: 7,
                     cellPadding: 1.5,
-                    fillColor: [248, 249, 250], // Very light grey
+                    fillColor: [232, 232, 232],
                     textColor: '#000000',
                     lineColor: '#cccccc',
                     lineWidth: 0.1,
@@ -1572,7 +1573,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         };
 
         let lastY = addHeader(doc, "Resumen Liquidación de Servicios Clientes");
-        addInfoBox(doc, 1);
     
         const summaryByConcept = visibleRows.reduce((acc, row) => {
              let conceptName: string;
@@ -1641,7 +1641,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
             didDrawPage: (data) => {
-                addInfoBox(doc, data.pageNumber);
+                addHeader(doc, "Resumen Liquidación de Servicios Clientes");
                 const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
                 if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
                      const containerNumbers = [...new Set(
@@ -1664,7 +1664,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         doc.addPage();
         lastY = addHeader(doc, "Detalle Liquidación de Servicios Clientes");
-        addInfoBox(doc, (doc as any).internal.getNumberOfPages());
 
 
         const groupedByConcept = visibleRows.reduce((acc, row) => {
@@ -1722,10 +1721,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             styles: { fontSize: 6, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
-            didDrawPage: (data) => addInfoBox(doc, data.pageNumber)
+            didDrawPage: (data) => addHeader(doc, "Detalle Liquidación de Servicios Clientes")
         });
     
-        const fileName = `FA-GFC-F13_Liquidacion_de_Servicios_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
 
@@ -2014,6 +2013,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Placa Vehículo</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">No. Contenedor</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Tipo Formato</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Tipo Operación</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Tipo Pedido</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Cámara Almacenamiento</TableHead>
@@ -2029,7 +2029,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </TableHeader>
                                         <TableBody>
                                             {isDetailedReportLoading ? (
-                                                <TableRow><TableCell colSpan={19}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={20}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                             ) : detailedReportData.length > 0 ? (
                                                 detailedReportData.map((row) => (
                                                     <TableRow key={row.id}>
@@ -2041,6 +2041,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         <TableCell>{row.placa}</TableCell>
                                                         <TableCell>{row.contenedor}</TableCell>
                                                         <TableCell>{row.cliente}</TableCell>
+                                                        <TableCell>{row.tipoFormato}</TableCell>
                                                         <TableCell>{row.tipoOperacion}</TableCell>
                                                         <TableCell>{row.tipoPedido}</TableCell>
                                                         <TableCell>{getSessionName(row.sesion)}</TableCell>
@@ -3019,10 +3020,3 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
-
-
-
-
-
-
-

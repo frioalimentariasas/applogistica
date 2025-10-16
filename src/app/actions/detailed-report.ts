@@ -145,6 +145,7 @@ export interface DetailedReportRow {
     totalCantidad: number;
     totalPaletas: number;
     totalPesoKg: number;
+    tipoFormato: string;
     tipoOperacion: string;
     pedidoSislog: string;
     operacionLogistica: string;
@@ -323,6 +324,13 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
                 tipoOperacion = 'Despacho';
             }
 
+            let tipoFormato = 'N/A';
+            if (formType.includes('fixed-weight')) {
+                tipoFormato = 'Peso Fijo';
+            } else if (formType.includes('variable-weight')) {
+                tipoFormato = 'Peso Variable';
+            }
+
             const operacionLogistica = getOperationLogisticsType(formData.fecha, formData.horaInicio, formData.horaFin);
             const duracionMinutos = calculateDuration(formData.horaInicio, formData.horaFin);
             
@@ -370,6 +378,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
                 totalCantidad,
                 totalPaletas,
                 totalPesoKg,
+                tipoFormato,
                 tipoOperacion,
                 pedidoSislog: formData.pedidoSislog || 'N/A',
                 operacionLogistica,
