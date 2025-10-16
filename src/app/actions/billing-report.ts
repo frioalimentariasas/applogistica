@@ -109,8 +109,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
             if (!clientName) return; // Skip if no client name
 
-            if (clientName === 'GRUPO FRUTELLI SAS' && (submission.formType === 'variable-weight-recepcion' || submission.formType === 'variable-weight-reception')) {
-                return; // Exclude GRUPO FRUTELLI SAS variable weight receptions
+            if (
+              (clientName === 'GRUPO FRUTELLI SAS' || clientName === 'FABRIALIMENTOS SAS') &&
+              (submission.formType === 'variable-weight-recepcion' || submission.formType === 'variable-weight-reception')
+            ) {
+              return; // Exclude variable weight receptions for specified clients
             }
             
             const formIsoDate = submission.formData.fecha;
@@ -290,5 +293,3 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         throw new Error('No se pudo generar el reporte de facturación.');
     }
 }
-
-    
