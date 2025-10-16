@@ -86,8 +86,14 @@ export async function addManualClientOperation(data: ManualClientOperationData):
     try {
         const { details, operationDate, startDate, endDate, numeroPersonas, ...restOfData } = data;
         
-        // FMM Duplication check
-        if (details?.fmmNumber) {
+        const fmmConcepts = [
+            'FMM DE INGRESO ZFPC (MANUAL)', 
+            'FMM DE SALIDA ZFPC (MANUAL)',
+            'FMM DE INGRESO ZFPC (NACIONALIZADO)',
+            'FMM DE SALIDA ZFPC (NACIONALIZADO)'
+        ];
+        
+        if (fmmConcepts.includes(data.concept) && details?.fmmNumber) {
             const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber);
             if (isDuplicate) {
                 return { success: false, message: `El # FMM "${details.fmmNumber}" ya fue registrado.` };
@@ -303,7 +309,14 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         const { details, operationDate, startDate, endDate, createdBy, ...restOfData } = data;
         let finalSpecificTariffs: { tariffId: string; quantity: number, role?: string, numPersonas?: number }[] = [];
         
-        if (details?.fmmNumber) {
+        const fmmConcepts = [
+            'FMM DE INGRESO ZFPC (MANUAL)', 
+            'FMM DE SALIDA ZFPC (MANUAL)',
+            'FMM DE INGRESO ZFPC (NACIONALIZADO)',
+            'FMM DE SALIDA ZFPC (NACIONALIZADO)'
+        ];
+
+        if (fmmConcepts.includes(data.concept) && details?.fmmNumber) {
             const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber, id);
             if (isDuplicate) {
                 return { success: false, message: `El # FMM "${details.fmmNumber}" ya existe en otro registro.` };
