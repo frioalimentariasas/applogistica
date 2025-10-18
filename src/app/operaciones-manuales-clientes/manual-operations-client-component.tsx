@@ -99,7 +99,7 @@ const manualOperationSchema = z.object({
     const isTimeExtraMode = data.concept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
-    const isFmmZfpc = data.concept === 'FMM DE INGRESO ZFPC (MANUAL)' || data.concept === 'FMM DE SALIDA ZFPC (MANUAL)';
+    const isFmmZfpc = data.concept === 'FMM DE INGRESO ZFPC (MANUAL)' || data.concept === 'FMM DE SALIDA ZFPC (MANUAL)' || data.concept === 'FMM DE INGRESO ZFPC (NACIONALIZADO)' || data.concept === 'FMM DE SALIDA ZFPC (NACIONALIZADO)';
     const isArinZfpc = data.concept === 'ARIN DE INGRESO ZFPC (MANUAL)' || data.concept === 'ARIN DE SALIDA ZFPC (MANUAL)' || data.concept === 'ARIN DE INGRESO ZFPC (NACIONALIZADO)' || data.concept === 'ARIN DE SALIDA ZFPC (NACIONALIZADO)';
     const isInspeccionZfpc = data.concept === 'INSPECCIÓN ZFPC';
 
@@ -237,7 +237,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 container: '',
                 totalPallets: null,
                 arin: '',
-                opLogistica: undefined,
+                opLogistica: '',
                 fmmNumber: '',
                 pedidoSislog: '',
                 noDocumento: '',
@@ -253,9 +253,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
     useEffect(() => {
-        if (watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)') {
+        if (watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || 'FMM DE INGRESO (NACIONALIZADO') {
             setValue('details.opLogistica', 'DESCARGUE');
-        } else if (watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)') {
+        } else if (watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || 'FMM DE SALIDA (NACIONALIZADO)') {
             setValue('details.opLogistica', 'CARGUE');
         }
     }, [watchedConcept, setValue]);
@@ -265,7 +265,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
-    const isFmmZfpc = watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)';
+    const isFmmZfpc = watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'FMM DE INGRESO ZFPC (NACIONALIZADO)' || watchedConcept === 'FMM DE SALIDA ZFPC (NACIONALIZADO)';
     const isArinZfpc = watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'ARIN DE INGRESO ZFPC (NACIONALIZADO)' || watchedConcept === 'ARIN DE SALIDA ZFPC (NACIONALIZADO)';
     const isInspeccionZfpc = watchedConcept === 'INSPECCIÓN ZFPC';
     const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
@@ -434,7 +434,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 specificTariffs: [],
                 numeroPersonas: 1,
                 comentarios: "",
-                details: { startTime: '', endTime: '', plate: '', container: '', totalPallets: null, arin: '', opLogistica: undefined, fmmNumber: '', pedidoSislog: '', noDocumento: '' },
+                details: { 
+                startTime: '', 
+                endTime: '', 
+                plate: '', 
+                container: '', 
+                totalPallets: null, 
+                arin: '', 
+                opLogistica: '', 
+                fmmNumber: '', 
+                pedidoSislog: '', 
+                noDocumento: '' },
                 bulkRoles: [],
                 excedentes: [],
                 selectedDates: [],
@@ -1335,48 +1345,50 @@ function ConceptFormBody(props: any) {
                     <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(isElectricConnection || isArinZfpc || isInspeccionZfpc) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
               )}
               
-              {(isInspeccionZfpc || isArinZfpc) && (
+              {/* Condición para mostrar # ARIN */}
+            {(isInspeccionZfpc || isArinZfpc) && (
+                <FormField
+                control={form.control}
+                name="details.arin"
+            render={({ field }) => (
+            <FormItem>
+                <FormLabel># ARIN <span className="text-destructive">*</span></FormLabel>
+                <FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
+                <FormMessage />
+            </FormItem>
+        )}    
+    />
+)}
+        {/* Condición SOLO para mostrar # FMM */}
+        {isInspeccionZfpc && (
+            <FormField
+            control={form.control}
+        name="details.fmmNumber"
+        render={({ field }) => (
+            <FormItem>
+                <FormLabel># FMM <span className="text-destructive">*</span></FormLabel>
+                <FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
+                <FormMessage />
+            </FormItem>
+        )}
+    />
+)}
+
+                {(isFmmZfpc || isArinZfpc)  &&  (
                   <>
-                      <FormField
-                          control={form.control}
-                          name="details.arin"
-                          render={({ field }) => (
-                              <FormItem>
-                                  <FormLabel># ARIN <span className="text-destructive">*</span></FormLabel>
-                                  <FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
-                                  <FormMessage />
-                              </FormItem>
-                          )}    
-                      />
-                      <FormField
-                          control={form.control}
-                          name="details.fmmNumber"
-                          render={({ field }) => (
-                              <FormItem>
-                                  <FormLabel># FMM {isInspeccionZfpc && <span className="text-destructive">*</span>}</FormLabel>
-                                  <FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
-                                  <FormMessage />
-                              </FormItem>
-                          )}
-                      />
-                  </>
-                )}
-              
-                {isFmmZfpc &&  (
-                  <>
-                      <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Op. Logística <span className="text-destructive">*</span></FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}>
-                                  <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una opción" /></SelectTrigger></FormControl>
-                                  <SelectContent>
-                                      <SelectItem value="CARGUE">CARGUE</SelectItem>
-                                      <SelectItem value="DESCARGUE">DESCARGUE</SelectItem>
-                                  </SelectContent>
-                              </Select>
-                              <FormMessage />
-                          </FormItem>
-                      )} />
+                <FormField
+                        control={form.control}
+                    name="details.opLogistica"
+                        render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Op. Logística</FormLabel>
+                <FormControl>
+                <Input {...field} disabled />
+            </FormControl>
+            <FormMessage />
+        </FormItem>
+    )}
+/>
                       <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                   </>
               )}

@@ -53,14 +53,30 @@ export interface ManualClientOperationData {
     selectedDates?: string[]; // For multi-date selection
 }
 
-async function isFmmNumberDuplicate(fmmNumber: string, currentOperationId?: string): Promise<boolean> {
+async function isFmmNumberDuplicate(fmmNumber: string, concept: string, currentOperationId?: string): Promise<boolean> {
     if (!firestore) throw new Error("Firestore no está inicializado.");
     if (!fmmNumber) return false;
+
+    // Define los conceptos que requieren validación de FMM único
+    const fmmConcepts = [
+        'FMM DE INGRESO ZFPC (MANUAL)', 
+        'FMM DE SALIDA ZFPC (MANUAL)',
+        'FMM DE INGRESO ZFPC (NACIONALIZADO)',
+        'FMM DE SALIDA ZFPC (NACIONALIZADO)'
+    ];
+
+    // Si el concepto actual no es uno de los que se deben validar, no es un duplicado.
+    if (!fmmConcepts.includes(concept)) {
+        return false;
+    }
 
     const trimmedFmm = fmmNumber.trim();
     if (!trimmedFmm) return false;
 
-    let query: admin.firestore.Query = firestore.collection('manual_client_operations').where('details.fmmNumber', '==', trimmedFmm);
+    // Añade el filtro por concepto a la consulta
+    let query: admin.firestore.Query = firestore.collection('manual_client_operations')
+        .where('details.fmmNumber', '==', trimmedFmm)
+        .where('concept', 'in', fmmConcepts);
     
     const querySnapshot = await query.get();
 
@@ -68,14 +84,15 @@ async function isFmmNumberDuplicate(fmmNumber: string, currentOperationId?: stri
         return false; // Not a duplicate
     }
     
-    // If we are editing, we need to make sure the found duplicate is not the document itself
+    // Si estamos editando, asegúrate que el duplicado encontrado no sea el mismo documento
     if (currentOperationId) {
         return querySnapshot.docs.some(doc => doc.id !== currentOperationId);
     }
     
-    // If we are adding (no currentId), any result is a duplicate
+    // Si estamos agregando, cualquier resultado es un duplicado
     return true;
 }
+
 
 
 export async function addManualClientOperation(data: ManualClientOperationData): Promise<{ success: boolean; message: string }> {
@@ -94,7 +111,7 @@ export async function addManualClientOperation(data: ManualClientOperationData):
         ];
         
         if (fmmConcepts.includes(data.concept) && details?.fmmNumber) {
-            const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber);
+            const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber, data.concept);
             if (isDuplicate) {
                 return { success: false, message: `El # FMM "${details.fmmNumber}" ya fue registrado.` };
             }
@@ -542,15 +559,24 @@ export async function uploadFmmOperations(
             for (let i = 0; i < fmmNumbersFromFile.length; i += 30) {
                 fmmChunks.push(fmmNumbersFromFile.slice(i, i + 30));
             }
-            
+            // 1. DEFINE LOS CONCEPTOS A VALIDAR
+            const fmmConcepts = [
+                'FMM DE INGRESO ZFPC (MANUAL)', 
+                'FMM DE SALIDA ZFPC (MANUAL)',
+                'FMM DE INGRESO ZFPC (NACIONALIZADO)',
+                'FMM DE SALIDA ZFPC (NACIONALIZADO)'
+            ];
             for (const chunk of fmmChunks) {
-                const querySnapshot = await firestore.collection('manual_client_operations').where('details.fmmNumber', 'in', chunk).get();
+                // 2. MODIFICA LA CONSULTA PARA USAR LOS CONCEPTOS
+                const querySnapshot = await firestore.collection('manual_client_operations')
+                    .where('details.fmmNumber', 'in', chunk)
+                    .where('concept', 'in', fmmConcepts) // <-- ESTA LÍNEA ES LA QUE AGREGAS
+                    .get();
                 querySnapshot.forEach(doc => {
                     existingFmms.add(String(doc.data().details.fmmNumber));
                 });
             }
         }
-        
         const createdBy = {
             uid: formData.get('userId') as string,
             displayName: formData.get('userDisplayName') as string,
@@ -567,7 +593,7 @@ export async function uploadFmmOperations(
             // Validation Checks
             if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
             if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
-            if (!concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser 'FMM DE INGRESO ZFPC (MANUAL)' o 'FMM DE SALIDA ZFPC (MANUAL)'.`); errorCount++; continue; }
+            if (!concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)', 'FMM DE INGRESO ZFPC (NACIONALIZADO)', 'FMM DE SALIDA ZFPC (NACIONALIZADO)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser 'FMM DE INGRESO ZFPC (MANUAL)' o 'FMM DE SALIDA ZFPC (MANUAL)' 0 'FMM DE INGRESO ZFPC (NACIONALIZADO)' O 'FMM DE SALIDA ZFPC (NACIONALIZADO)'.`); errorCount++; continue; }
             if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
             if (!opLogistica || !['CARGUE', 'DESCARGUE'].includes(opLogistica)) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida. Debe ser 'CARGUE' o 'DESCARGUE'.`); errorCount++; continue; }
             if (!fmmNumber) { errors.push(`Fila ${rowIndex}: Falta el # FMM.`); errorCount++; continue; }

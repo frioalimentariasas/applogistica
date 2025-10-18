@@ -1106,7 +1106,7 @@ export async function generateClientSettlement(criteria: {
                     const specificTariffInfo = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                     if (!specificTariffInfo) return; // Skip if tariff info not found
                     
-                    const numPersonas = appliedTariff.numPersonas || opData.numeroPersonas || 1;
+                    const numPersonas = appliedTariff.numPersonas || opData.numeroPersonas;
                     let quantityForCalc = appliedTariff.quantity || 0;
                     let totalValue = 0;
                     
