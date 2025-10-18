@@ -1181,14 +1181,22 @@ export async function generateClientSettlement(criteria: {
                 let numeroPersonasParaReporte: number | string | undefined = opData.numeroPersonas;
                 
                 let operacionLogistica = 'No Aplica';
+                let containerValue = opData.details?.container || 'No Aplica';
+                const noDocumento = opData.details?.noDocumento;
+            
                 if (opData.concept.includes('FMM')) {
                     operacionLogistica = opData.details?.opLogistica && opData.details?.fmmNumber
                         ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
                         : 'No Aplica';
+                    // containerValue mantiene el valor del contenedor
                 } else if (opData.concept.includes('ARIN')) {
                     const opLogisticaValue = opData.concept.includes('INGRESO') ? 'DESCARGUE' : 'CARGUE';
                     operacionLogistica = opLogisticaValue || 'No Aplica';
+                    containerValue = opData.details?.arin || 'No Aplica'; // ARIN usa el número ARIN
+                } else if (noDocumento) {
+                    containerValue = noDocumento; // Fallback para otros conceptos
                 }
+
 
                 if (concept.conceptName === 'INSPECCIÓN ZFPC') {
                     numeroPersonasParaReporte = opData.numeroPersonas;
@@ -1203,23 +1211,18 @@ export async function generateClientSettlement(criteria: {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
                  
-                 if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
-                    operacionLogistica = opData.comentarios || 'No Aplica';
-                    // Ensure numeroPersonas is not displayed for this concept
-                    numeroPersonasParaReporte = undefined;
+                const conceptsToHideNumeroPersonas = [
+                    'IN-HOUSE INSPECTOR ZFPC',
+                    'FMM DE INGRESO ZFPC (MANUAL)',
+                    'FMM DE SALIDA ZFPC (MANUAL)',
+                    'FMM DE INGRESO ZFPC (NACIONALIZADO)',
+                    'FMM DE SALIDA ZFPC (NACIONALIZADO)'
+                ];
+                
+                if (conceptsToHideNumeroPersonas.includes(concept.conceptName)) {
+                     operacionLogistica = opData.comentarios || 'No Aplica';
+                     numeroPersonasParaReporte = undefined;
                 }
-
-                if (concept.conceptName === 'FMM DE INGRESO ZFPC (MANUAL)' || concept.conceptName === 'FMM DE SALIDA ZFPC (MANUAL)') {
-                    operacionLogistica = opData.comentarios || 'No Aplica';
-                    // Ensure numeroPersonas is not displayed for this concept
-                    numeroPersonasParaReporte = undefined;
-                }
-                 
-                 const noDocumento = opData.details?.noDocumento;
-                 let containerValue = noDocumento || opData.details?.container || 'No Aplica';
-                 if (opData.concept.includes('ARIN')) {
-                    containerValue = opData.details?.arin || 'No Aplica';
-                 }
 
                  let horaInicio = opData.details?.startTime || 'N/A';
                  let horaFin = opData.details?.endTime || 'N/A';
@@ -1377,5 +1380,6 @@ const minutesToTime = (minutes: number): string => {
 
 
   
+
 
 
