@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -39,6 +40,7 @@ import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 const specificTariffEntrySchema = z.object({
@@ -236,7 +238,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 container: '',
                 totalPallets: null,
                 arin: '',
-                opLogistica: '',
+                opLogistica: undefined,
                 fmmNumber: '',
                 pedidoSislog: '',
                 noDocumento: '',
@@ -360,7 +362,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         fetchAllOperations();
     }, [fetchAllOperations]);
     
-    const handleSearch = useCallback((operations: any[]) => {
+    const handleSearch = useCallback(() => {
         if (!dateRange || !dateRange.from || !dateRange.to) {
             toast({
                 variant: 'destructive',
@@ -370,7 +372,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             return;
         }
 
-        let results = operations;
+        let results = allOperations;
 
         const start = startOfDay(dateRange.from);
         const end = endOfDay(dateRange.to);
@@ -398,7 +400,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 description: "No se encontraron operaciones con los filtros seleccionados."
             });
         }
-    }, [selectedClient, selectedConcept, dateRange, toast]);
+    }, [selectedClient, selectedConcept, dateRange, toast, allOperations]);
     
     const handleClearFilters = () => {
         setDateRange(undefined);
@@ -440,7 +442,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 container: '', 
                 totalPallets: null, 
                 arin: '', 
-                opLogistica: '', 
+                opLogistica: undefined, 
                 fmmNumber: '', 
                 pedidoSislog: '', 
                 noDocumento: '' },
@@ -530,7 +532,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             form.reset();
             const updatedOps = await fetchAllOperations();
             if (searched && dateRange) {
-                handleSearch(updatedOps);
+                handleSearch();
             }
     
         } catch(error) {
@@ -547,10 +549,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         const result = await deleteManualClientOperation(opToDelete.id);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            const updatedOps = await fetchAllOperations();
-             if (searched && dateRange) {
-                handleSearch(updatedOps);
-            }
+            await fetchAllOperations();
+            handleSearch();
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
@@ -767,7 +767,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{[...new Set(allOperations.map(op => op.concept))].sort((a,b) => a.localeCompare(b)).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div className="flex items-end gap-2 xl:col-span-2">
-                                <Button onClick={() => handleSearch(allOperations)} disabled={!dateRange || isLoading} className="w-full">
+                                <Button onClick={() => handleSearch()} disabled={!dateRange || isLoading} className="w-full">
                                     <Search className="mr-2 h-4 w-4" />
                                     Consultar
                                 </Button>
@@ -871,8 +871,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                            <AlertDialogDesc>Esta acción eliminará permanentemente la operación manual.</AlertDialogHeader>
-                        </AlertDialogFooter>
+                            <AlertDialogDesc>Esta acción eliminará permanentemente la operación manual.</AlertDialogDesc>
+                        </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className={cn(buttonVariants({ variant: 'destructive' }))}>
@@ -913,6 +913,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
+
 function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { billingConcepts: ClientBillingConcept[], selectedClient: string, onSelect: (conceptName: string) => void }) {
     const [search, setSearch] = useState('');
 
@@ -1409,3 +1410,5 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
+    
