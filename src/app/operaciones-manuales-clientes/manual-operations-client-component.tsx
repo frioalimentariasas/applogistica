@@ -482,12 +482,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     const simpleBulkData: SimpleBulkOperationData = {
                         ...commonPayload,
                         dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
-                        quantity: data.quantity!,
+                        quantity: data.concept === 'SERVICIO APOYO JORNAL' ? data.numeroPersonas || 0 : data.quantity!,
+                        ...(data.concept === 'SERVICIO APOYO JORNAL' && { numeroPersonas: data.numeroPersonas }),
                     };
-                    if (data.concept === 'SERVICIO APOYO JORNAL') {
-                        simpleBulkData.numeroPersonas = data.numeroPersonas;
-                        simpleBulkData.quantity = data.numeroPersonas || 0;
-                    }
                     result = await addBulkSimpleOperation(simpleBulkData);
                 }
                 if (!result.success) throw new Error(result.message);

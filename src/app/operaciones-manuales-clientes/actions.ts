@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -332,13 +333,10 @@ export async function addBulkSimpleOperation(data: SimpleBulkOperationData): Pro
                 ...restOfData,
                 operationDate: admin.firestore.Timestamp.fromDate(localDate),
                 createdAt: new Date().toISOString(),
+                // Verificamos si numeroPersonas existe en los datos recibidos antes de añadirlo
+                ...(data.numeroPersonas !== undefined && { numeroPersonas: data.numeroPersonas }),
             };
             
-            // Conditionally add numeroPersonas if it exists
-            if (data.numeroPersonas !== undefined) {
-                operationData.numeroPersonas = data.numeroPersonas;
-            }
-
             batch.set(docRef, operationData);
             operationsCount++;
         }
