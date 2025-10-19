@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -11,7 +10,7 @@ import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
 
-import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations, uploadInspeccionOperations } from './actions';
+import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations, uploadInspeccionOperations, uploadArinOperations } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData, ExcedentEntry } from './actions';
 import { useToast } from '@/hooks/use-toast';
@@ -218,7 +217,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState<{ message: string, errors: string[] } | null>(null);
     const [isUploadResultOpen, setIsUploadResultOpen] = useState(false);
-    const [uploadType, setUploadType] = useState<'FMM' | 'INSPECCION'>('FMM');
+    const [uploadType, setUploadType] = useState<'FMM' | 'INSPECCION' | 'ARIN'>('FMM');
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
@@ -253,9 +252,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
     useEffect(() => {
-        if (watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || 'FMM DE INGRESO (NACIONALIZADO') {
+        if (watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE INGRESO ZFPC (NACIONALIZADO)') {
             setValue('details.opLogistica', 'DESCARGUE');
-        } else if (watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || 'FMM DE SALIDA (NACIONALIZADO)') {
+        } else if (watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (NACIONALIZADO)') {
             setValue('details.opLogistica', 'CARGUE');
         }
     }, [watchedConcept, setValue]);
@@ -581,8 +580,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         let result;
         if (uploadType === 'FMM') {
             result = await uploadFmmOperations(formData);
-        } else {
+        } else if (uploadType === 'INSPECCION') {
             result = await uploadInspeccionOperations(formData);
+        } else { // ARIN
+             result = await uploadArinOperations(formData);
         }
         
         if (result.errorCount > 0) {
@@ -700,10 +701,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         <form id="upload-form" action={handleUploadAction} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="uploadType">Tipo de Carga</Label>
-                                <Select value={uploadType} onValueChange={(value: 'FMM' | 'INSPECCION') => setUploadType(value)}>
+                                <Select value={uploadType} onValueChange={(value: 'FMM' | 'INSPECCION' | 'ARIN') => setUploadType(value)}>
                                     <SelectTrigger><SelectValue/></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="FMM">Carga Masiva FMM</SelectItem>
+                                        <SelectItem value="ARIN">Carga Masiva ARIN</SelectItem>
                                         <SelectItem value="INSPECCION">Carga Masiva Inspección ZFPC</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -713,6 +715,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <AlertDescription>
                                     {uploadType === 'FMM' ? (
                                         "Columnas requeridas: Fecha, Cliente, Concepto, Cantidad, Contenedor, Op. Logística, # FMM, Placa."
+                                    ) : uploadType === 'ARIN' ? (
+                                        "Columnas requeridas: Fecha, Cliente, Concepto, Cantidad, Contenedor, Op. Logística, # ARIN, # FMM, Placa."
                                     ) : (
                                         "Columnas requeridas: Fecha, Cliente, Concepto, Contenedor, Arin, # FMM, Placa, Hora Inicio, Hora Final, # Personas."
                                     )}
@@ -867,8 +871,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                            <AlertDialogDesc>Esta acción eliminará permanentemente la operación manual.</AlertDialogDesc>
-                        </AlertDialogHeader>
+                            <AlertDialogDesc>Esta acción eliminará permanentemente la operación manual.</AlertDialogHeader>
+                        </AlertDialogFooter>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className={cn(buttonVariants({ variant: 'destructive' }))}>
@@ -1345,7 +1349,6 @@ function ConceptFormBody(props: any) {
                     <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(isElectricConnection || isArinZfpc || isInspeccionZfpc || isFmmZfpc) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
               )}
               
-              {/* Condición para mostrar # ARIN */}
             {(isInspeccionZfpc || isArinZfpc) && (
                 <FormField
                 control={form.control}
@@ -1359,8 +1362,7 @@ function ConceptFormBody(props: any) {
         )}    
     />
 )}
-        {/* Condición SOLO para mostrar # FMM */}
-        {isInspeccionZfpc && (
+        {(isInspeccionZfpc || isFmmZfpc) && (
             <FormField
             control={form.control}
         name="details.fmmNumber"
@@ -1389,7 +1391,6 @@ function ConceptFormBody(props: any) {
         </FormItem>
     )}
 />
-                      <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                   </>
               )}
               

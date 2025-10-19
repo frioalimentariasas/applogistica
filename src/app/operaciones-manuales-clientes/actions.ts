@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -93,6 +91,42 @@ async function isFmmNumberDuplicate(fmmNumber: string, concept: string, currentO
     return true;
 }
 
+async function isArinNumberDuplicate(arinNumber: string, concept: string, currentOperationId?: string): Promise<boolean> {
+    if (!firestore) throw new Error("Firestore no está inicializado.");
+    if (!arinNumber) return false;
+
+    const arinConcepts = [
+        'ARIN DE INGRESO ZFPC (MANUAL)',
+        'ARIN DE SALIDA ZFPC (MANUAL)',
+        'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
+        'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
+        'INSPECCIÓN ZFPC'
+    ];
+
+    if (!arinConcepts.includes(concept)) {
+        return false;
+    }
+
+    const trimmedArin = arinNumber.trim();
+    if (!trimmedArin) return false;
+
+    let query: admin.firestore.Query = firestore.collection('manual_client_operations')
+        .where('details.arin', '==', trimmedArin)
+        .where('concept', 'in', arinConcepts);
+    
+    const querySnapshot = await query.get();
+
+    if (querySnapshot.empty) {
+        return false;
+    }
+    
+    if (currentOperationId) {
+        return querySnapshot.docs.some(doc => doc.id !== currentOperationId);
+    }
+    
+    return true;
+}
+
 
 
 export async function addManualClientOperation(data: ManualClientOperationData): Promise<{ success: boolean; message: string }> {
@@ -103,17 +137,17 @@ export async function addManualClientOperation(data: ManualClientOperationData):
     try {
         const { details, operationDate, startDate, endDate, numeroPersonas, ...restOfData } = data;
         
-        const fmmConcepts = [
-            'FMM DE INGRESO ZFPC (MANUAL)', 
-            'FMM DE SALIDA ZFPC (MANUAL)',
-            'FMM DE INGRESO ZFPC (NACIONALIZADO)',
-            'FMM DE SALIDA ZFPC (NACIONALIZADO)'
-        ];
-        
-        if (fmmConcepts.includes(data.concept) && details?.fmmNumber) {
+        if (details?.fmmNumber) {
             const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber, data.concept);
             if (isDuplicate) {
-                return { success: false, message: `El # FMM "${details.fmmNumber}" ya fue registrado.` };
+                return { success: false, message: `El # FMM "${details.fmmNumber}" ya fue registrado en un concepto FMM.` };
+            }
+        }
+        
+        if (details?.arin) {
+            const isDuplicate = await isArinNumberDuplicate(details.arin, data.concept);
+            if (isDuplicate) {
+                return { success: false, message: `El # ARIN "${details.arin}" ya fue registrado en un concepto ARIN o de Inspección.` };
             }
         }
         
@@ -326,17 +360,17 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         const { details, operationDate, startDate, endDate, createdBy, ...restOfData } = data;
         let finalSpecificTariffs: { tariffId: string; quantity: number, role?: string, numPersonas?: number }[] = [];
         
-        const fmmConcepts = [
-            'FMM DE INGRESO ZFPC (MANUAL)', 
-            'FMM DE SALIDA ZFPC (MANUAL)',
-            'FMM DE INGRESO ZFPC (NACIONALIZADO)',
-            'FMM DE SALIDA ZFPC (NACIONALIZADO)'
-        ];
-
-        if (fmmConcepts.includes(data.concept) && details?.fmmNumber) {
-            const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber, id);
+        if (details?.fmmNumber) {
+            const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber, data.concept, id);
             if (isDuplicate) {
                 return { success: false, message: `El # FMM "${details.fmmNumber}" ya existe en otro registro.` };
+            }
+        }
+
+        if (details?.arin) {
+            const isDuplicate = await isArinNumberDuplicate(details.arin, data.concept, id);
+            if (isDuplicate) {
+                return { success: false, message: `El # ARIN "${details.arin}" ya existe en otro registro.` };
             }
         }
 
@@ -559,7 +593,6 @@ export async function uploadFmmOperations(
             for (let i = 0; i < fmmNumbersFromFile.length; i += 30) {
                 fmmChunks.push(fmmNumbersFromFile.slice(i, i + 30));
             }
-            // 1. DEFINE LOS CONCEPTOS A VALIDAR
             const fmmConcepts = [
                 'FMM DE INGRESO ZFPC (MANUAL)', 
                 'FMM DE SALIDA ZFPC (MANUAL)',
@@ -567,10 +600,9 @@ export async function uploadFmmOperations(
                 'FMM DE SALIDA ZFPC (NACIONALIZADO)'
             ];
             for (const chunk of fmmChunks) {
-                // 2. MODIFICA LA CONSULTA PARA USAR LOS CONCEPTOS
                 const querySnapshot = await firestore.collection('manual_client_operations')
                     .where('details.fmmNumber', 'in', chunk)
-                    .where('concept', 'in', fmmConcepts) // <-- ESTA LÍNEA ES LA QUE AGREGAS
+                    .where('concept', 'in', fmmConcepts)
                     .get();
                 querySnapshot.forEach(doc => {
                     existingFmms.add(String(doc.data().details.fmmNumber));
@@ -593,7 +625,7 @@ export async function uploadFmmOperations(
             // Validation Checks
             if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
             if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
-            if (!concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)', 'FMM DE INGRESO ZFPC (NACIONALIZADO)', 'FMM DE SALIDA ZFPC (NACIONALIZADO)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser 'FMM DE INGRESO ZFPC (MANUAL)' o 'FMM DE SALIDA ZFPC (MANUAL)' 0 'FMM DE INGRESO ZFPC (NACIONALIZADO)' O 'FMM DE SALIDA ZFPC (NACIONALIZADO)'.`); errorCount++; continue; }
+            if (!concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)', 'FMM DE INGRESO ZFPC (NACIONALIZADO)', 'FMM DE SALIDA ZFPC (NACIONALIZADO)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser un concepto de tipo FMM.`); errorCount++; continue; }
             if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
             if (!opLogistica || !['CARGUE', 'DESCARGUE'].includes(opLogistica)) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida. Debe ser 'CARGUE' o 'DESCARGUE'.`); errorCount++; continue; }
             if (!fmmNumber) { errors.push(`Fila ${rowIndex}: Falta el # FMM.`); errorCount++; continue; }
@@ -621,7 +653,6 @@ export async function uploadFmmOperations(
                 continue;
             }
 
-            // Adjust date to Colombia timezone (UTC-5)
             operationDate.setUTCHours(operationDate.getUTCHours() + 5);
 
             const docRef = firestore.collection('manual_client_operations').doc();
@@ -640,7 +671,7 @@ export async function uploadFmmOperations(
                 createdBy: createdBy,
             });
             createdCount++;
-            existingFmms.add(fmmNumber); // Add to set to prevent duplicates within the same file
+            existingFmms.add(fmmNumber);
         }
 
         if (createdCount > 0) {
@@ -851,4 +882,165 @@ export async function uploadInspeccionOperations(
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido al procesar el archivo.';
     return { success: false, message: errorMessage, createdCount: 0, errorCount: rows.length, errors: [errorMessage] };
   }
+}
+
+interface ArinRow {
+    Fecha: Date | string | number;
+    Cliente: string;
+    Concepto: 'ARIN DE INGRESO ZFPC (MANUAL)' | 'ARIN DE SALIDA ZFPC (MANUAL)';
+    Cantidad: number;
+    Contenedor: string;
+    'Op. Logística': 'CARGUE' | 'DESCARGUE';
+    '# ARIN': string;
+    '# FMM': string;
+    Placa: string;
+}
+
+export async function uploadArinOperations(
+  formData: FormData
+): Promise<{ success: boolean; message: string; createdCount: number, duplicateCount: number, errorCount: number, errors: string[] }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado.', createdCount: 0, duplicateCount: 0, errorCount: 0, errors: [] };
+    }
+
+    const file = formData.get('file') as File;
+    if (!file) {
+        return { success: false, message: 'No se encontró el archivo.', createdCount: 0, duplicateCount: 0, errorCount: 0, errors: [] };
+    }
+
+    let rows: Partial<ArinRow>[] = [];
+
+    try {
+        const buffer = await file.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.worksheets[0];
+
+        const headers = (worksheet.getRow(1).values as string[]).map(h => h ? String(h).trim() : '');
+        
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                const rowData: any = {};
+                row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                    const header = headers[colNumber];
+                    if (header) rowData[header] = cell.value;
+                });
+                rows.push(rowData);
+            }
+        });
+
+        if (rows.length === 0) throw new Error("El archivo está vacío.");
+        
+        let createdCount = 0;
+        let duplicateCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
+        const arinNumbersFromFile = rows.map(r => String(r['# ARIN'] || '').trim()).filter(Boolean);
+        const existingArins = new Set<string>();
+        if (arinNumbersFromFile.length > 0) {
+            const arinChunks = [];
+            for (let i = 0; i < arinNumbersFromFile.length; i += 30) {
+                arinChunks.push(arinNumbersFromFile.slice(i, i + 30));
+            }
+            const arinConcepts = [
+                'ARIN DE INGRESO ZFPC (MANUAL)',
+                'ARIN DE SALIDA ZFPC (MANUAL)',
+                'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
+                'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
+                'INSPECCIÓN ZFPC'
+            ];
+            for (const chunk of arinChunks) {
+                const querySnapshot = await firestore.collection('manual_client_operations')
+                    .where('details.arin', 'in', chunk)
+                    .where('concept', 'in', arinConcepts)
+                    .get();
+                querySnapshot.forEach(doc => {
+                    existingArins.add(String(doc.data().details.arin));
+                });
+            }
+        }
+        const createdBy = {
+            uid: formData.get('userId') as string,
+            displayName: formData.get('userDisplayName') as string,
+        };
+
+        const batch = firestore.batch();
+
+        for (const [index, row] of rows.entries()) {
+            const rowIndex = index + 2;
+            const arinNumber = String(row['# ARIN'] || '').trim();
+            const concepto = String(row.Concepto || '').trim().toUpperCase();
+            const opLogistica = String(row['Op. Logística'] || '').trim().toUpperCase() as 'CARGUE' | 'DESCARGUE';
+
+            // Validation Checks
+            if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
+            if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
+            if (!concepto || !['ARIN DE INGRESO ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC (NACIONALIZADO)', 'ARIN DE SALIDA ZFPC (NACIONALIZADO)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido.`); errorCount++; continue; }
+            if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
+            if (!opLogistica || !['CARGUE', 'DESCARGUE'].includes(opLogistica)) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida.`); errorCount++; continue; }
+            if (!arinNumber) { errors.push(`Fila ${rowIndex}: Falta el # ARIN.`); errorCount++; continue; }
+
+            if (existingArins.has(arinNumber)) {
+                duplicateCount++;
+                continue;
+            }
+
+            let operationDate: Date;
+            if (row.Fecha instanceof Date) {
+                operationDate = row.Fecha;
+            } else if (typeof row.Fecha === 'number') {
+                const excelDate = new Date(Math.round((row.Fecha - 25569) * 86400 * 1000));
+                excelDate.setMinutes(excelDate.getMinutes() + excelDate.getTimezoneOffset());
+                operationDate = excelDate;
+            } else if (typeof row.Fecha === 'string') {
+                operationDate = parse(row.Fecha, 'dd-MM-yyyy', new Date());
+                 if (isNaN(operationDate.getTime())) {
+                    operationDate = parse(row.Fecha, 'd/M/yyyy', new Date());
+                }
+            } else {
+                errors.push(`Fila ${rowIndex}: Formato de fecha no reconocido.`);
+                errorCount++;
+                continue;
+            }
+
+            operationDate.setUTCHours(operationDate.getUTCHours() + 5);
+
+            const docRef = firestore.collection('manual_client_operations').doc();
+            batch.set(docRef, {
+                clientName: row.Cliente,
+                concept: concepto,
+                operationDate: admin.firestore.Timestamp.fromDate(operationDate),
+                quantity: Number(row.Cantidad),
+                details: {
+                    container: row.Contenedor || '',
+                    opLogistica: opLogistica,
+                    arin: arinNumber,
+                    fmmNumber: String(row['# FMM'] || ''),
+                    plate: row.Placa || ''
+                },
+                createdAt: new Date().toISOString(),
+                createdBy: createdBy,
+            });
+            createdCount++;
+            existingArins.add(arinNumber);
+        }
+
+        if (createdCount > 0) {
+            await batch.commit();
+        }
+        
+        revalidatePath('/operaciones-manuales-clientes');
+        revalidatePath('/billing-reports');
+
+        let message = `Se crearon ${createdCount} registros ARIN.`;
+        if (duplicateCount > 0) message += ` Se omitieron ${duplicateCount} por ser duplicados.`;
+        if (errorCount > 0) message += ` ${errorCount} filas tuvieron errores y no se cargaron.`;
+
+        return { success: errorCount === 0, message, createdCount, duplicateCount, errorCount, errors };
+    } catch (error) {
+        console.error('Error al cargar operaciones ARIN:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido.';
+        return { success: false, message: errorMessage, createdCount: 0, duplicateCount: 0, errorCount: rows.length, errors: [errorMessage] };
+    }
 }
