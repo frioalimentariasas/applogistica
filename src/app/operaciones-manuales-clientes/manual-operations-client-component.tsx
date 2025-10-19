@@ -231,18 +231,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             specificTariffs: [],
             numeroPersonas: 1,
             comentarios: "",
-            details: {
-                startTime: '',
-                endTime: '',
-                plate: '',
-                container: '',
-                totalPallets: null,
-                arin: '',
-                opLogistica: undefined,
-                fmmNumber: '',
-                pedidoSislog: '',
-                noDocumento: '',
-            },
+            details: { 
+                startTime: '', 
+                endTime: '', 
+                plate: '', 
+                container: '', 
+                totalPallets: null, 
+                arin: '', 
+                opLogistica: undefined, 
+                fmmNumber: '', 
+                pedidoSislog: '', 
+                noDocumento: '' },
             bulkRoles: [],
             excedentes: [],
             selectedDates: [],
@@ -480,11 +479,15 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     };
                     result = await addBulkManualClientOperation(bulkData);
                 } else { // isBulkRent or isServicioApoyo
-                    const simpleBulkData = {
+                    const simpleBulkData: SimpleBulkOperationData = {
                         ...commonPayload,
                         dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
                         quantity: data.quantity!,
                     };
+                    if (data.concept === 'SERVICIO APOYO JORNAL') {
+                        simpleBulkData.numeroPersonas = data.numeroPersonas;
+                        simpleBulkData.quantity = data.numeroPersonas || 0;
+                    }
                     result = await addBulkSimpleOperation(simpleBulkData);
                 }
                 if (!result.success) throw new Error(result.message);
@@ -549,14 +552,15 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         const result = await deleteManualClientOperation(opToDelete.id);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            await fetchAllOperations();
-            handleSearch();
+            // Actualiza el estado local para reflejar el cambio instantáneamente
+            setAllOperations(prev => prev.filter(op => op.id !== opToDelete.id));
+            setFilteredOperations(prev => prev.filter(op => op.id !== opToDelete.id));
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
         setOpToDelete(null);
         setIsDeleting(false);
-    };
+    };    
     
     const handleUploadAction = async (formData: FormData) => {
         if (!uploadType) {
@@ -660,7 +664,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
           form.setValue('quantity', roundedHours);
         } else if (isElectricConnection && calculatedElectricConnectionHours !== null) {
             form.setValue('quantity', calculatedElectricConnectionHours);
-        } else if (isInspeccionZfpc && calculatedDuration?.minutes !== undefined) {
+        } else if ((isInspeccionZfpc || watchedConcept === 'TIEMPO EXTRA ZFPC') && calculatedDuration?.minutes !== undefined) {
              const totalMinutes = calculatedDuration.minutes;
              const integerHours = Math.floor(totalMinutes / 60);
              const remainingMinutes = totalMinutes % 60;
@@ -1243,7 +1247,7 @@ function ConceptFormBody(props: any) {
           <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación (para búsqueda) <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
       ) : null}
 
-      {(isTimeExtraMode || isInspeccionZfpc) && calculatedDuration ? (
+      {(isTimeExtraMode || isInspeccionZfpc || watchedConcept === 'TIEMPO EXTRA ZFPC') && calculatedDuration ? (
             <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
               <Clock className="h-4 w-4 !text-sky-600" />
               <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
@@ -1410,5 +1414,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
-    

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -160,7 +161,8 @@ export async function addManualClientOperation(data: ManualClientOperationData):
             createdAt: new Date().toISOString(),
         };
 
-        if (numeroPersonas !== undefined) {
+        const conceptsWithNumeroPersonas = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS', 'SERVICIO APOYO JORNAL'];
+        if (conceptsWithNumeroPersonas.includes(data.concept) && numeroPersonas !== undefined) {
             operationWithTimestamp.numeroPersonas = numeroPersonas;
         }
 
@@ -303,6 +305,7 @@ export interface SimpleBulkOperationData {
     concept: string;
     dates: string[]; // Array of ISO date strings
     quantity: number;
+    numeroPersonas?: number;
     details?: any;
     comentarios?: string;
     createdBy: {
@@ -325,11 +328,17 @@ export async function addBulkSimpleOperation(data: SimpleBulkOperationData): Pro
             const localDate = new Date(dateString + 'T05:00:00.000Z');
             const docRef = firestore.collection('manual_client_operations').doc();
             
-            const operationData = {
+            const operationData: any = {
                 ...restOfData,
                 operationDate: admin.firestore.Timestamp.fromDate(localDate),
                 createdAt: new Date().toISOString(),
             };
+            
+            // Conditionally add numeroPersonas if it exists
+            if (data.numeroPersonas !== undefined) {
+                operationData.numeroPersonas = data.numeroPersonas;
+            }
+
             batch.set(docRef, operationData);
             operationsCount++;
         }
@@ -510,7 +519,7 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
 
 export async function deleteMultipleManualClientOperations(ids: string[]): Promise<{ success: boolean; message: string }> {
     if (!firestore) {
-        return { success: false, message: 'Error de configuración del servidor.' };
+        return { success: false, message: 'El servidor no está configurado correctamente.' };
     }
     if (!ids || ids.length === 0) {
         return { success: false, message: 'No se seleccionaron operaciones para eliminar.' };

@@ -1212,7 +1212,7 @@ export async function generateClientSettlement(criteria: {
                 } else {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
-                 
+                //Conceptos Que no queremos que tenga # personas en Liquidación de Clientes 
                 const conceptsToHideNumeroPersonas = [
                     'IN-HOUSE INSPECTOR ZFPC',
                     'FMM DE INGRESO ZFPC (MANUAL)',
@@ -1222,9 +1222,16 @@ export async function generateClientSettlement(criteria: {
                     'ARIN DE INGRESO ZFPC (MANUAL)',
                     'ARIN DE SALIDA ZFPC (MANUAL)',
                     'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
-                    'ARIN DE SALIDA ZFPC (NACIONALIZADO)'
+                    'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
+                    'ALQUILER IMPRESORA ETIQUEDADO',
+                    'CONEXIÓN ELÉCTRICA CONTENEDOR',
+                    'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
+                    'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+                    'MOVIMIENTO SALIDA PRODUCTOS PALLET'
+            
                 ];
                 
+        
                 if (conceptsToHideNumeroPersonas.includes(concept.conceptName)) {
                      //operacionLogistica = opData.comentarios || 'No Aplica';
                      numeroPersonasParaReporte = undefined;
