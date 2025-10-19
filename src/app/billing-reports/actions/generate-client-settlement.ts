@@ -1190,9 +1190,11 @@ export async function generateClientSettlement(criteria: {
                         : 'No Aplica';
                     // containerValue mantiene el valor del contenedor
                 } else if (opData.concept.includes('ARIN')) {
-                    const opLogisticaValue = opData.concept.includes('INGRESO') ? 'DESCARGUE' : 'CARGUE';
-                    operacionLogistica = opLogisticaValue || 'No Aplica';
-                    containerValue = opData.details?.arin || 'No Aplica'; // ARIN usa el número ARIN
+                    operacionLogistica = opData.details?.opLogistica && opData.details?.arin
+                    ? `${opData.details.opLogistica} - #${opData.details?.arin}`
+                    : 'No Aplica';   
+
+                    containerValue = opData.details?.container || 'No Aplica'; // ARIN usa el número ARIN
                 } else if (noDocumento) {
                     containerValue = noDocumento; // Fallback para otros conceptos
                 }
@@ -1216,11 +1218,15 @@ export async function generateClientSettlement(criteria: {
                     'FMM DE INGRESO ZFPC (MANUAL)',
                     'FMM DE SALIDA ZFPC (MANUAL)',
                     'FMM DE INGRESO ZFPC (NACIONALIZADO)',
-                    'FMM DE SALIDA ZFPC (NACIONALIZADO)'
+                    'FMM DE SALIDA ZFPC (NACIONALIZADO)',
+                    'ARIN DE INGRESO ZFPC (MANUAL)',
+                    'ARIN DE SALIDA ZFPC (MANUAL)',
+                    'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
+                    'ARIN DE SALIDA ZFPC (NACIONALIZADO)'
                 ];
                 
                 if (conceptsToHideNumeroPersonas.includes(concept.conceptName)) {
-                     operacionLogistica = opData.comentarios || 'No Aplica';
+                     //operacionLogistica = opData.comentarios || 'No Aplica';
                      numeroPersonasParaReporte = undefined;
                 }
 
@@ -1246,7 +1252,7 @@ export async function generateClientSettlement(criteria: {
                     operacionLogistica,
                     pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
                     conceptName: concept.conceptName,
-                    tipoVehiculo: opData.details?.plate || 'No Aplica',
+                    tipoVehiculo: 'No Aplica',
                     quantity: quantityForCalc,
                     unitOfMeasure: concept.unitOfMeasure,
                     unitValue: concept.value || 0,

@@ -1341,8 +1341,8 @@ function ConceptFormBody(props: any) {
                   </div>
               )}
 
-              {(showAdvancedFields || isElectricConnection || isArinZfpc || isInspeccionZfpc) && (
-                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(isElectricConnection || isArinZfpc || isInspeccionZfpc) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+              {(showAdvancedFields || isElectricConnection || isArinZfpc || isInspeccionZfpc || isFmmZfpc) && (
+                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(isElectricConnection || isArinZfpc || isInspeccionZfpc || isFmmZfpc) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
               )}
               
               {/* Condición para mostrar # ARIN */}
