@@ -10,7 +10,7 @@ import { es } from 'date-fns/locale';
 import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
-import { getSmylLotAssistantReport, type AssistantReport, getSmylEligibleLots, type EligibleLot, GraceFilter, toggleLotStatus } from './actions';
+import { getSmylLotAssistantReport, type AssistantReport, getSmylEligibleLots, type EligibleLot, GraceFilter, LotStatusFilter, toggleLotStatus } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -49,6 +49,7 @@ export function SmylLiquidationAssistantComponent() {
     const [isLoadingLots, setIsLoadingLots] = useState(false);
     const [lotFinderSearch, setLotFinderSearch] = useState('');
     const [graceFilter, setGraceFilter] = useState<GraceFilter>('all');
+    const [statusFilter, setStatusFilter] = useState<LotStatusFilter>('pendiente');
     const [selectedLotsInDialog, setSelectedLotsInDialog] = useState<Set<string>>(new Set());
     const [togglingLotId, setTogglingLotId] = useState<string | null>(null);
 
@@ -60,20 +61,25 @@ export function SmylLiquidationAssistantComponent() {
       }
       setIsLoadingLots(true);
       try {
-        const lots = await getSmylEligibleLots(format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'), graceFilter);
+        const lots = await getSmylEligibleLots(
+          format(dateRange.from, 'yyyy-MM-dd'),
+          format(dateRange.to, 'yyyy-MM-dd'),
+          graceFilter,
+          statusFilter
+        );
         setEligibleLots(lots);
       } catch (e) {
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los lotes elegibles.' });
       } finally {
         setIsLoadingLots(false);
       }
-    }, [dateRange, graceFilter, toast]);
+    }, [dateRange, graceFilter, statusFilter, toast]);
 
     useEffect(() => {
         if (isLotFinderOpen) {
             fetchEligibleLots();
         }
-    }, [isLotFinderOpen, graceFilter, fetchEligibleLots]);
+    }, [isLotFinderOpen, graceFilter, statusFilter, fetchEligibleLots]);
 
     const handleOpenLotFinder = () => {
         if (!dateRange?.from || !dateRange?.to) {
@@ -100,6 +106,7 @@ export function SmylLiquidationAssistantComponent() {
             lot.lotId === lotId ? { ...lot, status: result.newStatus } : lot
           )
         );
+        fetchEligibleLots();
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
@@ -151,7 +158,7 @@ export function SmylLiquidationAssistantComponent() {
         
         setReportData(results);
         if (!hasError && results.length === 0) {
-            setError(`No se encontró un lote que cumpla los criterios.`);
+            setError(`No se encontró un lote que cumpla los criterios con el ID '${lotIds}'.`);
         }
 
         setIsLoading(false);
@@ -313,32 +320,24 @@ export function SmylLiquidationAssistantComponent() {
                     errorMessage={indexErrorMessage}
                 />
                  <Dialog open={isLotFinderOpen} onOpenChange={setIsLotFinderOpen}>
-                    <DialogContent className="sm:max-w-2xl">
+                    <DialogContent className="sm:max-w-3xl">
                         <DialogHeader>
                             <DialogTitle>Buscar Lotes Elegibles de SMYL</DialogTitle>
                             <DialogDescription>
                                 Se muestran los lotes que tienen saldo dentro del rango de fechas seleccionado.
                             </DialogDescription>
                         </DialogHeader>
-                         <div className="flex items-center justify-between my-4">
-                            <RadioGroup value={graceFilter} onValueChange={(value: GraceFilter) => setGraceFilter(value)} className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="all" id="r-all" />
-                                    <Label htmlFor="r-all">Todos</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="in_grace" id="r-in_grace" />
-                                    <Label htmlFor="r-in_grace">En Gracia</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="post_grace" id="r-post_grace" />
-                                    <Label htmlFor="r-post_grace">Post-Gracia</Label>
-                                </div>
+                        <div className="flex flex-col sm:flex-row items-center justify-between my-4 gap-4">
+                            <RadioGroup value={graceFilter} onValueChange={(value: GraceFilter) => setGraceFilter(value)} className="flex items-center space-x-2 sm:space-x-4">
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="all" id="r-all" /><Label htmlFor="r-all">Todos</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="in_grace" id="r-in_grace" /><Label htmlFor="r-in_grace">En Gracia</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="post_grace" id="r-post_grace" /><Label htmlFor="r-post_grace">Post-Gracia</Label></div>
                             </RadioGroup>
-                            <Button variant="secondary" size="sm" onClick={fetchEligibleLots} disabled={isLoadingLots}>
-                                <RefreshCw className={cn("mr-2 h-4 w-4", isLoadingLots && "animate-spin")} />
-                                Refrescar
-                            </Button>
+                             <RadioGroup value={statusFilter} onValueChange={(value: LotStatusFilter) => setStatusFilter(value)} className="flex items-center space-x-2 sm:space-x-4">
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="pendiente" id="s-pendiente" /><Label htmlFor="s-pendiente">Pendientes</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="liquidado" id="s-liquidado" /><Label htmlFor="s-liquidado">Liquidados</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="all" id="s-all" /><Label htmlFor="s-all">Todos</Label></div>
+                            </RadioGroup>
                         </div>
                         <Input
                             placeholder="Filtrar por lote o pedido..."
@@ -430,3 +429,5 @@ export function SmylLiquidationAssistantComponent() {
         </div>
     );
 }
+
+    

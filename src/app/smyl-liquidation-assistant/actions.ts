@@ -233,6 +233,7 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
 }
 
 export type GraceFilter = "all" | "in_grace" | "post_grace";
+export type LotStatusFilter = "all" | "pendiente" | "liquidado";
 
 
 async function getLotStatuses(lotIds: string[]): Promise<Record<string, LotStatus>> {
@@ -257,7 +258,12 @@ async function getLotStatuses(lotIds: string[]): Promise<Record<string, LotStatu
   return lotStatusMap;
 }
 
-export async function getSmylEligibleLots(startDate: string, endDate: string, graceFilter: GraceFilter): Promise<EligibleLot[]> {
+export async function getSmylEligibleLots(
+  startDate: string,
+  endDate: string,
+  graceFilter: GraceFilter,
+  statusFilter: LotStatusFilter = 'pendiente'
+): Promise<EligibleLot[]> {
   if (!firestore) throw new Error("Firestore no está configurado.");
 
   const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
@@ -344,10 +350,10 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, gr
     }
 
     if (isEligible) {
-        finalLots.push({
-          ...lot,
-          status: lotStatuses[lot.lotId] || 'pendiente',
-        });
+      const status = lotStatuses[lot.lotId] || 'pendiente';
+      if (statusFilter === 'all' || statusFilter === status) {
+        finalLots.push({ ...lot, status });
+      }
     }
   }
 
@@ -380,4 +386,6 @@ export async function toggleLotStatus(lotId: string): Promise<{ success: boolean
     return { success: false, message: errorMessage };
   }
 }
+    
+
     
