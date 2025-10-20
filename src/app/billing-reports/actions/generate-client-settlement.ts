@@ -395,7 +395,10 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         return docClientName === clientName;
     });
     
-    let conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+    let conceptsForClient = allConcepts.filter(c => 
+        (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)')) &&
+        c.status === 'activo'
+    );
     
     for (const concept of conceptsForClient) {
         if (concept.calculationType === 'REGLAS') {
@@ -1397,3 +1400,6 @@ const minutesToTime = (minutes: number): string => {
 
 
 
+
+
+    
