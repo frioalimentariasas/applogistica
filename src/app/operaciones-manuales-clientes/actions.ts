@@ -357,6 +357,62 @@ export async function addBulkSimpleOperation(data: SimpleBulkOperationData): Pro
     }
 }
 
+export interface DailyLocationOperationData {
+  clientName: string;
+  concept: string;
+  dailyData: {
+    date: string; // YYYY-MM-DD
+    quantity: number;
+  }[];
+  createdBy: {
+    uid: string;
+    displayName: string;
+  };
+}
+
+export async function addDailyLocationOperation(data: DailyLocationOperationData): Promise<{ success: boolean; message: string; count: number }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado correctamente.', count: 0 };
+    }
+    
+    try {
+        const { clientName, concept, dailyData, createdBy } = data;
+        const batch = firestore.batch();
+        let operationsCount = 0;
+
+        for (const day of dailyData) {
+            if (day.quantity > 0) {
+                const docRef = firestore.collection('manual_client_operations').doc();
+                // Ensure date is treated as UTC to avoid timezone shifts
+                const operationDate = new Date(day.date + 'T05:00:00.000Z');
+                
+                batch.set(docRef, {
+                    clientName,
+                    concept,
+                    operationDate: admin.firestore.Timestamp.fromDate(operationDate),
+                    quantity: day.quantity,
+                    createdAt: new Date().toISOString(),
+                    createdBy,
+                });
+                operationsCount++;
+            }
+        }
+        
+        if (operationsCount > 0) {
+            await batch.commit();
+        }
+
+        revalidatePath('/billing-reports');
+        revalidatePath('/operaciones-manuales-clientes');
+        
+        return { success: true, message: `Se crearon ${operationsCount} registros con éxito.`, count: operationsCount };
+    } catch (error) {
+        console.error('Error al agregar operaciones de ubicación diaria:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}`, count: 0 };
+    }
+}
+
 
 export async function updateManualClientOperation(id: string, data: Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>): Promise<{ success: boolean; message: string }> {
     if (!firestore) {

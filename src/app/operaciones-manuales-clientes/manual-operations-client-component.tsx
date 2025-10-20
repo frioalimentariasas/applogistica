@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -11,7 +12,7 @@ import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
 
-import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations, uploadInspeccionOperations, uploadArinOperations } from './actions';
+import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations, uploadInspeccionOperations, uploadArinOperations, addDailyLocationOperation, type DailyLocationOperationData } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData, ExcedentEntry } from './actions';
 import { useToast } from '@/hooks/use-toast';
@@ -38,10 +39,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
+const dailyLocationSchema = z.object({
+  date: z.date(),
+  quantity: z.coerce.number().int().min(1, "Debe ser mayor a 0."),
+});
 
 const specificTariffEntrySchema = z.object({
     tariffId: z.string(),
@@ -70,6 +75,7 @@ const manualOperationSchema = z.object({
   operationDate: z.date({ required_error: 'La fecha es obligatoria.' }).optional(),
   
   selectedDates: z.array(z.date()).optional().default([]),
+  dailyLocations: z.array(dailyLocationSchema).optional(),
   bulkRoles: z.array(bulkRoleSchema).optional(),
   excedentes: z.array(excedentSchema).optional(),
 
@@ -100,16 +106,24 @@ const manualOperationSchema = z.object({
     const isTimeExtraMode = data.concept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
+    const isLocationMode = data.concept === 'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)';
     const isFmmZfpc = data.concept === 'FMM DE INGRESO ZFPC (MANUAL)' || data.concept === 'FMM DE SALIDA ZFPC (MANUAL)' || data.concept === 'FMM DE INGRESO ZFPC (NACIONALIZADO)' || data.concept === 'FMM DE SALIDA ZFPC (NACIONALIZADO)';
     const isArinZfpc = data.concept === 'ARIN DE INGRESO ZFPC (MANUAL)' || data.concept === 'ARIN DE SALIDA ZFPC (MANUAL)' || data.concept === 'ARIN DE INGRESO ZFPC (NACIONALIZADO)' || data.concept === 'ARIN DE SALIDA ZFPC (NACIONALIZADO)';
     const isInspeccionZfpc = data.concept === 'INSPECCIÓN ZFPC';
 
-    if (isBulkMode) {
+    if (isBulkMode || isLocationMode) {
       if (!data.selectedDates || data.selectedDates.length === 0) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar al menos una fecha.", path: ["selectedDates"] });
       }
       if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)' && (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0))) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
+      }
+      if (isLocationMode) {
+          if (!data.dailyLocations || data.dailyLocations.length === 0) {
+               ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar la cantidad para al menos una fecha.", path: ["dailyLocations"] });
+          } else if (data.dailyLocations.some(d => !d.quantity || d.quantity <= 0)) {
+               ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Todas las fechas seleccionadas deben tener una cantidad mayor a 0.", path: ["dailyLocations"] });
+          }
       }
     } else { // Not bulk mode
        if (!isElectricConnection && (!data.operationDate || isNaN(data.operationDate.getTime()))) {
@@ -198,6 +212,8 @@ interface ManualOperationsClientComponentProps {
 
 type DialogMode = 'add' | 'edit' | 'view';
 
+const LOCATION_STORAGE_CONCEPT_NAME = 'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)';
+
 export default function ManualOperationsClientComponent({ clients, billingConcepts }: ManualOperationsClientComponentProps) {
     const router = useRouter();
     const { toast } = useToast();
@@ -206,9 +222,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [filteredOperations, setFilteredOperations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searched, setSearched] = useState(false);
+    
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [selectedClient, setSelectedClient] = useState<string>('all');
     const [selectedConcept, setSelectedConcept] = useState<string>('all');
+
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<DialogMode>('add');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -245,6 +263,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             bulkRoles: [],
             excedentes: [],
             selectedDates: [],
+            dailyLocations: [],
         }
     });
 
@@ -265,6 +284,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
+    const isLocationMode = watchedConcept === LOCATION_STORAGE_CONCEPT_NAME;
     const isFmmZfpc = watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'FMM DE INGRESO ZFPC (NACIONALIZADO)' || watchedConcept === 'FMM DE SALIDA ZFPC (NACIONALIZADO)';
     const isArinZfpc = watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'ARIN DE INGRESO ZFPC (NACIONALIZADO)' || watchedConcept === 'ARIN DE SALIDA ZFPC (NACIONALIZADO)';
     const isInspeccionZfpc = watchedConcept === 'INSPECCIÓN ZFPC';
@@ -330,15 +350,16 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             form.setValue('specificTariffs', []);
         }
         
-        if (isBulkMode) {
+        if (isBulkMode || isLocationMode) {
             form.setValue('operationDate', undefined);
             if (!form.getValues('selectedDates')) form.setValue('selectedDates', []);
         } else {
             form.setValue('selectedDates', []);
             form.setValue('excedentes', []);
+            form.setValue('dailyLocations', []);
             if (!form.getValues('operationDate')) form.setValue('operationDate', new Date());
         }
-    }, [watchedConcept, selectedConceptInfo, form, isBulkMode]);
+    }, [watchedConcept, selectedConceptInfo, form, isBulkMode, isLocationMode]);
     
     const [indexErrorMessage, setIndexErrorMessage] = useState('');
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
@@ -459,72 +480,98 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     
         try {
             let result;
-            const isBulk = isBulkMode;
-            
-            const commonPayload = {
-                clientName: data.clientName,
-                concept: data.concept,
-                details: data.details,
-                comentarios: data.comentarios,
-                createdBy: { uid: user.uid, displayName: displayName || user.email! }
-            };
+            const isLocationStorage = data.concept === LOCATION_STORAGE_CONCEPT_NAME;
 
-            if (isBulk && data.selectedDates && data.selectedDates.length > 0) {
-                if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
-                    const bulkData = {
-                        ...commonPayload,
-                        dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
-                        roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
-                        excedentes: data.excedentes || [],
-                    };
-                    result = await addBulkManualClientOperation(bulkData);
-                } else { // isBulkRent or isServicioApoyo
-                    const simpleBulkData: SimpleBulkOperationData = {
-                        ...commonPayload,
-                        dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
-                        quantity: data.concept === 'SERVICIO APOYO JORNAL' ? data.numeroPersonas || 0 : data.quantity!,
-                        ...(data.concept === 'SERVICIO APOYO JORNAL' && { numeroPersonas: data.numeroPersonas }),
-                    };
-                    result = await addBulkSimpleOperation(simpleBulkData);
+            if (isLocationStorage) {
+                 const dailyData = (data.dailyLocations || [])
+                    .map(d => ({ date: format(d.date, 'yyyy-MM-dd'), quantity: d.quantity }))
+                    .filter(d => d.quantity > 0);
+                
+                if (dailyData.length === 0) {
+                    toast({ variant: "destructive", title: "Datos incompletos", description: "Debe ingresar una cantidad para al menos una fecha." });
+                    setIsSubmitting(false);
+                    return;
                 }
-                if (!result.success) throw new Error(result.message);
+
+                const payload: DailyLocationOperationData = {
+                    clientName: data.clientName,
+                    concept: data.concept,
+                    dailyData: dailyData,
+                    createdBy: { uid: user.uid, displayName: displayName || user.email! }
+                };
+
+                result = await addDailyLocationOperation(payload);
+                 if (!result.success) throw new Error(result.message);
 
             } else {
-                if(!isBulk && (!data.operationDate || isNaN(data.operationDate.getTime()))){
-                    throw new Error("La fecha de operación es inválida o no está definida.");
-                }
+                 const isBulk = isBulkMode;
 
-                const payload: ManualClientOperationData = {
-                    ...data,
-                    details: {
-                        ...data.details,
-                        fechaArribo: data.details?.fechaArribo ? data.details.fechaArribo.toISOString() : undefined,
-                        fechaSalida: data.details?.fechaSalida ? data.details.fechaSalida.toISOString() : undefined,
-                    }
+                const commonPayload = {
+                    clientName: data.clientName,
+                    concept: data.concept,
+                    details: data.details,
+                    comentarios: data.comentarios,
+                    createdBy: { uid: user.uid, displayName: displayName || user.email! }
                 };
-                
-                if (data.operationDate) {
-                    payload.operationDate = data.operationDate.toISOString();
+
+                if (isBulk && data.selectedDates && data.selectedDates.length > 0) {
+                    if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+                        const bulkData = {
+                            ...commonPayload,
+                            dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
+                            roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
+                            excedentes: data.excedentes || [],
+                        };
+                        result = await addBulkManualClientOperation(bulkData);
+                    } else { // isBulkRent or isServicioApoyo
+                        const simpleBulkData: SimpleBulkOperationData = {
+                            ...commonPayload,
+                            dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
+                            quantity: data.concept === 'SERVICIO APOYO JORNAL' ? data.numeroPersonas || 0 : data.quantity!,
+                            ...(data.concept === 'SERVICIO APOYO JORNAL' && { numeroPersonas: data.numeroPersonas }),
+                        };
+                        result = await addBulkSimpleOperation(simpleBulkData);
+                    }
+                    if (!result.success) throw new Error(result.message);
+
                 } else {
-                    delete payload.operationDate;
-                }
+                    if(!isBulk && (!data.operationDate || isNaN(data.operationDate.getTime()))){
+                        throw new Error("La fecha de operación es inválida o no está definida.");
+                    }
 
-                delete payload.selectedDates;
-                
-                if (data.concept !== 'TIEMPO EXTRA FRIOAL (FIJO)' && data.concept !== 'TIEMPO EXTRA FRIOAL') {
-                    delete payload.bulkRoles;
-                }
-                delete payload.excedentes;
-                
-                payload.createdBy = commonPayload.createdBy;
+                    const payload: ManualClientOperationData = {
+                        ...data,
+                        details: {
+                            ...data.details,
+                            fechaArribo: data.details?.fechaArribo ? data.details.fechaArribo.toISOString() : undefined,
+                            fechaSalida: data.details?.fechaSalida ? data.details.fechaSalida.toISOString() : undefined,
+                        }
+                    };
+                    
+                    if (data.operationDate) {
+                        payload.operationDate = data.operationDate.toISOString();
+                    } else {
+                        delete payload.operationDate;
+                    }
+
+                    delete payload.selectedDates;
+                    
+                    if (data.concept !== 'TIEMPO EXTRA FRIOAL (FIJO)' && data.concept !== 'TIEMPO EXTRA FRIOAL') {
+                        delete payload.bulkRoles;
+                    }
+                    delete payload.excedentes;
+                    delete (payload as any).dailyLocations; // Delete new field for other concepts
+                    
+                    payload.createdBy = commonPayload.createdBy;
 
 
-                if (dialogMode === 'edit' && opToManage) {
-                    result = await updateManualClientOperation(opToManage.id, payload);
-                } else {
-                    result = await addManualClientOperation(payload);
+                    if (dialogMode === 'edit' && opToManage) {
+                        result = await updateManualClientOperation(opToManage.id, payload);
+                    } else {
+                        result = await addManualClientOperation(payload);
+                    }
+                    if (!result.success) throw new Error(result.message);
                 }
-                if (!result.success) throw new Error(result.message);
             }
     
             toast({ title: 'Éxito', description: result.message });
@@ -852,7 +899,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} isInspeccionZfpc={isInspeccionZfpc} />
+                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} isInspeccionZfpc={isInspeccionZfpc} isLocationMode={isLocationMode}/>
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
@@ -1073,6 +1120,76 @@ function BulkRolesSection({ form, dialogMode, conceptName }: { form: any; dialog
   );
 }
 
+function DailyLocationManager() {
+    const { control, getValues, setValue } = useFormContext<ManualOperationValues>();
+    const { fields, replace } = useFieldArray({
+        control,
+        name: "dailyLocations"
+    });
+    const selectedDates = useWatch({ control, name: 'selectedDates' }) || [];
+
+    useEffect(() => {
+        const currentLocations = getValues('dailyLocations') || [];
+        const dateStrings = selectedDates.map(d => format(d, 'yyyy-MM-dd'));
+        
+        const newDailyData = dateStrings.map(dateStr => {
+            const existing = currentLocations.find(loc => format(loc.date, 'yyyy-MM-dd') === dateStr);
+            return existing || { date: new Date(dateStr + 'T05:00:00.000Z'), quantity: 1 };
+        }).sort((a, b) => a.date.getTime() - b.date.getTime());
+        
+        // This check avoids infinite re-renders by comparing string representations
+        if (JSON.stringify(newDailyData) !== JSON.stringify(currentLocations)) {
+            replace(newDailyData);
+        }
+    }, [selectedDates, getValues, setValue, replace]);
+
+    if (selectedDates.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="space-y-4">
+            <FormLabel className="text-base">Ubicaciones por Día</FormLabel>
+            <FormDescription>
+                Ingrese la cantidad de ubicaciones para cada fecha seleccionada.
+            </FormDescription>
+            <ScrollArea className="h-48 border rounded-md p-4">
+                <div className="space-y-4">
+                    {fields.map((field, index) => (
+                        <FormField
+                            key={field.id}
+                            control={control}
+                            name={`dailyLocations.${index}.quantity`}
+                            render={({ field: quantityField }) => (
+                                <FormItem>
+                                    <div className="flex items-center gap-4">
+                                        <Label htmlFor={`quantity-${index}`} className="w-40">
+                                            {format(field.date, 'd MMMM, yyyy', { locale: es })}
+                                        </Label>
+                                        <FormControl>
+                                            <Input
+                                                id={`quantity-${index}`}
+                                                type="number"
+                                                min="1"
+                                                step="1"
+                                                className="h-8"
+                                                {...quantityField}
+                                                onChange={e => quantityField.onChange(parseInt(e.target.value, 10))}
+                                            />
+                                        </FormControl>
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    ))}
+                </div>
+            </ScrollArea>
+        </div>
+    );
+}
+
+
 function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; selectedConceptInfo: ClientBillingConcept; dialogMode: string; }) {
     const { fields, replace } = useFieldArray({
         control: form.control,
@@ -1158,11 +1275,11 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
 }
 
 function ConceptFormBody(props: any) {
-  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmZfpc, isArinZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isInspeccionZfpc } = props;
+  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmZfpc, isArinZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isInspeccionZfpc, isLocationMode } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
   const showNumeroPersonas = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
-  const hideGeneralQuantityField = ['TIEMPO EXTRA FRIOAL (FIJO)', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
+  const hideGeneralQuantityField = ['TIEMPO EXTRA FRIOAL (FIJO)', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL', LOCATION_STORAGE_CONCEPT_NAME].includes(watchedConcept);
   const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
   
   return (
@@ -1207,7 +1324,7 @@ function ConceptFormBody(props: any) {
           )}
       />
 
-      {isBulkMode ? (
+      {isBulkMode || isLocationMode ? (
           <FormField
             control={form.control}
             name="selectedDates"
@@ -1269,6 +1386,8 @@ function ConceptFormBody(props: any) {
 
       {watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' && <ExcedentManager />}
       
+      {isLocationMode && <DailyLocationManager />}
+
       {showAdvancedTariffs && selectedConceptInfo && selectedConceptInfo.tariffType === 'ESPECIFICA' && <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />}
       
       {!hideGeneralQuantityField && (
