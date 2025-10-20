@@ -110,6 +110,7 @@ const permissionGroups: {
       { key: 'canManageManualOperations', label: 'Registro de Op. Manuales Cuadrilla' },
       { key: 'canViewCrewPerformanceReport', label: 'Informe de Productividad y Liquidación' },
       { key: 'canManageStandards', label: 'Gestión de Estándares' },
+      { key: 'canViewSpecialReports', label: 'Reportes Especiales' },
     ]
   },
   {
@@ -577,18 +578,21 @@ export default function SessionManagementComponent() {
 
                                         return (
                                             <AccordionItem value={group.groupLabel} key={group.groupKey}>
-                                                <AccordionTrigger className="font-semibold text-base py-2">
-                                                    <div className="flex items-center gap-2">
+                                                <div className="flex items-center rounded-md hover:bg-muted/90 data-[state=open]:bg-muted">
+                                                    <div className="p-4 py-3">
                                                         <Checkbox
                                                             id={`group-${group.groupKey}`}
                                                             checked={allChildrenChecked ? true : someChildrenChecked ? 'indeterminate' : false}
                                                             onCheckedChange={(checked) => handleGroupPermissionChange(group.groupKey, group.permissions, checked)}
-                                                            onClick={(e) => e.stopPropagation()}
                                                         />
+                                                    </div>
+                                                    <AccordionTrigger className="font-semibold text-base py-3 pr-4 hover:no-underline">
+                                                      <div className="flex items-center gap-2">
                                                         <group.icon className="h-5 w-5 mr-2" />
                                                         {group.groupLabel}
-                                                    </div>
-                                                </AccordionTrigger>
+                                                      </div>
+                                                    </AccordionTrigger>
+                                                </div>
                                                 <AccordionContent className="pl-8 space-y-3 pt-2">
                                                      {group.permissions.map(({ key, label }) => (
                                                         <div key={key} className="flex flex-row items-center justify-between">
