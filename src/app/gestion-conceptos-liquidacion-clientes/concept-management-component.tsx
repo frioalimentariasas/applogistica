@@ -18,7 +18,6 @@ import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
 import type { StandardObservation } from '@/app/gestion-observaciones/actions';
 import type { PedidoType } from '@/app/gestion-tipos-pedido/actions';
-
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -402,19 +401,21 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                 <DialogTrigger asChild>
                                     <Button><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Concepto</Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-4xl">
+                                <DialogContent className="max-w-4xl flex flex-col max-h-[90vh]">
                                     <Form {...addForm}>
                                         <form onSubmit={addForm.handleSubmit(onAddSubmit)}>
                                             <DialogHeader>
                                                 <DialogTitle>Nuevo Concepto de Liquidación</DialogTitle>
                                                 <DialogDescription>Cree una regla de cobro para un servicio.</DialogDescription>
                                             </DialogHeader>
-                                            <ScrollArea className="max-h-[70vh] p-1">
-                                                <div className="p-4">
-                                                    <ConceptFormBody form={addForm} clientOptions={clientOptions} standardObservations={standardObservations} pedidoTypes={pedidoTypes} isEditMode={false} />
-                                                </div>
-                                            </ScrollArea>
-                                            <DialogFooter>
+                                            <div className="flex-grow overflow-hidden">
+                                                <ScrollArea className="h-[calc(80vh-120px)] p-1">
+                                                    <div className="p-4">
+                                                        <ConceptFormBody form={addForm} clientOptions={clientOptions} standardObservations={standardObservations} pedidoTypes={pedidoTypes} isEditMode={false} />
+                                                    </div>
+                                                </ScrollArea>
+                                            </div>
+                                            <DialogFooter className="flex-shrink-0">
                                                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
                                                 <Button type="submit" disabled={isSubmitting}>
                                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}Guardar Concepto
@@ -521,24 +522,26 @@ export default function ConceptManagementClientComponent({ initialClients, initi
       </div>
       
       <Dialog open={!!conceptToEdit} onOpenChange={(isOpen) => { if (!isOpen) setConceptToEdit(null) }}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl flex flex-col max-h-[90vh]">
             <Form {...editForm}>
                 <form onSubmit={editForm.handleSubmit(onEditSubmit)}>
                     <DialogHeader>
                         <DialogTitle>Editar Concepto de Liquidación</DialogTitle>
                     </DialogHeader>
-                    <ScrollArea className="max-h-[70vh] p-1">
-                        <div className="p-4">
-                            <ConceptFormBody
-                            form={editForm}
-                            clientOptions={clientOptions}
-                            standardObservations={standardObservations}
-                            pedidoTypes={pedidoTypes}
-                            isEditMode={true}
-                            />
-                        </div>
-                    </ScrollArea>
-                    <DialogFooter>
+                    <div className="flex-grow overflow-hidden">
+                        <ScrollArea className="h-[calc(80vh-120px)] p-1">
+                            <div className="p-4">
+                                <ConceptFormBody
+                                form={editForm}
+                                clientOptions={clientOptions}
+                                standardObservations={standardObservations}
+                                pedidoTypes={pedidoTypes}
+                                isEditMode={true}
+                                />
+                            </div>
+                        </ScrollArea>
+                    </div>
+                    <DialogFooter className="flex-shrink-0">
                         <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
                         <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
                     </DialogFooter>
