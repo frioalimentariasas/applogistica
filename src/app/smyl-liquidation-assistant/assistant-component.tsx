@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -6,10 +7,10 @@ import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { format, addDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
-import { getSmylLotAssistantReport, type AssistantReport, getSmylEligibleLots, type EligibleLot, GraceFilter } from './actions';
+import { getSmylLotAssistantReport, type AssistantReport, getSmylEligibleLots, type EligibleLot, GraceFilter, toggleLotStatus } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -49,32 +50,62 @@ export function SmylLiquidationAssistantComponent() {
     const [lotFinderSearch, setLotFinderSearch] = useState('');
     const [graceFilter, setGraceFilter] = useState<GraceFilter>('all');
     const [selectedLotsInDialog, setSelectedLotsInDialog] = useState<Set<string>>(new Set());
+    const [togglingLotId, setTogglingLotId] = useState<string | null>(null);
 
-    const handleOpenLotFinder = async () => {
+
+    const fetchEligibleLots = useCallback(async () => {
+      if (!dateRange?.from || !dateRange?.to) {
+        setEligibleLots([]);
+        return;
+      }
+      setIsLoadingLots(true);
+      try {
+        const lots = await getSmylEligibleLots(format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'), graceFilter);
+        setEligibleLots(lots);
+      } catch (e) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los lotes elegibles.' });
+      } finally {
+        setIsLoadingLots(false);
+      }
+    }, [dateRange, graceFilter, toast]);
+
+    useEffect(() => {
+        if (isLotFinderOpen) {
+            fetchEligibleLots();
+        }
+    }, [isLotFinderOpen, graceFilter, fetchEligibleLots]);
+
+    const handleOpenLotFinder = () => {
         if (!dateRange?.from || !dateRange?.to) {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un rango de fechas primero.' });
             return;
         }
-        setIsLoadingLots(true);
+        const currentLotIds = lotIds.split(/[\s,]+/).filter(Boolean);
+        setSelectedLotsInDialog(new Set(currentLotIds));
         setIsLotFinderOpen(true);
-        try {
-            const lots = await getSmylEligibleLots(format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'), graceFilter);
-            setEligibleLots(lots);
-            
-            const currentLotIds = lotIds.split(/[\s,]+/).filter(Boolean);
-            setSelectedLotsInDialog(new Set(currentLotIds));
-
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los lotes elegibles.' });
-        } finally {
-            setIsLoadingLots(false);
-        }
     };
     
     const handleConfirmLotSelection = () => {
       setLotIds(Array.from(selectedLotsInDialog).join(', '));
       setIsLotFinderOpen(false);
     };
+
+    const handleToggleStatus = async (lotId: string) => {
+      setTogglingLotId(lotId);
+      const result = await toggleLotStatus(lotId);
+      if (result.success) {
+        toast({ title: 'Éxito', description: result.message });
+        setEligibleLots(prevLots => 
+          prevLots.map(lot => 
+            lot.lotId === lotId ? { ...lot, status: result.newStatus } : lot
+          )
+        );
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
+      }
+      setTogglingLotId(null);
+    };
+
 
     const handleSearch = async () => {
         const lotIdArray = lotIds.split(/[\s,]+/).filter(Boolean);
@@ -289,20 +320,26 @@ export function SmylLiquidationAssistantComponent() {
                                 Se muestran los lotes que tienen saldo dentro del rango de fechas seleccionado.
                             </DialogDescription>
                         </DialogHeader>
-                        <RadioGroup value={graceFilter} onValueChange={(value: GraceFilter) => setGraceFilter(value)} className="flex items-center space-x-4 my-4">
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="all" id="r-all" />
-                                <Label htmlFor="r-all">Todos</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="in_grace" id="r-in_grace" />
-                                <Label htmlFor="r-in_grace">En Gracia</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="post_grace" id="r-post_grace" />
-                                <Label htmlFor="r-post_grace">Post-Gracia</Label>
-                            </div>
-                        </RadioGroup>
+                         <div className="flex items-center justify-between my-4">
+                            <RadioGroup value={graceFilter} onValueChange={(value: GraceFilter) => setGraceFilter(value)} className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="all" id="r-all" />
+                                    <Label htmlFor="r-all">Todos</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="in_grace" id="r-in_grace" />
+                                    <Label htmlFor="r-in_grace">En Gracia</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="post_grace" id="r-post_grace" />
+                                    <Label htmlFor="r-post_grace">Post-Gracia</Label>
+                                </div>
+                            </RadioGroup>
+                            <Button variant="secondary" size="sm" onClick={fetchEligibleLots} disabled={isLoadingLots}>
+                                <RefreshCw className={cn("mr-2 h-4 w-4", isLoadingLots && "animate-spin")} />
+                                Refrescar
+                            </Button>
+                        </div>
                         <Input
                             placeholder="Filtrar por lote o pedido..."
                             value={lotFinderSearch}
@@ -333,6 +370,8 @@ export function SmylLiquidationAssistantComponent() {
                                             <TableHead>Lote</TableHead>
                                             <TableHead>Fecha Recepción</TableHead>
                                             <TableHead>Pedido SISLOG</TableHead>
+                                            <TableHead className="text-center">Estado</TableHead>
+                                            <TableHead className="text-right">Acción</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -355,6 +394,24 @@ export function SmylLiquidationAssistantComponent() {
                                                 <TableCell className="font-mono">{lot.lotId}</TableCell>
                                                 <TableCell>{format(parseISO(lot.receptionDate), "dd/MM/yyyy")}</TableCell>
                                                 <TableCell>{lot.pedidoSislog}</TableCell>
+                                                <TableCell className="text-center">
+                                                    <Badge variant={lot.status === 'liquidado' ? 'default' : 'outline'} className={cn(
+                                                        lot.status === 'liquidado' && 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200',
+                                                        lot.status === 'pendiente' && 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200'
+                                                    )}>
+                                                        {lot.status === 'liquidado' ? 'Liquidado' : 'Pendiente'}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm"
+                                                        onClick={() => handleToggleStatus(lot.lotId)}
+                                                        disabled={togglingLotId === lot.lotId}
+                                                    >
+                                                        {togglingLotId === lot.lotId ? <Loader2 className="h-4 w-4 animate-spin"/> : lot.status === 'liquidado' ? <Clock className="h-4 w-4"/> : <CheckCircle className="h-4 w-4"/>}
+                                                    </Button>
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -362,10 +419,6 @@ export function SmylLiquidationAssistantComponent() {
                             )}
                         </ScrollArea>
                         <DialogFooter>
-                             <Button variant="secondary" onClick={handleOpenLotFinder} disabled={isLoadingLots}>
-                                <RefreshCw className={cn("mr-2 h-4 w-4", isLoadingLots && "animate-spin")} />
-                                Refrescar
-                            </Button>
                             <Button variant="outline" onClick={() => setIsLotFinderOpen(false)}>Cancelar</Button>
                              <Button onClick={handleConfirmLotSelection}>
                                 Confirmar Selección ({selectedLotsInDialog.size})

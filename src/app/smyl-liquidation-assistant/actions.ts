@@ -39,10 +39,13 @@ export interface AssistantReport {
     dailyBalances: DailyBalance[];
 }
 
+export type LotStatus = 'liquidado' | 'pendiente';
+
 export interface EligibleLot {
     lotId: string;
     receptionDate: string;
     pedidoSislog: string;
+    status?: LotStatus;
 }
 
 
@@ -231,6 +234,29 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
 
 export type GraceFilter = "all" | "in_grace" | "post_grace";
 
+
+async function getLotStatuses(lotIds: string[]): Promise<Record<string, LotStatus>> {
+  if (!firestore || lotIds.length === 0) return {};
+
+  const lotStatusMap: Record<string, LotStatus> = {};
+  const statusCollection = firestore.collection('smyl_lot_status');
+
+  // Firestore 'in' queries are limited to 30 elements
+  const chunks: string[][] = [];
+  for (let i = 0; i < lotIds.length; i += 30) {
+    chunks.push(lotIds.slice(i, i + 30));
+  }
+
+  for (const chunk of chunks) {
+    const querySnapshot = await statusCollection.where(admin.firestore.FieldPath.documentId(), 'in', chunk).get();
+    querySnapshot.forEach(doc => {
+      lotStatusMap[doc.id] = doc.data().status as LotStatus;
+    });
+  }
+
+  return lotStatusMap;
+}
+
 export async function getSmylEligibleLots(startDate: string, endDate: string, graceFilter: GraceFilter): Promise<EligibleLot[]> {
   if (!firestore) throw new Error("Firestore no está configurado.");
 
@@ -267,6 +293,11 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, gr
   });
 
   const finalLots: EligibleLot[] = [];
+  const lotIds = Array.from(allPossibleLots.keys());
+
+  if (lotIds.length === 0) return [];
+  
+  const lotStatuses = await getLotStatuses(lotIds);
 
   for (const lot of allPossibleLots.values()) {
     const history = await getLotHistory(lot.lotId);
@@ -276,7 +307,6 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, gr
     let currentBalance = initialReception.pallets;
     let isEligible = false;
 
-    // Iterate from the lot's reception date up to the query's end date
     const loopEndDate = addDays(queryEnd, 1);
     const dateInterval = eachDayOfInterval({ start: startOfDay(initialReception.date), end: loopEndDate });
 
@@ -295,7 +325,6 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, gr
 
         currentBalance = initialBalanceForDay - despachosHoy + ingresosHoy;
         
-        // Check for eligibility based on the selected filter
         if (date >= queryStart && date <= queryEnd && currentBalance > 0) {
             const isGracePeriod = dayIndex < 4;
 
@@ -315,10 +344,40 @@ export async function getSmylEligibleLots(startDate: string, endDate: string, gr
     }
 
     if (isEligible) {
-        finalLots.push(lot);
+        finalLots.push({
+          ...lot,
+          status: lotStatuses[lot.lotId] || 'pendiente',
+        });
     }
   }
 
   return finalLots.sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
+}
+
+export async function toggleLotStatus(lotId: string): Promise<{ success: boolean; newStatus?: LotStatus, message: string }> {
+  if (!firestore) {
+    return { success: false, message: 'El servidor no está configurado.' };
+  }
+
+  try {
+    const docRef = firestore.collection('smyl_lot_status').doc(lotId);
+    const doc = await docRef.get();
+    
+    let currentStatus: LotStatus = 'pendiente';
+    if (doc.exists) {
+      currentStatus = doc.data()?.status || 'pendiente';
+    }
+
+    const newStatus: LotStatus = currentStatus === 'pendiente' ? 'liquidado' : 'pendiente';
+
+    await docRef.set({ status: newStatus }, { merge: true });
+
+    return { success: true, newStatus: newStatus, message: `Estado del lote ${lotId} actualizado a ${newStatus}.` };
+
+  } catch (error) {
+    console.error(`Error toggling status for lot ${lotId}:`, error);
+    const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió.";
+    return { success: false, message: errorMessage };
+  }
 }
     
