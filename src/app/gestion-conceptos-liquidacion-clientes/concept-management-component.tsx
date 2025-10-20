@@ -180,7 +180,7 @@ const addFormDefaultValues: ConceptFormValues = {
   conceptName: '',
   clientNames: [],
   status: 'activo',
-  unitOfMeasure: undefined,
+  unitOfMeasure: 'KILOGRAMOS',
   calculationType: 'REGLAS',
   calculationBase: undefined,
   filterOperationType: 'ambos',
@@ -236,27 +236,43 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [togglingStatusId, setTogglingStatusId] = useState<string | null>(null);
+
   const addForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
     defaultValues: addFormDefaultValues,
   });
-  
-  const editForm = useForm<ConceptFormValues>({ resolver: zodResolver(conceptSchema) });
 
+  const editForm = useForm<ConceptFormValues>({
+    resolver: zodResolver(conceptSchema),
+  });
 
   const clientOptions: ClientInfo[] = useMemo(() => [
     { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
     ...initialClients
   ], [initialClients]);
   
+  const filteredConcepts = useMemo(() => {
+    return concepts.filter(c => {
+        const searchTermMatch = searchTerm === '' || c.conceptName.toLowerCase().includes(searchTerm.toLowerCase());
+        const clientMatch = clientFilter.length === 0 || c.clientNames.some(name => clientFilter.includes(name));
+        const calculationTypeMatch = calculationTypeFilter === 'all' || c.calculationType === calculationTypeFilter;
+        return searchTermMatch && clientMatch && calculationTypeMatch;
+    }).sort((a, b) => a.conceptName.localeCompare(b.conceptName));
+  }, [concepts, searchTerm, clientFilter, calculationTypeFilter]);
+  
   const onAddSubmit: SubmitHandler<ConceptFormValues> = async (data) => {
     setIsSubmitting(true);
-    const result = await addClientBillingConcept(data as Omit<ClientBillingConcept, 'id'>);
+    const result = await addClientBillingConcept({
+        ...data,
+        conceptName: data.conceptName.toUpperCase().trim(),
+    } as Omit<ClientBillingConcept, 'id'>);
     if (result.success && result.newConcept) {
       toast({ title: 'Éxito', description: result.message });
       setConcepts(prev => [...prev, result.newConcept!].sort((a,b) => a.conceptName.localeCompare(b.conceptName)));
       addForm.reset(addFormDefaultValues);
+      setIsAddDialogOpen(false);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -266,25 +282,18 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   const onEditSubmit: SubmitHandler<ConceptFormValues> = async (data) => {
     if (!conceptToEdit) return;
     setIsEditing(true);
-    const result = await updateClientBillingConcept(conceptToEdit.id, data as Omit<ClientBillingConcept, 'id'>);
+    const result = await updateClientBillingConcept(conceptToEdit.id, {
+        ...data,
+        conceptName: data.conceptName.toUpperCase().trim(),
+    } as Omit<ClientBillingConcept, 'id'>);
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setConcepts(prev => prev.map(s => s.id === conceptToEdit.id ? { ...data, id: s.id } as ClientBillingConcept : s));
+      setConcepts(prev => prev.map(s => s.id === conceptToEdit.id ? { ...data, conceptName: data.conceptName.toUpperCase().trim(), id: s.id } as ClientBillingConcept : s));
       setConceptToEdit(null);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
     setIsEditing(false);
-  };
-
-  const handleToggleStatus = async (id: string, currentStatus: 'activo' | 'inactivo') => {
-    const result = await toggleConceptStatus(id, currentStatus);
-    if (result.success) {
-        toast({ title: "Estado Actualizado", description: result.message });
-        setConcepts(prev => prev.map(c => c.id === id ? { ...c, status: currentStatus === 'activo' ? 'inactivo' : 'activo' } : c));
-    } else {
-        toast({ variant: 'destructive', title: "Error", description: result.message });
-    }
   };
 
   const handleBulkDeleteConfirm = async () => {
@@ -305,28 +314,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
 
   const openEditDialog = (concept: ClientBillingConcept) => {
     setConceptToEdit(concept);
-    editForm.reset({
-        ...concept,
-        value: concept.value ?? 0,
-        billingPeriod: concept.billingPeriod ?? 'DIARIO',
-        weekdayDayShiftStart: concept.weekdayDayShiftStart || '07:00',
-        weekdayDayShiftEnd: concept.weekdayDayShiftEnd || '19:00',
-        saturdayDayShiftStart: concept.saturdayDayShiftStart || '07:00',
-        saturdayDayShiftEnd: concept.saturdayDayShiftEnd || '13:00',
-        tariffRanges: concept.tariffRanges || [],
-        tariffRangesTemperature: concept.tariffRangesTemperature || [],
-        specificTariffs: concept.specificTariffs || [],
-        calculationType: concept.calculationType || 'REGLAS',
-        filterSesion: concept.filterSesion || 'AMBOS',
-        filterPedidoTypes: concept.filterPedidoTypes || [],
-        fixedTimeConfig: concept.fixedTimeConfig || {
-            weekdayStartTime: "17:00",
-            weekdayEndTime: "22:00",
-            saturdayStartTime: "12:00",
-            saturdayEndTime: "17:00",
-            dayShiftEndTime: "19:00",
-        },
-    });
+    editForm.reset(concept);
   };
 
   const handleRowSelect = (id: string, checked: boolean) => {
@@ -334,53 +322,30 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     if (checked) newSet.add(id); else newSet.delete(id);
     setSelectedIds(newSet);
   };
-  
-  const sortedAndFilteredConcepts = useMemo(() => {
-    return concepts
-        .filter(c => {
-            const nameMatch = c.conceptName.toLowerCase().includes(searchTerm.toLowerCase());
-            if (!nameMatch) return false;
-            
-            if (clientFilter.length > 0) {
-              const appliesToAll = c.clientNames.includes('TODOS (Cualquier Cliente)');
-              const appliesToSelected = c.clientNames.some(cn => clientFilter.includes(cn));
-              if (!appliesToAll && !appliesToSelected) {
-                  return false;
-              }
-            }
-
-            if (calculationTypeFilter !== 'all' && c.calculationType !== calculationTypeFilter) {
-                return false;
-            }
-
-            return true;
-        })
-        .sort((a, b) => a.conceptName.localeCompare(b.conceptName));
-  }, [concepts, searchTerm, clientFilter, calculationTypeFilter]);
-
-  const groupedConcepts = useMemo(() => {
-    return sortedAndFilteredConcepts.reduce((acc, concept) => {
-      const type = concept.calculationType || 'SIN TIPO';
-      if (!acc[type]) {
-        acc[type] = [];
-      }
-      acc[type].push(concept);
-      return acc;
-    }, {} as Record<string, ClientBillingConcept[]>);
-  }, [sortedAndFilteredConcepts]);
-
 
   const isAllSelected = useMemo(() => {
-    if (sortedAndFilteredConcepts.length === 0) return false;
-    return sortedAndFilteredConcepts.every(s => selectedIds.has(s.id));
-  }, [selectedIds, sortedAndFilteredConcepts]);
+    if (filteredConcepts.length === 0) return false;
+    return filteredConcepts.every(s => selectedIds.has(s.id));
+  }, [selectedIds, filteredConcepts]);
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(sortedAndFilteredConcepts.map(s => s.id)));
+      setSelectedIds(new Set(filteredConcepts.map(s => s.id)));
     } else {
       setSelectedIds(new Set());
     }
+  };
+
+   const handleToggleStatus = async (id: string, currentStatus: 'activo' | 'inactivo') => {
+      setTogglingStatusId(id);
+      const result = await toggleConceptStatus(id, currentStatus);
+      if (result.success) {
+          toast({ title: "Estado Actualizado", description: result.message });
+          setConcepts(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'activo' ? 'inactivo' : 'activo' } : c));
+      } else {
+          toast({ variant: "destructive", title: "Error", description: result.message });
+      }
+      setTogglingStatusId(null);
   };
 
   if (authLoading) {
@@ -392,21 +357,29 @@ export default function ConceptManagementClientComponent({ initialClients, initi
           <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
               <div className="max-w-xl mx-auto text-center">
                   <AccessDenied />
-                  <Button onClick={() => router.push('/')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Inicio</Button>
+                  <Button onClick={() => router.push('/billing-reports')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Inicio</Button>
               </div>
           </div>
       );
   }
 
-  const unitOfMeasureOptions = ['AREA', 'KILOGRAMOS', 'TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA', 'QUINCENA'];
-  const specificUnitOptions = ['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'];
+  const groupedConcepts = filteredConcepts.reduce((acc, concept) => {
+    const type = concept.calculationType || 'REGLAS';
+    if (!acc[type]) {
+      acc[type] = [];
+    }
+    acc[type].push(concept);
+    return acc;
+  }, {} as Record<string, ClientBillingConcept[]>);
+
+  const groupOrder: (keyof typeof groupedConcepts)[] = ['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO', 'LÓGICA ESPECIAL'];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
           <div className="relative flex items-center justify-center text-center">
-            <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
+            <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/billing-reports')}>
               <ArrowLeft className="h-6 w-6" />
             </Button>
             <div>
@@ -414,51 +387,46 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                 <DollarSign className="h-8 w-8 text-primary" />
                 <h1 className="text-2xl font-bold text-primary">Gestión de Conceptos de Liquidación Clientes</h1>
               </div>
-              <p className="text-sm text-gray-500">Defina los conceptos y tarifas para la facturación de servicios a clientes.</p>
+              <p className="text-sm text-gray-500">Defina los conceptos y tarifas para la liquidación automática de servicios a clientes.</p>
             </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Nuevo Concepto de Cliente</CardTitle>
-                        <CardDescription>Cree una nueva regla de cobro para uno o más clientes.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Form {...addForm}>
-                            <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                                <ConceptFormBody form={addForm} clientOptions={clientOptions} standardObservations={standardObservations} pedidoTypes={pedidoTypes} unitOfMeasureOptions={unitOfMeasureOptions} specificUnitOptions={specificUnitOptions} />
-                                <Button type="submit" disabled={isSubmitting} className="w-full">
-                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                    Guardar Concepto
-                                </Button>
-                            </form>
-                        </Form>
-                    </CardContent>
-                </Card>
-            </div>
-            <div className="lg:col-span-2">
-              <Card>
+        <div className="space-y-8">
+            <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <CardTitle>Conceptos de Cliente Actuales</CardTitle>
-                        {selectedIds.size > 0 && (
-                            <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar ({selectedIds.size})
-                            </Button>
-                        )}
+                    <div className="flex justify-between items-center flex-wrap gap-4">
+                        <CardTitle>Listado de Conceptos</CardTitle>
+                        <div className="flex gap-2">
+                            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Concepto</Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-4xl">
+                                    <DialogHeader><DialogTitle>Nuevo Concepto de Liquidación</DialogTitle><DialogDescription>Cree una regla de cobro para un servicio.</DialogDescription></DialogHeader>
+                                    <ScrollArea className="max-h-[70vh] p-1"><ConceptFormBody form={addForm} clientOptions={clientOptions} standardObservations={standardObservations} pedidoTypes={pedidoTypes} isEditMode={false} /></ScrollArea>
+                                    <DialogFooter>
+                                        <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
+                                        <Button type="button" disabled={isSubmitting} onClick={addForm.handleSubmit(onAddSubmit)}>
+                                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}Guardar Concepto
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                            {selectedIds.size > 0 && (
+                                <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" disabled={isBulkDeleting}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar ({selectedIds.size})
+                                </Button>
+                            )}
+                        </div>
                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <Input
-                            placeholder="Buscar por nombre de concepto..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <Input placeholder="Buscar por nombre de concepto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                         <ClientMultiSelectDialog
-                            options={initialClients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))}
+                            options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
                             selected={clientFilter}
                             onChange={setClientFilter}
                             placeholder="Filtrar por cliente..."
@@ -466,7 +434,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                         <Select value={calculationTypeFilter} onValueChange={setCalculationTypeFilter}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Todos los Tipos</SelectItem>
+                                <SelectItem value="all">Todos los Tipos de Cálculo</SelectItem>
                                 <SelectItem value="REGLAS">Por Reglas</SelectItem>
                                 <SelectItem value="OBSERVACION">Por Observación</SelectItem>
                                 <SelectItem value="MANUAL">Op. Manual</SelectItem>
@@ -475,96 +443,88 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                             </SelectContent>
                         </Select>
                     </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
-                    <ScrollArea className="h-[700px]">
-                        <Accordion type="multiple" className="w-full" defaultValue={Object.keys(groupedConcepts)}>
-                            {Object.entries(groupedConcepts).map(([type, conceptsOfType]) => (
-                                <AccordionItem value={type} key={type}>
-                                    <AccordionTrigger className="px-4 py-2 bg-gray-100/70 hover:bg-gray-200/70">
+                     <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
+                                    <TableHead>Concepto</TableHead>
+                                    <TableHead>Clientes</TableHead>
+                                    <TableHead>Unidad</TableHead>
+                                    <TableHead>Tarifa</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead className="text-right">Acciones</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                        </Table>
+                         <Accordion type="multiple" className="w-full">
+                            {groupOrder.map(groupType => {
+                                const groupConcepts = groupedConcepts[groupType];
+                                if (!groupConcepts || groupConcepts.length === 0) return null;
+                                
+                                return (
+                                <AccordionItem value={groupType} key={groupType}>
+                                    <AccordionTrigger className="px-4 py-2 bg-muted/50 hover:bg-muted/80">
                                         <div className="flex items-center gap-2">
-                                            <GroupIcon type={type} />
-                                            <span className="font-semibold">{type}</span>
-                                            <Badge variant="secondary">{conceptsOfType.length}</Badge>
+                                            <GroupIcon type={groupType} />
+                                            <span className="font-semibold">{groupType.replace(/_/g, ' ')}</span>
+                                            <Badge variant="secondary">{groupConcepts.length}</Badge>
                                         </div>
                                     </AccordionTrigger>
-                                    <AccordionContent>
+                                    <AccordionContent className="p-0">
                                         <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="w-12"><Checkbox checked={conceptsOfType.length > 0 && conceptsOfType.every(c => selectedIds.has(c.id))} onCheckedChange={(checked) => { const idsOfType = conceptsOfType.map(c => c.id); const newSet = new Set(selectedIds); if(checked) { idsOfType.forEach(id => newSet.add(id)); } else { idsOfType.forEach(id => newSet.delete(id)); } setSelectedIds(newSet); }} /></TableHead>
-                                                    <TableHead>Concepto</TableHead>
-                                                    <TableHead>Estado</TableHead>
-                                                    <TableHead>Tarifa</TableHead>
-                                                    <TableHead className="text-right">Acciones</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
                                             <TableBody>
-                                            {conceptsOfType.length > 0 ? (
-                                                conceptsOfType.map((c) => (
-                                                <TableRow key={c.id} data-state={selectedIds.has(c.id) ? "selected" : ""}>
-                                                    <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium">{c.conceptName}</div>
-                                                        <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={(c.clientNames || []).join(', ')}>
-                                                            {(c.clientNames || []).join(', ')}
-                                                        </div>
+                                            {groupConcepts.map((c) => (
+                                                <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
+                                                    <TableCell className="w-12"><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
+                                                    <TableCell className="font-medium max-w-[200px] truncate" title={c.conceptName}>{c.conceptName}</TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate" title={(c.clientNames || []).join(', ')}>
+                                                        {(c.clientNames || []).includes('TODOS (Cualquier Cliente)') ? <Badge>TODOS</Badge> : (c.clientNames || []).join(', ')}
                                                     </TableCell>
+                                                    <TableCell>{c.unitOfMeasure}</TableCell>
+                                                    <TableCell>{c.tariffType === 'UNICA' ? c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'}) : <Badge variant="outline">{c.tariffType}</Badge>}</TableCell>
                                                     <TableCell>
-                                                        <Badge variant={c.status === 'activo' ? 'default' : 'secondary'} className={cn(c.status === 'activo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600', 'hover:bg-current')}>
-                                                            {c.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {c.tariffType === 'UNICA' ? (
-                                                            <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
-                                                        ) : (
-                                                            <Badge variant="outline">{c.tariffType.replace('_', ' ')}</Badge>
-                                                        )}
+                                                        <Switch
+                                                            checked={c.status === 'activo'}
+                                                            onCheckedChange={() => handleToggleStatus(c.id, c.status)}
+                                                            disabled={togglingStatusId === c.id}
+                                                            aria-label="Estado del concepto"
+                                                        />
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        <div className="flex justify-end items-center">
-                                                            <Switch checked={c.status === 'activo'} onCheckedChange={() => handleToggleStatus(c.id, c.status || 'inactivo')} aria-label="Activar/Desactivar concepto" />
-                                                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
-                                                        </div>
+                                                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
                                                     </TableCell>
                                                 </TableRow>
-                                                ))
-                                            ) : (
-                                                <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos de este tipo.</TableCell></TableRow>
-                                            )}
+                                            ))}
                                             </TableBody>
                                         </Table>
                                     </AccordionContent>
                                 </AccordionItem>
-                            ))}
-                        </Accordion>
-                    </ScrollArea>
-                  </div>
+                                );
+                            })}
+                         </Accordion>
+                     </div>
                 </CardContent>
               </Card>
-            </div>
         </div>
       </div>
       
-      {/* Edit Dialog */}
       <Dialog open={!!conceptToEdit} onOpenChange={(isOpen) => { if (!isOpen) setConceptToEdit(null) }}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Editar Concepto de Liquidación de Cliente</DialogTitle></DialogHeader>
-          <ScrollArea className="max-h-[70vh]">
-            <div className="p-4">
-            <Form {...editForm}>
-                <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
-                     <ConceptFormBody form={editForm} clientOptions={clientOptions} standardObservations={standardObservations} pedidoTypes={pedidoTypes} unitOfMeasureOptions={unitOfMeasureOptions} specificUnitOptions={specificUnitOptions} isEditMode={true}/>
-                    <DialogFooter className="pt-4">
-                        <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
-                        <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
-                    </DialogFooter>
-                </form>
-            </Form>
-            </div>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader><DialogTitle>Editar Concepto de Liquidación</DialogTitle></DialogHeader>
+          <ScrollArea className="max-h-[70vh] p-1">
+            <ConceptFormBody
+              form={editForm}
+              clientOptions={clientOptions}
+              standardObservations={standardObservations}
+              pedidoTypes={pedidoTypes}
+              isEditMode={true}
+            />
           </ScrollArea>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
+            <Button type="button" disabled={isEditing} onClick={editForm.handleSubmit(onEditSubmit)}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
@@ -588,202 +548,22 @@ export default function ConceptManagementClientComponent({ initialClients, initi
 }
 
 
-function ClientMultiSelectDialog({
-  options,
-  selected,
-  onChange,
-  placeholder,
+const unitOfMeasureOptions = [ 'AREA', 'KILOGRAMOS', 'TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA', 'QUINCENA'];
+const specificUnitOptions = ['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'];
+
+function ConceptFormBody({
+  form,
+  clientOptions,
+  standardObservations,
+  pedidoTypes,
+  isEditMode,
 }: {
-  options: { value: string; label: string }[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  placeholder: string;
+  form: any;
+  clientOptions: ClientInfo[];
+  standardObservations: StandardObservation[];
+  pedidoTypes: PedidoType[];
+  isEditMode: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const filteredOptions = useMemo(() => {
-    if (!search) return options;
-    return options.filter((o) =>
-      o.label.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [search, options]);
-
-  const handleSelect = (valueToToggle: string) => {
-    const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
-    
-    if (isTodos) {
-      onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
-    } else {
-      const newSelection = selected.includes(valueToToggle)
-        ? selected.filter(s => s !== valueToToggle)
-        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
-      onChange(newSelection);
-    }
-  };
-
-  const getButtonLabel = () => {
-    if (selected.length === 0) return placeholder;
-    if (selected.length === 1) return selected[0];
-    if (selected.length === options.length) return "Todos los clientes seleccionados";
-    return `${selected.length} clientes seleccionados`;
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="w-full justify-between text-left font-normal"
-        >
-          <span className="truncate">{getButtonLabel()}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="p-0">
-        <DialogHeader className="p-6 pb-2">
-            <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
-            <DialogDescription>Seleccione los clientes para este concepto.</DialogDescription>
-        </DialogHeader>
-        <div className="p-6 pt-0">
-            <Input
-                placeholder="Buscar cliente..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="mb-4"
-            />
-            <ScrollArea className="h-60">
-                <div className="space-y-1 pr-4">
-                {filteredOptions.map((option) => (
-                    <div
-                        key={option.value}
-                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
-                    >
-                        <Checkbox
-                            id={`client-${option.value}`}
-                            checked={selected.includes(option.value)}
-                            onCheckedChange={() => handleSelect(option.value)}
-                        />
-                        <Label
-                            htmlFor={`client-${option.value}`}
-                            className="w-full cursor-pointer"
-                        >
-                            {option.label}
-                        </Label>
-                    </div>
-                ))}
-                </div>
-            </ScrollArea>
-        </div>
-        <DialogFooter className="p-6 pt-0">
-            <Button onClick={() => setOpen(false)}>Cerrar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PedidoTypeMultiSelect({
-  options,
-  selected,
-  onChange,
-  placeholder,
-}: {
-  options: { value: string; label: string }[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  placeholder: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const filteredOptions = useMemo(() => {
-    if (!search) return options;
-    return options.filter((o) =>
-      o.label.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [search, options]);
-
-  const handleSelect = (valueToToggle: string) => {
-    const newSelection = selected.includes(valueToToggle)
-      ? selected.filter((s) => s !== valueToToggle)
-      : [...selected, valueToToggle];
-    onChange(newSelection);
-  };
-
-  const getButtonLabel = () => {
-    if (selected.length === 0) return placeholder;
-    if (selected.length === 1) return selected[0];
-    if (selected.length === options.length) return "Todos los tipos";
-    return `${selected.length} tipos seleccionados`;
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="w-full justify-between text-left font-normal"
-        >
-          <span className="truncate">{getButtonLabel()}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Seleccionar Tipos de Pedido</DialogTitle>
-        </DialogHeader>
-        <Input
-          placeholder="Buscar tipo..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="my-4"
-        />
-        <ScrollArea className="h-60">
-          <div className="space-y-1">
-            {filteredOptions.map((option) => (
-              <div
-                key={option.value}
-                className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
-              >
-                <Checkbox
-                  id={`pedido-${option.value}`}
-                  checked={selected.includes(option.value)}
-                  onCheckedChange={() => handleSelect(option.value)}
-                />
-                <Label htmlFor={`pedido-${option.value}`} className="w-full cursor-pointer">
-                  {option.label}
-                </Label>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-        <DialogFooter>
-          <Button onClick={() => setOpen(false)}>Cerrar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function TemperatureRangeFields({ control, remove, index, disabled }: { control: any, remove: (index: number) => void, index: number, disabled?: boolean }) {
-  return (
-    <div className="grid grid-cols-1 gap-3 border p-3 rounded-md relative">
-        <div className="grid grid-cols-2 gap-2">
-            <FormField control={control} name={`tariffRangesTemperature.${index}.minTemp`} render={({ field }) => (<FormItem><FormLabel>Min. Temp (°C)</FormLabel><FormControl><Input type="number" step="0.1" {...field} disabled={disabled} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={control} name={`tariffRangesTemperature.${index}.maxTemp`} render={({ field }) => (<FormItem><FormLabel>Max. Temp (°C)</FormLabel><FormControl><Input type="number" step="0.1" {...field} disabled={disabled} /></FormControl><FormMessage /></FormItem>)}/>
-        </div>
-        <FormField control={control} name={`tariffRangesTemperature.${index}.ratePerKg`} render={({ field }) => (<FormItem><FormLabel>Tarifa por Kilo (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} disabled={disabled} min="0" /></FormControl><FormMessage /></FormItem>)}/>
-        {!disabled && (
-            <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => remove(index)}>
-                <Trash2 className="h-4 w-4" />
-            </Button>
-        )}
-    </div>
-  );
-}
-
-function ConceptFormBody({ form, clientOptions, standardObservations, pedidoTypes, unitOfMeasureOptions, specificUnitOptions, isEditMode = false }: { form: any, clientOptions: any[], standardObservations: any[], pedidoTypes: PedidoType[], unitOfMeasureOptions: string[], specificUnitOptions: string[], isEditMode?: boolean }) {
     const { fields: tariffRangesFields, append: appendTariffRange, remove: removeTariffRange } = useFieldArray({ control: form.control, name: "tariffRanges" });
     const { fields: tempTariffFields, append: appendTempTariff, remove: removeTempTariff } = useFieldArray({ control: form.control, name: "tariffRangesTemperature" });
     const { fields: specificTariffsFields, append: appendSpecificTariff, remove: removeSpecificTariff } = useFieldArray({ control: form.control, name: "specificTariffs" });
@@ -791,7 +571,7 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
     const watchedCalculationType = useWatch({ control: form.control, name: 'calculationType' });
     const watchedTariffType = useWatch({ control: form.control, name: 'tariffType' });
     const watchedConceptName = useWatch({ control: form.control, name: 'conceptName' });
-
+    
     return (
         <div className="space-y-4">
             <FormField control={form.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input placeholder="Ej: ALMACENAMIENTO PALLET/DIA" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
@@ -981,4 +761,238 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
             )}
         </div>
     );
+}
+
+function TemperatureRangeFields({ control, remove, index }: { control: any, remove: (index: number) => void, index: number }) {
+    const { formState: { errors } } = useFormContext();
+    const fieldErrors = errors?.tariffRangesTemperature?.[index] as FieldErrors<z.infer<typeof temperatureTariffRangeSchema>> | undefined;
+
+    return (
+        <div className="grid grid-cols-1 gap-3 border p-3 rounded-md relative">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <FormField
+                    control={control}
+                    name={`tariffRangesTemperature.${index}.minTemp`}
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Temp. Mín (°C)</FormLabel>
+                            <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={control}
+                    name={`tariffRangesTemperature.${index}.maxTemp`}
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Temp. Máx (°C)</FormLabel>
+                            <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={control}
+                    name={`tariffRangesTemperature.${index}.ratePerKg`}
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Tarifa por Kilo</FormLabel>
+                            <FormControl>
+                                <Input type="number" step="0.01" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </div>
+            <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => remove(index)}>
+                <Trash2 className="h-4 w-4" />
+            </Button>
+        </div>
+    );
+}
+
+
+function ClientMultiSelectDialog({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    return options.filter((o) =>
+      o.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search, options]);
+
+  const handleSelect = (valueToToggle: string) => {
+    const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
+    
+    if (isTodos) {
+      onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
+    } else {
+      const newSelection = selected.includes(valueToToggle)
+        ? selected.filter(s => s !== valueToToggle)
+        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
+      onChange(newSelection);
+    }
+  };
+
+  const getButtonLabel = () => {
+    if (selected.length === 0) return placeholder;
+    if (selected.length === 1) return selected[0];
+    if (selected.includes('TODOS (Cualquier Cliente)')) return 'TODOS (Cualquier Cliente)';
+    if (selected.length === options.length - 1) return "Todos los clientes seleccionados"; // -1 for 'TODOS' option
+    return `${selected.length} clientes seleccionados`;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full justify-between text-left font-normal"
+        >
+          <span className="truncate">{getButtonLabel()}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogHeader className="p-6 pb-2">
+            <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+            <DialogDescription>Seleccione los clientes para este concepto.</DialogDescription>
+        </DialogHeader>
+        <div className="p-6 pt-0">
+            <Input
+                placeholder="Buscar cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="mb-4"
+            />
+            <ScrollArea className="h-60">
+                <div className="space-y-1 pr-4">
+                {filteredOptions.map((option) => (
+                    <div
+                        key={option.value}
+                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
+                    >
+                        <Checkbox
+                            id={`client-ms-${option.value}`}
+                            checked={selected.includes(option.value)}
+                            onCheckedChange={() => handleSelect(option.value)}
+                        />
+                        <Label
+                            htmlFor={`client-ms-${option.value}`}
+                            className="w-full cursor-pointer"
+                        >
+                            {option.label}
+                        </Label>
+                    </div>
+                ))}
+                </div>
+            </ScrollArea>
+        </div>
+        <DialogFooter className="p-6 pt-0">
+            <Button onClick={() => setOpen(false)}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PedidoTypeMultiSelect({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    return options.filter((o) =>
+      o.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search, options]);
+
+  const handleSelect = (valueToToggle: string) => {
+    const newSelection = selected.includes(valueToToggle)
+      ? selected.filter((s) => s !== valueToToggle)
+      : [...selected, valueToToggle];
+    onChange(newSelection);
+  };
+
+  const getButtonLabel = () => {
+    if (selected.length === 0) return placeholder;
+    if (selected.length === 1) return selected[0];
+    if (selected.length === options.length) return "Todos los tipos seleccionados";
+    return `${selected.length} tipos seleccionados`;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full justify-between text-left font-normal"
+        >
+          <span className="truncate">{getButtonLabel()}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Seleccionar Tipo(s) de Pedido</DialogTitle>
+        </DialogHeader>
+        <Input
+          placeholder="Buscar..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="my-4"
+        />
+        <ScrollArea className="h-60">
+          <div className="space-y-1">
+            {filteredOptions.map((option) => (
+              <div key={option.value} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`pedido-type-${option.value}`}
+                  checked={selected.includes(option.value)}
+                  onCheckedChange={() => handleSelect(option.value)}
+                />
+                <Label
+                  htmlFor={`pedido-type-${option.value}`}
+                  className="font-normal"
+                >
+                  {option.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+        <DialogFooter>
+          <Button onClick={() => setOpen(false)}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
