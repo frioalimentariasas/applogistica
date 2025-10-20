@@ -107,6 +107,7 @@ export default function Home() {
     { label: 'Registro de operaciones Manuales Cuadrilla', href: '/operaciones-manuales-cuadrilla', icon: Edit, permission: 'canManageManualOperations', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Informe de Productividad y Liquidación', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Gestión de Estándares', href: '/gestion-estandares-cuadrilla', icon: Settings, permission: 'canManageStandards', group: 'Gestión y Liquidación Cuadrilla' },
+    { label: 'Reportes Especiales', href: '/reportes-especiales', icon: FileSpreadsheet, permission: 'canViewSpecialReports', group: 'Gestión y Liquidación Cuadrilla' },
 
     // Gestión de Maestros
     { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageNovelties', group: 'Gestión de Maestros' },
@@ -120,22 +121,22 @@ export default function Home() {
   ];
 
   const menuGroups: {
-      [key: string]: { icon: React.FC<any>; items: typeof menuItems; permissionKey: keyof AppPermissions }
+      [key: string]: { icon: React.FC<any>; items: typeof menuItems; }
   } = {
-    'Operaciones Logísticas': { icon: FileCog, items: [], permissionKey: 'canAccessOperacionesLogísticas' },
-    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [], permissionKey: 'canAccessGestionClientes' },
-    'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [], permissionKey: 'canAccessGestionCuadrilla' },
-    'Gestión de Maestros': { icon: Wrench, items: [], permissionKey: 'canAccessMaestros' },
-    'Parámetros y Seguridad': { icon: ShieldCheck, items: [], permissionKey: 'canManageSessions' },
+    'Operaciones Logísticas': { icon: FileCog, items: [] },
+    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [] },
+    'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [] },
+    'Gestión de Maestros': { icon: Wrench, items: [] },
+    'Parámetros y Seguridad': { icon: ShieldCheck, items: [] },
   };
 
   menuItems.forEach(item => {
-    if (permissions[item.permission] && menuGroups[item.group as keyof typeof menuGroups]) {
-      menuGroups[item.group as keyof typeof menuGroups].items.push(item);
+    if (permissions[item.permission] && menuGroups[item.group]) {
+      menuGroups[item.group].items.push(item);
     }
   });
 
-  const availableMenuGroups = Object.entries(menuGroups).filter(([, group]) => group.items.length > 0 && permissions[group.permissionKey]);
+  const availableMenuGroups = Object.entries(menuGroups).filter(([, groupData]) => groupData.items.length > 0);
 
 
   if (loading || !user) {
