@@ -342,8 +342,21 @@ export default function ConceptManagementClientComponent({ initialClients, initi
             }
 
             return true;
-        });
+        })
+        .sort((a, b) => a.conceptName.localeCompare(b.conceptName));
   }, [concepts, searchTerm, clientFilter, calculationTypeFilter]);
+
+  const groupedConcepts = useMemo(() => {
+    return sortedAndFilteredConcepts.reduce((acc, concept) => {
+      const type = concept.calculationType || 'SIN TIPO';
+      if (!acc[type]) {
+        acc[type] = [];
+      }
+      acc[type].push(concept);
+      return acc;
+    }, {} as Record<string, ClientBillingConcept[]>);
+  }, [sortedAndFilteredConcepts]);
+
 
   const isAllSelected = useMemo(() => {
     if (sortedAndFilteredConcepts.length === 0) return false;
@@ -417,11 +430,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                            <CardTitle>Conceptos de Cliente Actuales</CardTitle>
-                            <CardDescription>Conceptos existentes para facturación de servicios.</CardDescription>
-                        </div>
+                    <div className="flex justify-between items-center">
+                        <CardTitle>Conceptos de Cliente Actuales</CardTitle>
                         {selectedIds.size > 0 && (
                             <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -457,58 +467,66 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                 <CardContent>
                   <div className="rounded-md border">
                     <ScrollArea className="h-[700px]">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
-                            <TableHead>Concepto</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead>Tarifa</TableHead>
-                            <TableHead className="text-right">Acciones</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {sortedAndFilteredConcepts.length > 0 ? (
-                            sortedAndFilteredConcepts.map((c) => (
-                              <TableRow key={c.id} data-state={selectedIds.has(c.id) ? "selected" : ""}>
-                                <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
-                                <TableCell>
-                                  <div className="font-medium">{c.conceptName}</div>
-                                  <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
-                                    Aplica a: {(c.clientNames || []).join(', ')}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={c.status === 'activo' ? 'default' : 'secondary'} className={c.status === 'activo' ? 'bg-green-100 text-green-800' : ''}>
-                                    {c.status}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {c.tariffType === 'UNICA' ? (
-                                    <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
-                                  ) : (
-                                    <Badge variant="outline">{c.tariffType.replace('_', ' ')}</Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Switch
-                                    checked={c.status === 'activo'}
-                                    onCheckedChange={() => handleToggleStatus(c.id, c.status || 'inactivo')}
-                                    aria-label="Activar/Desactivar concepto"
-                                  />
-                                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={5} className="h-24 text-center">
-                                No hay conceptos que coincidan con la búsqueda.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                        <Accordion type="multiple" className="w-full" defaultValue={Object.keys(groupedConcepts)}>
+                            {Object.entries(groupedConcepts).map(([type, conceptsOfType]) => (
+                                <AccordionItem value={type} key={type}>
+                                    <AccordionTrigger className="px-4 py-2 bg-gray-100/70 hover:bg-gray-200/70">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold">{type}</span>
+                                            <Badge variant="secondary">{conceptsOfType.length}</Badge>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-12"><Checkbox checked={conceptsOfType.length > 0 && conceptsOfType.every(c => selectedIds.has(c.id))} onCheckedChange={(checked) => { const idsOfType = conceptsOfType.map(c => c.id); const newSet = new Set(selectedIds); if(checked) { idsOfType.forEach(id => newSet.add(id)); } else { idsOfType.forEach(id => newSet.delete(id)); } setSelectedIds(newSet); }} /></TableHead>
+                                                    <TableHead>Concepto</TableHead>
+                                                    <TableHead>Estado</TableHead>
+                                                    <TableHead>Tarifa</TableHead>
+                                                    <TableHead className="text-right">Acciones</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                            {conceptsOfType.length > 0 ? (
+                                                conceptsOfType.map((c) => (
+                                                <TableRow key={c.id} data-state={selectedIds.has(c.id) ? "selected" : ""}>
+                                                    <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
+                                                    <TableCell>
+                                                        <div className="font-medium">{c.conceptName}</div>
+                                                        <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={(c.clientNames || []).join(', ')}>
+                                                            {(c.clientNames || []).join(', ')}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={c.status === 'activo' ? 'default' : 'secondary'} className={cn(c.status === 'activo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600', 'hover:bg-current')}>
+                                                            {c.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {c.tariffType === 'UNICA' ? (
+                                                            <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
+                                                        ) : (
+                                                            <Badge variant="outline">{c.tariffType.replace('_', ' ')}</Badge>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end items-center">
+                                                            <Switch checked={c.status === 'activo'} onCheckedChange={() => handleToggleStatus(c.id, c.status || 'inactivo')} aria-label="Activar/Desactivar concepto" />
+                                                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos de este tipo.</TableCell></TableRow>
+                                            )}
+                                            </TableBody>
+                                        </Table>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
                     </ScrollArea>
                   </div>
                 </CardContent>
