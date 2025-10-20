@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { type ReactNode, useEffect, useState, useContext, useCallback } from 'react';
@@ -7,47 +8,81 @@ import { getUserPermissions } from '@/app/session-management/actions';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 export interface AppPermissions {
+  // Standalone
   canGenerateForms: boolean;
+
+  // Group Access
+  canAccessOperacionesLogísticas: boolean;
+  canAccessGestionClientes: boolean;
+  canAccessGestionCuadrilla: boolean;
+  canAccessMaestros: boolean;
+  
+  // Operaciones Logísticas
   canConsultForms: boolean;
-  canViewBillingReports: boolean;
   canViewPerformanceReport: boolean;
-  canViewCrewPerformanceReport: boolean;
-  canViewSpecialReports: boolean;
-  canManageClients: boolean;
-  canManageArticles: boolean;
-  canManageObservations: boolean;
-  canManageOrderTypes: boolean;
-  canManageStandards: boolean;
-  canManageLiquidationConcepts: boolean;
+
+  // Gestión y Liquidación Clientes
   canManageClientLiquidationConcepts: boolean;
+  canManageClientManualOperations: boolean;
+  canViewBillingReports: boolean;
+  canViewSmylAssistant: boolean;
+  canViewInventoryAssistant: boolean;
+
+  // Gestión y Liquidación Cuadrilla
+  canManageLiquidationConcepts: boolean;
+  canManageManualOperations: boolean;
+  canViewCrewPerformanceReport: boolean;
+  canManageStandards: boolean;
+  canViewSpecialReports: boolean;
+  
+  // Gestión de Maestros
   canManageNovelties: boolean;
+  canManageOrderTypes: boolean;
+  canManageArticles: boolean;
+  canManageClients: boolean;
+  canManageObservations: boolean;
+
+  // Parámetros y Seguridad
   canManageSessions: boolean;
+  
+  // Deprecated/Legacy or special single permissions
   canEditForms: boolean;
   canDeleteForms: boolean;
-  canManageManualOperations: boolean;
-  canManageClientManualOperations: boolean;
 }
 
 export const defaultPermissions: AppPermissions = {
   canGenerateForms: false,
+
+  canAccessOperacionesLogísticas: false,
+  canAccessGestionClientes: false,
+  canAccessGestionCuadrilla: false,
+  canAccessMaestros: false,
+  
   canConsultForms: false,
-  canViewBillingReports: false,
   canViewPerformanceReport: false,
-  canViewCrewPerformanceReport: false,
-  canViewSpecialReports: false,
-  canManageClients: false,
-  canManageArticles: false,
-  canManageObservations: false,
-  canManageOrderTypes: false,
-  canManageStandards: false,
-  canManageLiquidationConcepts: false,
+
   canManageClientLiquidationConcepts: false,
+  canManageClientManualOperations: false,
+  canViewBillingReports: false,
+  canViewSmylAssistant: false,
+  canViewInventoryAssistant: false,
+
+  canManageLiquidationConcepts: false,
+  canManageManualOperations: false,
+  canViewCrewPerformanceReport: false,
+  canManageStandards: false,
+  canViewSpecialReports: false,
+  
   canManageNovelties: false,
+  canManageOrderTypes: false,
+  canManageArticles: false,
+  canManageClients: false,
+  canManageObservations: false,
+
   canManageSessions: false,
+
   canEditForms: false,
   canDeleteForms: false,
-  canManageManualOperations: false,
-  canManageClientManualOperations: false,
 };
 
 

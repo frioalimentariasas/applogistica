@@ -43,11 +43,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench, Edit } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench, Edit, FileCog, Briefcase, HardHat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
@@ -73,26 +74,56 @@ const UserSkeleton = () => (
     ))
 );
 
-const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
-    { key: 'canGenerateForms', label: 'Generar Formatos (Página Principal)' },
-    { key: 'canConsultForms', label: 'Consultar Formatos Guardados' },
-    { key: 'canViewBillingReports', label: 'Informes para Facturación Clientes' },
-    { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
-    { key: 'canViewCrewPerformanceReport', label: 'Informe de Productividad y Liquidación Cuadrilla' },
-    { key: 'canViewSpecialReports', label: 'Relación de Formatos por Concepto de Liquidación' },
-    { key: 'canManageClients', label: 'Gestión de Clientes' },
-    { key: 'canManageArticles', label: 'Gestión de Artículos' },
-    { key: 'canManageObservations', label: 'Gestión de Observaciones' },
-    { key: 'canManageOrderTypes', label: 'Gestión de Tipos de Pedido' },
-    { key: 'canManageStandards', label: 'Gestión de Estándares de Productividad' },
-    { key: 'canManageLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación' },
-    { key: 'canManageClientLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación Clientes' },
-    { key: 'canManageNovelties', label: 'Gestión de Novedades' },
-    { key: 'canManageSessions', label: 'Gestión de Usuarios (SUPER ADMIN)' },
-    { key: 'canEditForms', label: 'Permiso para Editar Formatos' },
-    { key: 'canDeleteForms', label: 'Permiso para Eliminar Formatos' },
-    { key: 'canManageManualOperations', label: 'Registro de Operaciones Manuales Cuadrilla' },
-    { key: 'canManageClientManualOperations', label: 'Registro de Operaciones Manuales Clientes' },
+const permissionGroups: { 
+  groupKey: keyof AppPermissions; 
+  groupLabel: string;
+  icon: React.ElementType; 
+  permissions: { key: keyof AppPermissions; label: string }[];
+}[] = [
+  {
+    groupKey: 'canAccessOperacionesLogísticas',
+    groupLabel: 'Operaciones Logísticas',
+    icon: FileCog,
+    permissions: [
+      { key: 'canConsultForms', label: 'Consultar Formatos Guardados' },
+      { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
+    ],
+  },
+  {
+    groupKey: 'canAccessGestionClientes',
+    groupLabel: 'Gestión y Liquidación Clientes',
+    icon: Briefcase,
+    permissions: [
+      { key: 'canManageClientLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación' },
+      { key: 'canManageClientManualOperations', label: 'Registro de Op. Manuales' },
+      { key: 'canViewBillingReports', label: 'Informes de Facturación' },
+      { key: 'canViewSmylAssistant', label: 'Asistente de Liquidación SMYL' },
+      { key: 'canViewInventoryAssistant', label: 'Asistente de Liquidación de Inventario' },
+    ]
+  },
+   {
+    groupKey: 'canAccessGestionCuadrilla',
+    groupLabel: 'Gestión y Liquidación Cuadrilla',
+    icon: HardHat,
+    permissions: [
+      { key: 'canManageLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación' },
+      { key: 'canManageManualOperations', label: 'Registro de Op. Manuales Cuadrilla' },
+      { key: 'canViewCrewPerformanceReport', label: 'Informe de Productividad y Liquidación' },
+      { key: 'canManageStandards', label: 'Gestión de Estándares' },
+    ]
+  },
+  {
+    groupKey: 'canAccessMaestros',
+    groupLabel: 'Gestión de Maestros',
+    icon: Wrench,
+    permissions: [
+      { key: 'canManageNovelties', label: 'Gestión de Novedades' },
+      { key: 'canManageOrderTypes', label: 'Gestión de Tipos de Pedido' },
+      { key: 'canManageArticles', label: 'Gestión de Artículos' },
+      { key: 'canManageClients', label: 'Gestión de Clientes' },
+      { key: 'canManageObservations', label: 'Gestión de Observaciones' },
+    ]
+  },
 ];
 
 
@@ -310,7 +341,17 @@ export default function SessionManagementComponent() {
             setIsRepairConfirmOpen(false);
         }
     };
-
+    
+    const handleGroupPermissionChange = (groupKey: keyof AppPermissions, childPermissions: {key: keyof AppPermissions}[], checked: boolean | 'indeterminate') => {
+        if (checked === true || checked === 'indeterminate') {
+            permissionsForm.setValue(groupKey, true);
+            childPermissions.forEach(p => permissionsForm.setValue(p.key, true));
+        } else {
+            permissionsForm.setValue(groupKey, false);
+            childPermissions.forEach(p => permissionsForm.setValue(p.key, false));
+        }
+    };
+    
     if (authLoading) {
         return (
              <div className="flex min-h-screen w-full items-center justify-center">
@@ -500,7 +541,7 @@ export default function SessionManagementComponent() {
             </AlertDialog>
 
             <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Gestionar Permisos</DialogTitle>
                         <DialogDescription>
@@ -510,25 +551,67 @@ export default function SessionManagementComponent() {
                     <ScrollArea className="max-h-[60vh]">
                         <Form {...permissionsForm}>
                             <form id="permissions-form" onSubmit={permissionsForm.handleSubmit(handleSavePermissions)} className="space-y-4 py-4 pr-6">
-                                {permissionLabels.map(({ key, label }) => (
+                                <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                    <div className="space-y-0.5">
+                                        <Label htmlFor={'canGenerateForms'} className="text-sm font-medium">Generar Formatos (Página Principal)</Label>
+                                    </div>
                                     <Controller
-                                        key={key}
-                                        name={key}
+                                        key={'canGenerateForms'}
+                                        name={'canGenerateForms'}
                                         control={permissionsForm.control}
                                         render={({ field }) => (
-                                            <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                                <div className="space-y-0.5">
-                                                    <Label htmlFor={key} className="text-sm font-medium">{label}</Label>
-                                                </div>
-                                                <Checkbox
-                                                    id={key}
-                                                    checked={field.value}
-                                                    onCheckedChange={field.onChange}
-                                                />
-                                            </div>
+                                            <Checkbox
+                                                id={'canGenerateForms'}
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
                                         )}
                                     />
-                                ))}
+                                </div>
+                                <Accordion type="multiple" className="w-full">
+                                    {permissionGroups.map(group => {
+                                        const childPermissionKeys = group.permissions.map(p => p.key);
+                                        const watchedChildren = permissionsForm.watch(childPermissionKeys);
+                                        const allChildrenChecked = watchedChildren.every(Boolean);
+                                        const someChildrenChecked = watchedChildren.some(Boolean) && !allChildrenChecked;
+
+                                        return (
+                                            <AccordionItem value={group.groupLabel} key={group.groupKey}>
+                                                <AccordionTrigger className="font-semibold text-base py-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <Checkbox
+                                                            id={`group-${group.groupKey}`}
+                                                            checked={allChildrenChecked ? true : someChildrenChecked ? 'indeterminate' : false}
+                                                            onCheckedChange={(checked) => handleGroupPermissionChange(group.groupKey, group.permissions, checked)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                        <group.icon className="h-5 w-5 mr-2" />
+                                                        {group.groupLabel}
+                                                    </div>
+                                                </AccordionTrigger>
+                                                <AccordionContent className="pl-8 space-y-3 pt-2">
+                                                     {group.permissions.map(({ key, label }) => (
+                                                        <div key={key} className="flex flex-row items-center justify-between">
+                                                            <Label htmlFor={key} className="text-sm font-normal text-muted-foreground">{label}</Label>
+                                                             <Controller
+                                                                key={key}
+                                                                name={key}
+                                                                control={permissionsForm.control}
+                                                                render={({ field }) => (
+                                                                    <Checkbox
+                                                                        id={key}
+                                                                        checked={field.value}
+                                                                        onCheckedChange={field.onChange}
+                                                                    />
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        )
+                                    })}
+                                </Accordion>
                             </form>
                         </Form>
                     </ScrollArea>

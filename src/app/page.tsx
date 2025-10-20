@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -90,35 +91,42 @@ export default function Home() {
   };
 
   const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions, group: string }[] = [
+    // Operaciones Logísticas
     { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms', group: 'Operaciones Logísticas' },
     { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport', group: 'Operaciones Logísticas' },
     
+    // Gestión y Liquidación Clientes
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-clientes', icon: DollarSign, permission: 'canManageClientLiquidationConcepts', group: 'Gestión y Liquidación Clientes' },
     { label: 'Registro de Op. Manuales', href: '/operaciones-manuales-clientes', icon: Edit, permission: 'canManageClientManualOperations', group: 'Gestión y Liquidación Clientes' },
     { label: 'Informes de Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports', group: 'Gestión y Liquidación Clientes' },
-    { label: 'Asistente de Liquidación SMYL', href: '/smyl-liquidation-assistant', icon: Package, permission: 'canViewBillingReports', group: 'Gestión y Liquidación Clientes' },
-    { label: 'Asistente de Liquidación de Inventario', href: '/inventory-liquidation-assistant', icon: Calculator, permission: 'canManageClientManualOperations', group: 'Gestión y Liquidación Clientes' },
+    { label: 'Asistente de Liquidación SMYL', href: '/smyl-liquidation-assistant', icon: Package, permission: 'canViewSmylAssistant', group: 'Gestión y Liquidación Clientes' },
+    { label: 'Asistente de Liquidación de Inventario', href: '/inventory-liquidation-assistant', icon: Calculator, permission: 'canViewInventoryAssistant', group: 'Gestión y Liquidación Clientes' },
 
+    // Gestión y Liquidación Cuadrilla
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-cuadrilla', icon: DollarSign, permission: 'canManageLiquidationConcepts', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Registro de operaciones Manuales Cuadrilla', href: '/operaciones-manuales-cuadrilla', icon: Edit, permission: 'canManageManualOperations', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Informe de Productividad y Liquidación', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Gestión de Estándares', href: '/gestion-estandares-cuadrilla', icon: Settings, permission: 'canManageStandards', group: 'Gestión y Liquidación Cuadrilla' },
 
+    // Gestión de Maestros
     { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageNovelties', group: 'Gestión de Maestros' },
     { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageOrderTypes', group: 'Gestión de Maestros' },
     { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles', group: 'Gestión de Maestros' },
     { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients', group: 'Gestión de Maestros' },
     { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageObservations', group: 'Gestión de Maestros' },
 
+    // Parámetros y Seguridad
     { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions', group: 'Parámetros y Seguridad' },
   ];
 
-  const menuGroups = {
-    'Operaciones Logísticas': { icon: FileCog, items: [] as typeof menuItems },
-    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [] as typeof menuItems },
-    'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [] as typeof menuItems },
-    'Gestión de Maestros': { icon: Wrench, items: [] as typeof menuItems },
-    'Parámetros y Seguridad': { icon: ShieldCheck, items: [] as typeof menuItems },
+  const menuGroups: {
+      [key: string]: { icon: React.FC<any>; items: typeof menuItems; permissionKey: keyof AppPermissions }
+  } = {
+    'Operaciones Logísticas': { icon: FileCog, items: [], permissionKey: 'canAccessOperacionesLogísticas' },
+    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [], permissionKey: 'canAccessGestionClientes' },
+    'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [], permissionKey: 'canAccessGestionCuadrilla' },
+    'Gestión de Maestros': { icon: Wrench, items: [], permissionKey: 'canAccessMaestros' },
+    'Parámetros y Seguridad': { icon: ShieldCheck, items: [], permissionKey: 'canManageSessions' },
   };
 
   menuItems.forEach(item => {
@@ -127,7 +135,7 @@ export default function Home() {
     }
   });
 
-  const availableMenuGroups = Object.entries(menuGroups).filter(([, group]) => group.items.length > 0);
+  const availableMenuGroups = Object.entries(menuGroups).filter(([, group]) => group.items.length > 0 && permissions[group.permissionKey]);
 
 
   if (loading || !user) {
