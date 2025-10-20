@@ -182,7 +182,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             } else if (formType === 'fixed-weight-despacho') {
                 productos.forEach((p: any) => {
                     const session = getSessionForProduct(p.codigo, p.descripcion);
-                    const paletas = Number(p.paletasCompletas) || 0; // Only count complete pallets for dispatch
+                    const paletas = (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0); // Include both complete and picking pallets
                     incrementPallets(session, 'despachadas', paletas);
                 });
 

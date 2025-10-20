@@ -324,6 +324,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                 <h1 className="text-2xl font-bold text-primary">Asistente de Liquidación de Inventario</h1>
               </div>
               <p className="text-sm text-gray-500">Calcule dinámicamente la liquidación de almacenamiento y movimientos de paletas.</p>
+              <h3 className="text-sm text-gray-500">Liquidación para Operación Logistica Por PLACA (Cliente Activo SMYL)</h3>
             </div>
           </div>
         </header>
