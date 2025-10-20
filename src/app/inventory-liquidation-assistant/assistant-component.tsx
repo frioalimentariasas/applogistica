@@ -60,7 +60,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const STORAGE_CONCEPT_NAME = 'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA';
+const STORAGE_CONCEPT_NAME = 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)';
 const ENTRY_CONCEPT_NAME = 'MOVIMIENTO ENTRADA PRODUCTO - PALETA';
 const EXIT_CONCEPT_NAME = 'MOVIMIENTO SALIDA PRODUCTO - PALETA';
 
@@ -115,7 +115,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         toast({
             variant: "destructive",
             title: "Tarifas no encontradas",
-            description: `Asegúrese de que los conceptos de Almacenamiento y Movimiento estén configurados para "${clientInfo?.razonSocial}".`
+            description: `Asegúrese de que los conceptos: SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC), MOVIMIENTO ENTRADA PRODUCTO - PALETA y MOVIMIENTO SALIDA PRODUCTO - PALETA estén configurados para "${clientInfo?.razonSocial}".`
         });
       }
       setTariffs(newTariffs);

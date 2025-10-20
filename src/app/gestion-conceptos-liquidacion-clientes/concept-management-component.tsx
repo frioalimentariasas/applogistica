@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -11,7 +12,7 @@ import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
 
-import { addClientBillingConcept, updateClientBillingConcept, deleteMultipleClientBillingConcepts, type ClientBillingConcept } from './actions';
+import { addClientBillingConcept, updateClientBillingConcept, deleteMultipleClientBillingConcepts, toggleConceptStatus, type ClientBillingConcept } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
@@ -47,6 +48,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Switch } from '@/components/ui/switch';
 
 
 const tariffRangeSchema = z.object({
@@ -72,7 +74,7 @@ const specificTariffSchema = z.object({
   name: z.string().min(1, "El nombre es requerido."),
   value: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0"),
   baseQuantity: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0").optional().default(0),
-  unit: z.enum(['KILOGRAMOS', 'HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'], { required_error: 'Debe seleccionar una unidad.' }),
+  unit: z.enum(['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'], { required_error: 'Debe seleccionar una unidad.' }),
 });
 
 const fixedTimeConfigSchema = z.object({
@@ -87,6 +89,7 @@ const fixedTimeConfigSchema = z.object({
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
+  status: z.enum(['activo', 'inactivo']).default('activo'),
   unitOfMeasure: z.enum(['AREA', 'KILOGRAMOS', 'TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA', 'QUINCENA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   
   calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO', 'LÓGICA ESPECIAL'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
@@ -176,6 +179,7 @@ const AccessDenied = () => (
 const addFormDefaultValues: ConceptFormValues = {
   conceptName: '',
   clientNames: [],
+  status: 'activo',
   unitOfMeasure: undefined,
   calculationType: 'REGLAS',
   calculationBase: undefined,
@@ -259,6 +263,16 @@ export default function ConceptManagementClientComponent({ initialClients, initi
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
     setIsEditing(false);
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: 'activo' | 'inactivo') => {
+    const result = await toggleConceptStatus(id, currentStatus);
+    if (result.success) {
+        toast({ title: "Estado Actualizado", description: result.message });
+        setConcepts(prev => prev.map(c => c.id === id ? { ...c, status: currentStatus === 'activo' ? 'inactivo' : 'activo' } : c));
+    } else {
+        toast({ variant: 'destructive', title: "Error", description: result.message });
+    }
   };
 
   const handleBulkDeleteConfirm = async () => {
@@ -382,7 +396,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   }
 
   const unitOfMeasureOptions = ['AREA', 'KILOGRAMOS', 'TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA', 'QUINCENA'];
-  const specificUnitOptions = ['KILOGRAMOS', 'HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'];
+  const specificUnitOptions = ['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -486,6 +500,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                       setSelectedIds(newSet);
                                     }} /></TableHead>
                                     <TableHead>Concepto</TableHead>
+                                    <TableHead>Estado</TableHead>
                                     <TableHead>Tarifa</TableHead>
                                     <TableHead className="text-right">Acciones</TableHead>
                                   </TableRow>
@@ -500,6 +515,11 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                           Aplica a: {(c.clientNames || []).join(', ')}
                                         </div>
                                       </TableCell>
+                                       <TableCell>
+                                            <Badge variant={c.status === 'activo' ? 'default' : 'secondary'} className={c.status === 'activo' ? 'bg-green-100 text-green-800' : ''}>
+                                                {c.status}
+                                            </Badge>
+                                        </TableCell>
                                       <TableCell>
                                         {c.tariffType === 'UNICA' ? (
                                           <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
@@ -508,6 +528,11 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                         )}
                                       </TableCell>
                                       <TableCell className="text-right">
+                                         <Switch
+                                            checked={c.status === 'activo'}
+                                            onCheckedChange={() => handleToggleStatus(c.id, c.status || 'inactivo')}
+                                            aria-label="Activar/Desactivar concepto"
+                                        />
                                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
                                       </TableCell>
                                     </TableRow>

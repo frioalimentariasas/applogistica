@@ -44,6 +44,7 @@ export interface ClientBillingConcept {
   id: string;
   conceptName: string;
   clientNames: string[];
+  status: 'activo' | 'inactivo'; // New status field
   unitOfMeasure: 'KILOGRAMOS' | 'TONELADA' | 'PALETA' | 'ESTIBA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO' | 'POSICION/DIA' | 'POSICIONES' | 'TIPO VEHÍCULO' | 'TRACTOMULA' | 'QUINCENA';
   
   calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL' | 'SALDO_INVENTARIO' | 'LÓGICA ESPECIAL';
@@ -258,6 +259,7 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         id: doc.id,
         conceptName: data.conceptName,
         clientNames: Array.isArray(data.clientNames) ? data.clientNames : [data.clientName],
+        status: data.status || 'activo',
         unitOfMeasure: data.unitOfMeasure,
         
         calculationType: data.calculationType || 'REGLAS',
@@ -308,9 +310,11 @@ export async function addClientBillingConcept(data: Omit<ClientBillingConcept, '
       return { success: false, message: `El concepto "${data.conceptName}" ya tiene una configuración para el cliente "${conflictingClient}". Edite el concepto existente en lugar de crear uno nuevo.` };
     }
 
-    const docRef = await conceptsRef.add(data);
+    const dataToSave = { ...data, status: 'activo' };
+
+    const docRef = await conceptsRef.add(dataToSave);
     revalidatePath('/gestion-conceptos-liquidacion-clientes');
-    return { success: true, message: 'Concepto de cliente agregado con éxito.', newConcept: { id: docRef.id, ...data } };
+    return { success: true, message: 'Concepto de cliente agregado con éxito.', newConcept: { id: docRef.id, ...dataToSave } as ClientBillingConcept };
   } catch (error) {
     console.error('Error al agregar concepto de liquidación de cliente:', error);
     return { success: false, message: 'Ocurrió un error en el servidor.' };
@@ -345,6 +349,20 @@ export async function updateClientBillingConcept(id: string, data: Omit<ClientBi
   }
 }
 
+export async function toggleConceptStatus(id: string, currentStatus: 'activo' | 'inactivo'): Promise<{ success: boolean; message: string }> {
+  if (!firestore) {
+    return { success: false, message: 'Error de configuración del servidor.' };
+  }
+  const newStatus = currentStatus === 'activo' ? 'inactivo' : 'activo';
+  try {
+    await firestore.collection('client_billing_concepts').doc(id).update({ status: newStatus });
+    revalidatePath('/gestion-conceptos-liquidacion-clientes');
+    return { success: true, message: `Concepto ${newStatus}.` };
+  } catch (error) {
+    console.error(`Error al cambiar el estado del concepto ${id}:`, error);
+    return { success: false, message: 'Ocurrió un error en el servidor.' };
+  }
+}
 
 // Action to delete one or more concepts
 export async function deleteMultipleClientBillingConcepts(ids: string[]): Promise<{ success: boolean; message: string }> {
