@@ -1223,7 +1223,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-            'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA',
+            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1484,7 +1484,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `FA-GFC-F13_Liquidacion_Servicios_cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         link.download = fileName;
         link.click();
     };
@@ -1509,14 +1509,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-            'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA',
+            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC)', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
     ];
     
@@ -1724,7 +1724,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             didDrawPage: (data) => addHeader(doc, "Detalle Liquidación de Servicios Clientes")
         });
     
-        const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
 
@@ -1766,18 +1766,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'OPERACIÓN DESCARGUE/TONELADAS',
             'OPERACIÓN CARGUE/TONELADAS',
             'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
             'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
             'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-            'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC)', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
         ];
         

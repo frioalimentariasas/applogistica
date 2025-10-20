@@ -1184,6 +1184,11 @@ export async function generateClientSettlement(criteria: {
                 let numeroPersonasParaReporte: number | string | undefined = opData.numeroPersonas;
                 
                 let operacionLogistica = 'No Aplica';
+                // AQUÍ EMPIEZA LA LÓGICA
+                if (opData.concept === 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)') {
+                    operacionLogistica = 'Servicio Congelación';
+                }
+                // AQUÍ TERMINA
                 let containerValue = opData.details?.container || 'No Aplica';
                 const noDocumento = opData.details?.noDocumento;
             
@@ -1296,7 +1301,7 @@ export async function generateClientSettlement(criteria: {
                         container: 'N/A',
                         camara: concept.inventorySesion,
                         totalPaletas: dayData.posicionesAlmacenadas,
-                        operacionLogistica: 'Servicio',
+                        operacionLogistica: 'Servicio', 
                         pedidoSislog: 'N/A',
                         conceptName: concept.conceptName,
                         tipoVehiculo: 'No Aplica',
@@ -1323,7 +1328,6 @@ export async function generateClientSettlement(criteria: {
         'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
         'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-        'SERVICIO LOGÍSTICO CONGELADOS - PALETA/DÍA',
         'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
         'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
         'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',

@@ -22,7 +22,7 @@ import type { PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator, ListChecks, Search } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator, ListChecks, Search, Eye, Warehouse, Sparkles } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
@@ -207,6 +207,18 @@ const addFormDefaultValues: ConceptFormValues = {
     saturdayEndTime: "17:00",
     dayShiftEndTime: "19:00",
   },
+};
+
+const GroupIcon = ({ type }: { type: string }) => {
+    const iconMap: Record<string, React.ElementType> = {
+      MANUAL: Edit,
+      REGLAS: ListChecks,
+      OBSERVACION: Eye,
+      'SALDO_INVENTARIO': Warehouse,
+      'LÓGICA ESPECIAL': Sparkles,
+    };
+    const Icon = iconMap[type] || Calculator;
+    return <Icon className="h-5 w-5 text-primary" />;
 };
 
 export default function ConceptManagementClientComponent({ initialClients, initialConcepts, standardObservations, pedidoTypes }: { initialClients: ClientInfo[], initialConcepts: ClientBillingConcept[], standardObservations: StandardObservation[], pedidoTypes: PedidoType[] }) {
@@ -472,6 +484,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                 <AccordionItem value={type} key={type}>
                                     <AccordionTrigger className="px-4 py-2 bg-gray-100/70 hover:bg-gray-200/70">
                                         <div className="flex items-center gap-2">
+                                            <GroupIcon type={type} />
                                             <span className="font-semibold">{type}</span>
                                             <Badge variant="secondary">{conceptsOfType.length}</Badge>
                                         </div>
