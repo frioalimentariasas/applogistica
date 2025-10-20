@@ -345,28 +345,6 @@ export default function ConceptManagementClientComponent({ initialClients, initi
         });
   }, [concepts, searchTerm, clientFilter, calculationTypeFilter]);
 
-  const groupedConcepts = useMemo(() => {
-    const groupOrder: Record<string, number> = {
-        'REGLAS': 1, 'OBSERVACION': 2, 'MANUAL': 3, 'SALDO_INVENTARIO': 4, 'LÓGICA ESPECIAL': 5,
-    };
-    const groups: Record<string, ClientBillingConcept[]> = {
-        'REGLAS': [], 'OBSERVACION': [], 'MANUAL': [], 'SALDO_INVENTARIO': [], 'LÓGICA ESPECIAL': [],
-    };
-    
-    sortedAndFilteredConcepts.forEach(c => {
-        const groupKey = c.calculationType || 'REGLAS';
-        if (groups[groupKey]) {
-            groups[groupKey].push(c);
-        }
-    });
-
-    Object.values(groups).forEach(group => group.sort((a, b) => a.conceptName.localeCompare(b.conceptName)));
-    
-    return Object.entries(groups)
-      .sort(([keyA], [keyB]) => (groupOrder[keyA] ?? 99) - (groupOrder[keyB] ?? 99))
-      .filter(([, concepts]) => concepts.length > 0);
-  }, [sortedAndFilteredConcepts]);
-
   const isAllSelected = useMemo(() => {
     if (sortedAndFilteredConcepts.length === 0) return false;
     return sortedAndFilteredConcepts.every(s => selectedIds.has(s.id));
@@ -479,75 +457,58 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                 <CardContent>
                   <div className="rounded-md border">
                     <ScrollArea className="h-[700px]">
-                      <Accordion type="multiple" className="w-full" defaultValue={groupedConcepts.map(([key]) => key)}>
-                        {groupedConcepts.map(([groupName, concepts]) => (
-                          <AccordionItem value={groupName} key={groupName}>
-                            <AccordionTrigger className="px-4 text-base bg-muted/50">
-                              <div className="flex items-center gap-2">
-                                {groupName === 'REGLAS' ? <Calculator/> : groupName === 'OBSERVACION' ? <ListChecks/> : <DollarSign/>}
-                                {groupName.replace('_', ' ')}
-                                <Badge variant="secondary">{concepts.length}</Badge>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="p-0">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead className="w-12"><Checkbox checked={concepts.every(c => selectedIds.has(c.id))} onCheckedChange={(checked) => {
-                                      const newSet = new Set(selectedIds);
-                                      if(checked) { concepts.forEach(c => newSet.add(c.id)); }
-                                      else { concepts.forEach(c => newSet.delete(c.id)); }
-                                      setSelectedIds(newSet);
-                                    }} /></TableHead>
-                                    <TableHead>Concepto</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead>Tarifa</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {concepts.map((c) => (
-                                    <TableRow key={c.id} data-state={selectedIds.has(c.id) ? "selected" : ""}>
-                                      <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
-                                      <TableCell>
-                                        <div className="font-medium">{c.conceptName}</div>
-                                        <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
-                                          Aplica a: {(c.clientNames || []).join(', ')}
-                                        </div>
-                                      </TableCell>
-                                       <TableCell>
-                                            <Badge variant={c.status === 'activo' ? 'default' : 'secondary'} className={c.status === 'activo' ? 'bg-green-100 text-green-800' : ''}>
-                                                {c.status}
-                                            </Badge>
-                                        </TableCell>
-                                      <TableCell>
-                                        {c.tariffType === 'UNICA' ? (
-                                          <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
-                                        ) : (
-                                          <Badge variant="outline">{c.tariffType.replace('_', ' ')}</Badge>
-                                        )}
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                         <Switch
-                                            checked={c.status === 'activo'}
-                                            onCheckedChange={() => handleToggleStatus(c.id, c.status || 'inactivo')}
-                                            aria-label="Activar/Desactivar concepto"
-                                        />
-                                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                      {groupedConcepts.length === 0 && (
-                          <div className="h-96 flex items-center justify-center text-muted-foreground">
-                              No hay conceptos que coincidan con la búsqueda.
-                          </div>
-                      )}
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
+                            <TableHead>Concepto</TableHead>
+                            <TableHead>Estado</TableHead>
+                            <TableHead>Tarifa</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sortedAndFilteredConcepts.length > 0 ? (
+                            sortedAndFilteredConcepts.map((c) => (
+                              <TableRow key={c.id} data-state={selectedIds.has(c.id) ? "selected" : ""}>
+                                <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
+                                <TableCell>
+                                  <div className="font-medium">{c.conceptName}</div>
+                                  <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
+                                    Aplica a: {(c.clientNames || []).join(', ')}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={c.status === 'activo' ? 'default' : 'secondary'} className={c.status === 'activo' ? 'bg-green-100 text-green-800' : ''}>
+                                    {c.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {c.tariffType === 'UNICA' ? (
+                                    <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
+                                  ) : (
+                                    <Badge variant="outline">{c.tariffType.replace('_', ' ')}</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Switch
+                                    checked={c.status === 'activo'}
+                                    onCheckedChange={() => handleToggleStatus(c.id, c.status || 'inactivo')}
+                                    aria-label="Activar/Desactivar concepto"
+                                  />
+                                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={5} className="h-24 text-center">
+                                No hay conceptos que coincidan con la búsqueda.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
                     </ScrollArea>
                   </div>
                 </CardContent>

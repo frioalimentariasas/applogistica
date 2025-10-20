@@ -154,7 +154,10 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         return docClientName === clientName;
     });
     
-    let conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+    let conceptsForClient = allConcepts.filter(c => 
+        (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)')) &&
+        c.status === 'activo'
+    );
     
     for (const concept of conceptsForClient) {
         if (concept.calculationType === 'REGLAS') {
@@ -276,7 +279,7 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         value: data.value,
         billingPeriod: data.billingPeriod,
 
-        // Map old fields to new ones for backward compatibility
+        // New granular shift times
         weekdayDayShiftStart: data.weekdayDayShiftStart || data.dayShiftStart,
         weekdayDayShiftEnd: data.weekdayDayShiftEnd || data.dayShiftEnd,
         saturdayDayShiftStart: data.saturdayDayShiftStart,
