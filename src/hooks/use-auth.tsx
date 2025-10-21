@@ -20,6 +20,10 @@ export interface AppPermissions {
   // Operaciones Logísticas
   canConsultForms: boolean;
   canViewPerformanceReport: boolean;
+  canViewFormDetails: boolean;
+  canEditForms: boolean;
+  canChangeFormType: boolean;
+  canDeleteForms: boolean;
 
   // Gestión y Liquidación Clientes
   canManageClientLiquidationConcepts: boolean;
@@ -44,10 +48,6 @@ export interface AppPermissions {
 
   // Parámetros y Seguridad
   canManageSessions: boolean;
-  
-  // Deprecated/Legacy or special single permissions
-  canEditForms: boolean;
-  canDeleteForms: boolean;
 }
 
 export const defaultPermissions: AppPermissions = {
@@ -60,6 +60,10 @@ export const defaultPermissions: AppPermissions = {
   
   canConsultForms: false,
   canViewPerformanceReport: false,
+  canViewFormDetails: false,
+  canEditForms: false,
+  canChangeFormType: false,
+  canDeleteForms: false,
 
   canManageClientLiquidationConcepts: false,
   canManageClientManualOperations: false,
@@ -80,9 +84,6 @@ export const defaultPermissions: AppPermissions = {
   canManageObservations: false,
 
   canManageSessions: false,
-
-  canEditForms: false,
-  canDeleteForms: false,
 };
 
 

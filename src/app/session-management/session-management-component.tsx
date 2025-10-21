@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -85,6 +84,10 @@ const permissionGroups: {
     icon: FileCog,
     permissions: [
       { key: 'canConsultForms', label: 'Consultar Formatos Guardados' },
+      { key: 'canViewFormDetails', label: 'Ver Detalle del Formato (PDF)' },
+      { key: 'canEditForms', label: 'Editar Formatos' },
+      { key: 'canChangeFormType', label: 'Cambiar Tipo de Operación' },
+      { key: 'canDeleteForms', label: 'Eliminar Formatos' },
       { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
     ],
   },

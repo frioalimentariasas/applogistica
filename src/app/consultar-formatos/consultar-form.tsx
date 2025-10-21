@@ -582,41 +582,44 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                                 <TableCell className="text-right">
                                                     <TooltipProvider delayDuration={100}>
                                                         <div className="flex items-center justify-end gap-1">
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Button asChild variant="ghost" size="icon">
-                                                                        <Link href={`/consultar-formatos/${sub.id}`}>
-                                                                            <Eye className="h-4 w-4" />
-                                                                            <span className="sr-only">Ver detalles</span>
-                                                                        </Link>
-                                                                    </Button>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent><p>Ver Detalle</p></TooltipContent>
-                                                            </Tooltip>
+                                                            {permissions.canViewFormDetails && (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button asChild variant="ghost" size="icon">
+                                                                            <Link href={`/consultar-formatos/${sub.id}`}>
+                                                                                <Eye className="h-4 w-4" />
+                                                                                <span className="sr-only">Ver detalles</span>
+                                                                            </Link>
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>Ver Detalle</p></TooltipContent>
+                                                                </Tooltip>
+                                                            )}
                                                             
                                                             {permissions.canEditForms && (
-                                                                <>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button asChild variant="ghost" size="icon">
-                                                                                <Link href={getEditUrl(sub)}>
-                                                                                    <Edit className="h-4 w-4 text-blue-600" />
-                                                                                    <span className="sr-only">Editar</span>
-                                                                                </Link>
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent><p>Editar Formulario</p></TooltipContent>
-                                                                    </Tooltip>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button variant="ghost" size="icon" onClick={() => setSubmissionToChangeType(sub)}>
-                                                                                <Replace className="h-4 w-4 text-orange-600" />
-                                                                                <span className="sr-only">Cambiar Tipo</span>
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent><p>Cambiar Tipo Operación</p></TooltipContent>
-                                                                    </Tooltip>
-                                                                </>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button asChild variant="ghost" size="icon">
+                                                                            <Link href={getEditUrl(sub)}>
+                                                                                <Edit className="h-4 w-4 text-blue-600" />
+                                                                                <span className="sr-only">Editar</span>
+                                                                            </Link>
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>Editar Formulario</p></TooltipContent>
+                                                                </Tooltip>
+                                                            )}
+
+                                                            {permissions.canChangeFormType && (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" onClick={() => setSubmissionToChangeType(sub)}>
+                                                                            <Replace className="h-4 w-4 text-orange-600" />
+                                                                            <span className="sr-only">Cambiar Tipo</span>
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>Cambiar Tipo Operación</p></TooltipContent>
+                                                                </Tooltip>
                                                             )}
 
                                                             {permissions.canDeleteForms && (

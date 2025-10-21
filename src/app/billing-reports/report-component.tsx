@@ -1617,7 +1617,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const totalGeneralQuantity = sortedSummary.reduce((sum, item) => sum + item.totalQuantity, 0);
 
         autoTable(doc, {
-            head: [['Item', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
+            head: [['#', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
             body: sortedSummary.map((item, index) => [
                 index + 1,
                 item.concept,
@@ -1636,8 +1636,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             startY: lastY,
             pageBreak: 'auto',
             theme: 'grid',
-            headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
-            styles: { fontSize: 7, cellPadding: 1.5 },
+            margin: { left: 30 }, // <-- AGREGA ESTA LÍNEA AQUÍ
+            headStyles: { fillColor: [26, 144, 200], fontSize: 12 },
+            styles: { fontSize: 11, cellPadding: 1.5 },
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
             didDrawPage: (data) => {
@@ -1652,11 +1653,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
                     if (containerNumbers.length > 0 && data.pageNumber === 1) {
                          const finalY = (doc as any).lastAutoTable.finalY || data.cursor?.y || 0;
-                         doc.setFontSize(8);
+                         doc.setFontSize(10);
                          doc.setFont('helvetica', 'bold');
-                         doc.text('Contenedor(es):', margin, finalY + 8);
+                         doc.text('Contenedor(es):', margin + 15, finalY + 8);
                          doc.setFont('helvetica', 'normal');
-                         doc.text(containerNumbers.join(', '), margin + 30, finalY + 8);
+                         doc.text(containerNumbers.join(', '), margin + 50, finalY + 8);
                     }
                 }
             }
@@ -1716,9 +1717,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
+            margin: { left: 30 }, // <-- AGREGA ESTA LÍNEA AQUÍ TAMBIÉN
             pageBreak: 'auto',
-            headStyles: { fillColor: [26, 144, 200], fontSize: 6, cellPadding: 1 },
-            styles: { fontSize: 6, cellPadding: 1 },
+            headStyles: { fillColor: [26, 144, 200], fontSize: 8, cellPadding: 1 },
+            styles: { fontSize: 8, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
             didDrawPage: (data) => addHeader(doc, "Detalle Liquidación de Servicios Clientes")
