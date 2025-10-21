@@ -1132,6 +1132,10 @@ export default function CrewPerformanceReportPage() {
                                                         displayedData.map((row) => {
                                                             const indicator = getPerformanceIndicator(row);
                                                             const isPending = row.cantidadConcepto === -1;
+                                                            const isTunelACamaraFijo = 
+                                                            row.formType === 'fixed-weight-reception' && 
+                                                            row.formData?.tipoPedido === 'TUNEL A CÁMARA CONGELADOS';
+
                                                             return (
                                                                 <TableRow key={row.id}>
                                                                     <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell>
@@ -1174,11 +1178,13 @@ export default function CrewPerformanceReportPage() {
                                                                     </TableCell>
                                                                     <TableCell className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">
                                                                         <div className="flex items-center justify-end gap-2">
-                                                                            {isPending && (
-                                                                                <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground h-8">
-                                                                                    <Edit2 className="mr-2 h-4 w-4"/>Legalizar
-                                                                                </Button>
-                                                                            )}
+                                                                        {isPending && !isTunelACamaraFijo && (
+                                                                        <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground h-8">
+                                                                        <Edit2 className="mr-2 h-4 w-4"/>Legalizar
+                                                                        </Button>
+                                                                     )}
+
+
                                                                              {indicator.text === 'Lento' && (
                                                                                 <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
                                                                                     <PlusCircle className="mr-2 h-4 w-4"/>Novedad
