@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -8,14 +9,6 @@ import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gesti
 import * as ExcelJS from 'exceljs';
 
 // --- INICIO DE LA NUEVA FUNCIÓN (NO EXPORTADA) ---
-/**
- * Calculates extra hours for an inspection based on specific business rules.
- * @param operationDate The date of the operation.
- * @param startTime The start time in HH:mm format.
- * @param endTime The end time in HH:mm format.
- * @returns The calculated and rounded extra hours, or 0 if none apply.
- */
-
 /**
  * Calculates extra hours for an inspection based on specific business rules.
  * @returns An object with the calculated hours and the start/end times of the extra period.
@@ -69,6 +62,7 @@ function calculateExtraHoursForInspeccion(operationDate: Date, startTime: string
         extraEndTime: format(overlapEnd, 'HH:mm'),
     };
 }
+// --- FIN DE LA NUEVA FUNCIÓN ---
 
 
 
@@ -627,13 +621,15 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         
         let extraHoursData;
         if (data.concept === 'INSPECCIÓN ZFPC' && data.operationDate && data.details?.startTime && data.details?.endTime) {
-            const extraHours = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
-            if (extraHours > 0) {
+            const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
+            if (hours > 0) {
                 extraHoursData = {
                     date: format(new Date(data.operationDate), 'yyyy-MM-dd'),
                     container: data.details.container || 'N/A',
                     arin: data.details.arin || 'N/A',
-                    hours: extraHours
+                    hours: hours,
+                    startTime: extraStartTime,
+                    endTime: extraEndTime
                 };
             }
         }
@@ -993,14 +989,14 @@ export async function uploadInspeccionOperations(
         const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(operationDate, startTime, endTime);
         if (hours > 0) {
         extraHoursData.push({
-        date: format(operationDate, 'yyyy-MM-dd'),
-        container: String(row.Contenedor || 'N/A'),
-        arin: String(row.Arin || 'N/A'),
-        hours: hours,
-        startTime: extraStartTime,
-        endTime: extraEndTime
-    });
-}
+            date: format(operationDate, 'yyyy-MM-dd'),
+            container: String(row.Contenedor || 'N/A'),
+            arin: String(row.Arin || 'N/A'),
+            hours: hours,
+            startTime: extraStartTime,
+            endTime: extraEndTime
+        });
+        }
 
         const start = parse(startTime, 'HH:mm', new Date());
         const end = parse(endTime, 'HH:mm', new Date());

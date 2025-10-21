@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -36,7 +37,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
@@ -234,7 +235,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState<{ message: string, errors: string[] } | null>(null);
     const [isUploadResultOpen, setIsUploadResultOpen] = useState(false);
-    const [uploadType, setUploadType] = useState<'FMM' | 'INSPECCION' | 'ARIN'>('FMM');
+    const [uploadType, setUploadType] = useState<'FMM' | 'INSPECCION' | 'ARIN' | 'TOMA_DE_PESOS'>('FMM');
     const [extraHoursResult, setExtraHoursResult] = useState<any[] | null>(null);
 
     const form = useForm<ManualOperationValues>({
@@ -757,9 +758,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         <form id="upload-form" action={handleUploadAction} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="uploadType">Tipo de Carga</Label>
-                                <Select value={uploadType} onValueChange={(value: 'FMM' | 'INSPECCION' | 'ARIN') => setUploadType(value)}>
+                                <Select value={uploadType} onValueChange={(value: any) => setUploadType(value)}>
                                     <SelectTrigger><SelectValue/></SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="TOMA_DE_PESOS">Toma de Pesos por Etiqueta (HRS)</SelectItem>
                                         <SelectItem value="FMM">Carga Masiva FMM</SelectItem>
                                         <SelectItem value="ARIN">Carga Masiva ARIN</SelectItem>
                                         <SelectItem value="INSPECCION">Carga Masiva Inspección ZFPC</SelectItem>
@@ -773,8 +775,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         "Columnas requeridas: Fecha, Cliente, Concepto, Cantidad, Contenedor, Op. Logística, # FMM, Placa."
                                     ) : uploadType === 'ARIN' ? (
                                         "Columnas requeridas: Fecha, Cliente, Concepto, Cantidad, Contenedor, Op. Logística, # ARIN, # FMM, Placa."
-                                    ) : (
+                                    ) : uploadType === 'INSPECCION' ? (
                                         "Columnas requeridas: Fecha, Cliente, Concepto, Contenedor, Arin, # FMM, Placa, Hora Inicio, Hora Final, # Personas."
+                                    ) : (
+                                        "Columnas requeridas: Fecha, Contenedor, Tiempo Real."
                                     )}
                                 </AlertDescription>
                             </Alert>
@@ -1546,7 +1550,6 @@ function ConceptFormBody(props: any) {
 }
 
 // --- INICIO DEL NUEVO COMPONENTE DIALOG ---
-// --- INICIO DEL NUEVO COMPONENTE DIALOG ---
 function ExtraHoursDialog({
     isOpen,
     onOpenChange,
@@ -1584,7 +1587,7 @@ function ExtraHoursDialog({
                     </DialogTitle>
                     <DialogDescription>
                         Se detectaron horas extra para el concepto 'TIEMPO EXTRA ZFPC' en las siguientes operaciones de inspección. Por favor, registre estas horas manualmente.
-                        </DialogDescription>
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
                     <ScrollArea className="h-60 w-full rounded-md border">
