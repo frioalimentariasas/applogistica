@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -19,7 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
 import type { ClientBillingConcept, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -27,7 +24,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign, ChevronsUpDown, Check, FileUp } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign, ChevronsUpDown, Check, FileUp, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -238,6 +235,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [uploadError, setUploadError] = useState<{ message: string, errors: string[] } | null>(null);
     const [isUploadResultOpen, setIsUploadResultOpen] = useState(false);
     const [uploadType, setUploadType] = useState<'FMM' | 'INSPECCION' | 'ARIN'>('FMM');
+    const [extraHoursResult, setExtraHoursResult] = useState<any[] | null>(null);
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
@@ -575,6 +573,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             }
     
             toast({ title: 'Éxito', description: result.message });
+            
+            // Check for extra hours and show dialog
+            if (result.extraHoursData) {
+                setExtraHoursResult([result.extraHoursData]);
+            }
+
             setIsDialogOpen(false);
             form.reset();
             const updatedOps = await fetchAllOperations();
@@ -632,6 +636,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             result = await uploadInspeccionOperations(formData);
         } else { // ARIN
              result = await uploadArinOperations(formData);
+        }
+        
+        if (result.extraHoursData && result.extraHoursData.length > 0) {
+            setExtraHoursResult(result.extraHoursData);
         }
         
         if (result.errorCount > 0) {
@@ -951,6 +959,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+                
+                <ExtraHoursDialog
+                    isOpen={!!extraHoursResult}
+                    onOpenChange={() => setExtraHoursResult(null)}
+                    data={extraHoursResult || []}
+                />
                 
                  <IndexCreationDialog 
                     isOpen={isIndexErrorOpen}
@@ -1530,3 +1544,82 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
+// --- INICIO DEL NUEVO COMPONENTE DIALOG ---
+// --- INICIO DEL NUEVO COMPONENTE DIALOG ---
+function ExtraHoursDialog({
+    isOpen,
+    onOpenChange,
+    data,
+}: {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    data: { date: string; container: string; arin: string; hours: number; startTime: string; endTime: string }[];
+}) {
+    const { toast } = useToast();
+
+    const copyToClipboard = () => {
+        const tableHeader = "Fecha\tContenedor\t# ARIN\tH. Inicio Extra\tH. Fin Extra\tHoras Extra a Liquidar";
+        const tableContent = data
+            .map(row => `${format(parseISO(row.date), 'dd/MM/yyyy')}\t${row.container}\t${row.arin}\t${row.startTime}\t${row.endTime}\t${row.hours}`)
+            .join('\n');
+        
+        const fullText = `${tableHeader}\n${tableContent}`;
+        
+        navigator.clipboard.writeText(fullText).then(() => {
+            toast({ title: "Copiado", description: "El resumen de horas extra se ha copiado al portapapeles." });
+        }, (err) => {
+            toast({ variant: 'destructive', title: "Error", description: "No se pudo copiar al portapapeles." });
+            console.error('Could not copy text: ', err);
+        });
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-6 w-6 text-yellow-500" />
+                        Alerta de Horas Extra Detectadas
+                    </DialogTitle>
+                    <DialogDescription>
+                        Se detectaron horas extra para el concepto 'TIEMPO EXTRA ZFPC' en las siguientes operaciones de inspección. Por favor, registre estas horas manualmente.
+                        </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <ScrollArea className="h-60 w-full rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Fecha</TableHead>
+                                    <TableHead>Contenedor</TableHead>
+                                    <TableHead># ARIN</TableHead>
+                                    <TableHead>H. Inicio Extra</TableHead>
+                                    <TableHead>H. Fin Extra</TableHead>
+                                    <TableHead className="text-right">Horas Extra a Liquidar</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {data.map((item, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>{format(parseISO(item.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                        <TableCell>{item.container}</TableCell>
+                                        <TableCell>{item.arin}</TableCell>
+                                        <TableCell>{item.startTime}</TableCell>
+                                        <TableCell>{item.endTime}</TableCell>
+                                        <TableCell className="text-right font-bold">{item.hours}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </ScrollArea>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cerrar</Button>
+                    <Button onClick={copyToClipboard}>Copiar Tabla</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+// --- FIN DEL NUEVO COMPONENTE DIALOG ---

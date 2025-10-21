@@ -1,14 +1,76 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { getDaysInMonth, startOfDay, addDays, format, isBefore, isEqual, parseISO, getDay, eachDayOfInterval, isSunday } from 'date-fns';
+import { getDaysInMonth, startOfDay, addDays, format, isBefore, isEqual, parseISO, getDay, isSaturday, isSunday, eachDayOfInterval, differenceInMinutes, parse } from 'date-fns';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-import { differenceInMinutes, parse } from 'date-fns';
 import * as ExcelJS from 'exceljs';
+
+// --- INICIO DE LA NUEVA FUNCIÓN (NO EXPORTADA) ---
+/**
+ * Calculates extra hours for an inspection based on specific business rules.
+ * @param operationDate The date of the operation.
+ * @param startTime The start time in HH:mm format.
+ * @param endTime The end time in HH:mm format.
+ * @returns The calculated and rounded extra hours, or 0 if none apply.
+ */
+
+/**
+ * Calculates extra hours for an inspection based on specific business rules.
+ * @returns An object with the calculated hours and the start/end times of the extra period.
+ */
+function calculateExtraHoursForInspeccion(operationDate: Date, startTime: string, endTime: string): { hours: number; extraStartTime: string; extraEndTime: string } {
+    if (!operationDate || !startTime || !endTime) {
+        return { hours: 0, extraStartTime: '', extraEndTime: '' };
+    }
+
+    const start = parse(startTime, 'HH:mm', operationDate);
+    let end = parse(endTime, 'HH:mm', operationDate);
+
+    if (end < start) {
+        end = addDays(end, 1);
+    }
+    
+    const dayOfWeek = getDay(operationDate); // 0=Sunday, 6=Saturday
+
+    let extraTimeRuleStart: Date;
+
+    if (isSunday(operationDate)) {
+        extraTimeRuleStart = start;
+    } else if (isSaturday(operationDate)) {
+        extraTimeRuleStart = new Date(operationDate);
+        extraTimeRuleStart.setHours(12, 0, 0, 0);
+    } else {
+        extraTimeRuleStart = new Date(operationDate);
+        extraTimeRuleStart.setHours(18, 0, 0, 0);
+    }
+
+    const overlapStart = new Date(Math.max(start.getTime(), extraTimeRuleStart.getTime()));
+    const overlapEnd = end;
+
+    if (overlapEnd.getTime() <= overlapStart.getTime()) {
+        return { hours: 0, extraStartTime: '', extraEndTime: '' };
+    }
+
+    const extraMinutes = (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60);
+
+    const integerHours = Math.floor(extraMinutes / 60);
+    const remainingMinutes = extraMinutes % 60;
+    
+    let roundedHours = integerHours;
+    if (remainingMinutes > 9) {
+        roundedHours = integerHours + 1;
+    }
+    
+    return {
+        hours: roundedHours,
+        extraStartTime: format(overlapStart, 'HH:mm'),
+        extraEndTime: format(overlapEnd, 'HH:mm'),
+    };
+}
+
+
 
 export interface ExcedentEntry {
     date: string; // YYYY-MM-DD
@@ -131,7 +193,7 @@ async function isArinNumberDuplicate(arinNumber: string, concept: string, curren
 
 
 
-export async function addManualClientOperation(data: ManualClientOperationData): Promise<{ success: boolean; message: string }> {
+export async function addManualClientOperation(data: ManualClientOperationData): Promise<{ success: boolean; message: string, extraHoursData?: any }> {
     if (!firestore) {
         return { success: false, message: 'El servidor no está configurado correctamente.' };
     }
@@ -171,7 +233,25 @@ export async function addManualClientOperation(data: ManualClientOperationData):
 
         revalidatePath('/billing-reports');
         revalidatePath('/operaciones-manuales-clientes');
-        return { success: true, message: 'Operación manual de cliente agregada con éxito.' };
+
+       // Bloque de código NUEVO
+let extraHoursData;
+if (data.concept === 'INSPECCIÓN ZFPC' && data.operationDate && data.details?.startTime && data.details?.endTime) {
+    const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
+    if (hours > 0) {
+        extraHoursData = {
+            date: format(new Date(data.operationDate), 'yyyy-MM-dd'),
+            container: data.details.container || 'N/A',
+            arin: data.details.arin || 'N/A',
+            hours: hours,
+            startTime: extraStartTime,
+            endTime: extraEndTime
+        };
+    }
+}
+
+return { success: true, message: 'Operación manual de cliente agregada con éxito.', extraHoursData };
+
 
     } catch (error) {
         console.error('Error al agregar operación manual de cliente:', error);
@@ -414,7 +494,7 @@ export async function addDailyLocationOperation(data: DailyLocationOperationData
 }
 
 
-export async function updateManualClientOperation(id: string, data: Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>): Promise<{ success: boolean; message: string }> {
+export async function updateManualClientOperation(id: string, data: Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>): Promise<{ success: boolean; message: string; extraHoursData?: any }> {
     if (!firestore) {
         return { success: false, message: 'El servidor no está configurado correctamente.' };
     }
@@ -544,7 +624,21 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         
         revalidatePath('/billing-reports');
         revalidatePath('/operaciones-manuales-clientes');
-        return { success: true, message: 'Operación manual de cliente actualizada con éxito.' };
+        
+        let extraHoursData;
+        if (data.concept === 'INSPECCIÓN ZFPC' && data.operationDate && data.details?.startTime && data.details?.endTime) {
+            const extraHours = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
+            if (extraHours > 0) {
+                extraHoursData = {
+                    date: format(new Date(data.operationDate), 'yyyy-MM-dd'),
+                    container: data.details.container || 'N/A',
+                    arin: data.details.arin || 'N/A',
+                    hours: extraHours
+                };
+            }
+        }
+        
+        return { success: true, message: 'Operación manual de cliente actualizada con éxito.', extraHoursData };
     } catch (error) {
         console.error(`Error al actualizar operación manual de cliente ${id}:`, error);
         const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
@@ -813,14 +907,14 @@ const excelTimeToHHMM = (excelTime: any): string => {
 
 export async function uploadInspeccionOperations(
   formData: FormData
-): Promise<{ success: boolean; message: string; createdCount: number; errorCount: number; errors: string[] }> {
+): Promise<{ success: boolean; message: string; createdCount: number; errorCount: number; errors: string[]; extraHoursData: any[] }> {
   if (!firestore) {
-    return { success: false, message: 'El servidor no está configurado.', createdCount: 0, errorCount: 0, errors: [] };
+    return { success: false, message: 'El servidor no está configurado.', createdCount: 0, errorCount: 0, errors: [], extraHoursData: [] };
   }
 
   const file = formData.get('file') as File;
   if (!file) {
-    return { success: false, message: 'No se encontró el archivo.', createdCount: 0, errorCount: 0, errors: [] };
+    return { success: false, message: 'No se encontró el archivo.', createdCount: 0, errorCount: 0, errors: [], extraHoursData: [] };
   }
   
   let rows: Partial<InspeccionRow>[] = [];
@@ -853,6 +947,7 @@ export async function uploadInspeccionOperations(
     let createdCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
+    const extraHoursData = [];
 
     const batch = firestore.batch();
 
@@ -893,7 +988,19 @@ export async function uploadInspeccionOperations(
         } catch (e) {
             throw new Error("Formato de Hora Final inválido. " + (e as Error).message);
         }
-
+        
+        // Bloque de código NUEVO en uploadInspeccionOperations
+        const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(operationDate, startTime, endTime);
+        if (hours > 0) {
+        extraHoursData.push({
+        date: format(operationDate, 'yyyy-MM-dd'),
+        container: String(row.Contenedor || 'N/A'),
+        arin: String(row.Arin || 'N/A'),
+        hours: hours,
+        startTime: extraStartTime,
+        endTime: extraEndTime
+    });
+}
 
         const start = parse(startTime, 'HH:mm', new Date());
         const end = parse(endTime, 'HH:mm', new Date());
@@ -939,11 +1046,11 @@ export async function uploadInspeccionOperations(
     let message = `Se crearon ${createdCount} registros.`;
     if (errorCount > 0) message += ` ${errorCount} filas tuvieron errores y no se cargaron.`;
     
-    return { success: errorCount === 0, message, createdCount, errorCount, errors };
+    return { success: errorCount === 0, message, createdCount, errorCount, errors, extraHoursData };
 
   } catch(error) {
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido al procesar el archivo.';
-    return { success: false, message: errorMessage, createdCount: 0, errorCount: rows.length, errors: [errorMessage] };
+    return { success: false, message: errorMessage, createdCount: 0, errorCount: rows.length, errors: [errorMessage], extraHoursData: [] };
   }
 }
 

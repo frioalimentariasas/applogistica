@@ -22,7 +22,6 @@ import {
     updateUserPassword,
     updateUserDisplayName,
     purgeOldSubmissions,
-    backfillMissingQuantityTypes,
     type ActiveUser
 } from './actions';
 import type { AppPermissions } from '@/hooks/use-auth';
@@ -172,8 +171,6 @@ export default function SessionManagementComponent() {
     // State for data maintenance
     const [isPurgeConfirmOpen, setIsPurgeConfirmOpen] = useState(false);
     const [isPurging, setIsPurging] = useState(false);
-    const [isRepairConfirmOpen, setIsRepairConfirmOpen] = useState(false);
-    const [isRepairing, setIsRepairing] = useState(false);
 
 
     // Forms
@@ -315,31 +312,6 @@ export default function SessionManagementComponent() {
         } finally {
             setIsPurging(false);
             setIsPurgeConfirmOpen(false);
-        }
-    };
-
-    const handleRepair = async () => {
-        setIsRepairing(true);
-        try {
-            const result = await backfillMissingQuantityTypes();
-            if (result.success) {
-                toast({
-                    title: 'Reparación Completada',
-                    description: `${result.message} Es posible que deba actualizar los informes para ver los cambios.`,
-                    duration: 7000
-                });
-            } else {
-                throw new Error(result.message);
-            }
-        } catch(error) {
-            toast({
-                variant: 'destructive',
-                title: 'Error en la Reparación',
-                description: error instanceof Error ? error.message : 'Ocurrió un error inesperado.',
-            });
-        } finally {
-            setIsRepairing(false);
-            setIsRepairConfirmOpen(false);
         }
     };
     
@@ -492,18 +464,6 @@ export default function SessionManagementComponent() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex flex-col sm:flex-row items-center justify-between rounded-lg border p-4 gap-4">
-                                <div>
-                                    <h4 className="font-semibold text-blue-700">Reparar 'quantityType' en Formatos Antiguos</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                       Ejecuta un script que busca en todos los formatos guardados y añade el campo 'quantityType' a las observaciones que no lo tengan. Esto repara los reportes de liquidación para datos antiguos.
-                                    </p>
-                                </div>
-                                <Button variant="outline" onClick={() => setIsRepairConfirmOpen(true)} disabled={isRepairing} className="w-full sm:w-auto border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
-                                    {isRepairing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wrench className="mr-2 h-4 w-4" />}
-                                    {isRepairing ? "Reparando..." : "Reparar Datos"}
-                                </Button>
-                            </div>
                              <div className="flex flex-col sm:flex-row items-center justify-between rounded-lg border p-4 gap-4">
                                 <div>
                                     <h4 className="font-semibold">Purgar Formatos Antiguos</h4>
@@ -702,24 +662,6 @@ export default function SessionManagementComponent() {
                         <AlertDialogAction onClick={handlePurge} disabled={isPurging} className={buttonVariants({ variant: 'destructive' })}>
                             {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Sí, Purgar Datos
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            
-            <AlertDialog open={isRepairConfirmOpen} onOpenChange={setIsRepairConfirmOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Confirmar Reparación de Datos</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Esta acción escaneará toda la base de datos de formatos y corregirá las observaciones a las que les falte el tipo de cantidad. ¿Desea continuar?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isRepairing}>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleRepair} disabled={isRepairing} className={buttonVariants({ variant: 'default' })}>
-                            {isRepairing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Sí, Reparar Datos
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
