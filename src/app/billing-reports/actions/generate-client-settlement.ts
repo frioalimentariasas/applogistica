@@ -916,8 +916,22 @@ export async function generateClientSettlement(criteria: {
                     unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                 }
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
-                 const allTemps: number[] = (op.formData.summary || []).flatMap((item: any) => 
-                    [item.temperatura1, item.temperatura2, item.temperatura3].filter((t: any): t is number => t !== null && t !== undefined && !isNaN(Number(t)))
+                let tempSourceArray = [];
+                // Verifica si el formulario es de peso fijo o variable para saber de dónde sacar las temperaturas
+                if (op.formType.startsWith('fixed-weight-')) {
+                    tempSourceArray = op.formData.productos || [];
+                } else {
+                    tempSourceArray = op.formData.summary || [];
+                }
+            
+                const allTemps: number[] = tempSourceArray.flatMap((item: any) => 
+                    [
+                        item.temperatura1, 
+                        item.temperatura2, 
+                        item.temperatura3,
+                        // También busca `temperatura` por compatibilidad con datos antiguos
+                        item.temperatura 
+                    ].filter((t: any): t is number => t !== null && t !== undefined && !isNaN(Number(t)))
                 );
             
                 if (allTemps.length > 0) {
@@ -928,6 +942,7 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
             }
+            
 
             
             const filteredItems = getFilteredItems(op, concept.filterSesion, articleSessionMap);

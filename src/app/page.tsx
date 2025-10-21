@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -23,8 +22,8 @@ const Logo = () => (
       <Image
         src="/images/company-logo.png"
         alt="Logotipo de Frio Alimentaria"
-        width={300}
-        height={86}
+        width={270}
+        height={77}
         priority
       />
     </div>
