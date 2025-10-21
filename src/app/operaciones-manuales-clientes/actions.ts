@@ -229,22 +229,22 @@ export async function addManualClientOperation(data: ManualClientOperationData):
         revalidatePath('/operaciones-manuales-clientes');
 
        // Bloque de código NUEVO
-let extraHoursData;
-if (data.concept === 'INSPECCIÓN ZFPC' && data.operationDate && data.details?.startTime && data.details?.endTime) {
-    const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
-    if (hours > 0) {
-        extraHoursData = {
-            date: format(new Date(data.operationDate), 'yyyy-MM-dd'),
-            container: data.details.container || 'N/A',
-            arin: data.details.arin || 'N/A',
-            hours: hours,
-            startTime: extraStartTime,
-            endTime: extraEndTime
-        };
-    }
-}
+        let extraHoursData;
+        if (data.concept === 'INSPECCIÓN ZFPC' && data.operationDate && data.details?.startTime && data.details?.endTime) {
+            const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
+            if (hours > 0) {
+                extraHoursData = {
+                    date: format(new Date(data.operationDate), 'yyyy-MM-dd'),
+                    container: data.details.container || 'N/A',
+                    arin: data.details.arin || 'N/A',
+                    hours: hours,
+                    startTime: extraStartTime,
+                    endTime: extraEndTime
+                };
+            }
+        }
 
-return { success: true, message: 'Operación manual de cliente agregada con éxito.', extraHoursData };
+        return { success: true, message: 'Operación manual de cliente agregada con éxito.', extraHoursData };
 
 
     } catch (error) {
