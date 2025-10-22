@@ -1330,7 +1330,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                   <CardHeader><CardTitle>Información del Vehículo</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
                       <FormField control={form.control} name="nombreConductor" render={({ field }) => (
-                          <FormItem><FormLabel>Nombre Conductor {!(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>{(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
+                          <FormItem><FormLabel>Nombre Conductor {!(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>{(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
                       )}/>
                       <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
                           <FormItem><FormLabel>Cédula Conductor {!(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} type="text" inputMode="numeric" pattern="[0-9]*" /></FormControl>{(isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA')) && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
@@ -1524,7 +1524,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                   <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                               </FormItem>
                           )}
-                          {watchedTipoPedido !== 'INGRESO DE SALDOS' && (
+                          {watchedTipoPedido !== 'INGRESO DE SALDOS' && watchedTipoPedido !== 'TUNEL A CÁMARA CONGELADOS' && (
                               <>
                               <FormField
                                   control={form.control}
@@ -1539,7 +1539,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                       </FormItem>
                                   )}
                               />
-                              {watchedAplicaCuadrilla === 'si' && isReception && watchedTipoPedido === 'MAQUILA' && (
+                              {watchedAplicaCuadrilla === 'si' && isReception && watchedTipoPedido === 'MAQUILA' &&  (
                                   <FormField
                                       control={form.control}
                                       name="numeroOperariosCuadrilla"

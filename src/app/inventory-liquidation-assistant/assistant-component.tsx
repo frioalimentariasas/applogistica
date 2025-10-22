@@ -9,7 +9,7 @@ import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
 import { format, eachDayOfInterval, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle, Send } from 'lucide-react';
+import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle, Send, Info } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
 import type { ClientInfo } from '@/app/actions/clients';
@@ -36,6 +36,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+
 
 
 const dailyEntrySchema = z.object({
@@ -273,6 +275,8 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     const [graceFilter, setGraceFilter] = useState<GraceFilter>('all');
     const [selectedLotsInDialog, setSelectedLotsInDialog] = useState<Set<string>>(new Set());
 
+    const { dateRange } = form.getValues();
+
     const handleOpenLotFinder = async () => {
         if (!dateRange?.from || !dateRange?.to) {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un rango de fechas primero.' });
@@ -310,6 +314,28 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
         form.reset();
     };
 
+    const activeClientsForAssistant = useMemo(() => {
+        const requiredConcepts = [
+            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+            'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
+            'MOVIMIENTO SALIDA PRODUCTO - PALETA'
+        ];
+
+        return clients
+            .filter(client => {
+                const clientConcepts = billingConcepts.filter(c =>
+                    c.clientNames.includes(client.razonSocial) ||
+                    c.clientNames.includes('TODOS (Cualquier Cliente)')
+                );
+                
+                return requiredConcepts.every(rc =>
+                    clientConcepts.some(cc => cc.conceptName === rc)
+                );
+            })
+            .map(client => client.razonSocial)
+            .sort();
+    }, [clients, billingConcepts]);
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
@@ -321,10 +347,9 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
             <div>
               <div className="flex items-center justify-center gap-2">
                 <Calculator className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-bold text-primary">Asistente de Liquidación de Inventario</h1>
+                <h1 className="text-2xl font-bold text-primary">Asistente de Liquidación de Inventario </h1>
               </div>
               <p className="text-sm text-gray-500">Calcule dinámicamente la liquidación de almacenamiento y movimientos de paletas.</p>
-              <h3 className="text-sm text-gray-500">Liquidación para Operación Logistica Por PLACA (Cliente Activo SMYL)</h3>
             </div>
           </div>
         </header>
@@ -337,6 +362,15 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                         <CardDescription>Seleccione el cliente, el rango de fechas e ingrese los datos generales.</CardDescription>
                     </CardHeader>
                     <CardContent>
+                         <Alert className="mb-6 border-sky-500 bg-sky-50 text-sky-800 [&>svg]:text-sky-600">
+                            <Info className="h-4 w-4" />
+                            <AlertTitle className="text-sky-900 font-bold">Clientes Activos para este Asistente</AlertTitle>
+                            <AlertDescription>
+                                {activeClientsForAssistant.length > 0
+                                    ? `Actualmente, los siguientes clientes tienen los conceptos de almacenamiento y movimiento configurados: ${activeClientsForAssistant.join(', ')}.`
+                                    : "No se encontraron clientes con la configuración de tarifas completa para este asistente. Por favor, verifique los conceptos de liquidación."}
+                            </AlertDescription>
+                        </Alert>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                             <FormField
                                 control={form.control}
@@ -607,5 +641,3 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     </div>
   );
 }
-
-    

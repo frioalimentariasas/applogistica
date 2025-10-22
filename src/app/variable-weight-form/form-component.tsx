@@ -1194,7 +1194,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                         <FormField control={form.control} name="conductor" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Conductor <span className="text-destructive">*</span></FormLabel>
-                              <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
+                              <FormControl><Input placeholder="Nombre del conductor" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
                               <FormMessage />
                             </FormItem>
                         )}/>
@@ -1289,7 +1289,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         render={({ field }) => (
                                             <FormItem className="mb-4">
                                                 <FormLabel>Nombre del Destino</FormLabel>
-                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} /></FormControl>
+                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}

@@ -1506,7 +1506,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                           <FormField control={form.control} name="conductor" render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
-                                <FormControl><Input placeholder="Nombre del conductor" {...field} disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
+                                <FormControl><Input placeholder="Nombre del conductor" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
                                 {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}
                                 <FormMessage />
                               </FormItem>
@@ -1640,7 +1640,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                                   render={({ field }) => (
                                                                       <FormItem>
                                                                           <FormLabel>Nombre Conductor <span className="text-destructive">*</span></FormLabel>
-                                                                          <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
+                                                                          <FormControl><Input placeholder="Nombre del conductor" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
                                                                           <FormMessage />
                                                                       </FormItem>
                                                                   )}
