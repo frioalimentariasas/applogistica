@@ -14,8 +14,8 @@ Estos pasos guardan el estado actual de tu código en tu máquina.
 
 **Paso 1: Descargar tu Proyecto**
 
-1.  **Encuentra el menú de opciones del Explorador de Archivos:** En la barra lateral izquierda de Firebase Studio, busca el título **"EXPLORER"**. Justo a la derecha de esa palabra, verás un botón con tres puntos horizontales (`...`).
-2.  **Descarga el código:** Haz clic en el menú de los tres puntos (`...`) y selecciona la opción **"Download..."**.
+1.  **Abre el Menú Principal:** En la esquina superior izquierda de la pantalla de Firebase Studio, haz clic en el botón del menú (tres líneas horizontales `☰`).
+2.  **Descarga el código:** En el menú que se despliega, ve a la opción **"File"** y luego haz clic en **"Download Project"**.
 3.  **Descomprime el archivo:** Esto descargará un archivo `.zip` que contiene **todo tu proyecto**. Descomprímelo en una carpeta fácil de encontrar (por ejemplo, `C:\proyectos\mi-app-logistica` o `/Users/TuUsuario/proyectos/mi-app-logistica`). Si ya tenías una versión anterior, reemplaza los archivos con los nuevos.
 
 **Paso 2: Abrir una Terminal en la Carpeta del Proyecto**
