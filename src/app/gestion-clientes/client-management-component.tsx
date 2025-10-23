@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -145,14 +145,14 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   };
   
   // Fetch clients on initial load
-  useState(() => {
+  useEffect(() => {
       handleSearch();
-  });
+  }, []);
 
 
   const onAddSubmit: SubmitHandler<AddClientFormValues> = async (data) => {
     setIsSubmittingAdd(true);
-    const paymentTerm = data.paymentTermDays?.toLowerCase() === 'contado' ? 'Contado' : Number(data.paymentTermDays);
+    const paymentTerm = data.paymentTermDays?.toLowerCase() === 'contado' ? 'Contado' : data.paymentTermDays ? Number(data.paymentTermDays) : undefined;
     const result = await addClient(data.razonSocial, paymentTerm);
     if (result.success && result.newClient) {
       toast({ title: 'Éxito', description: result.message });
@@ -167,7 +167,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   const onEditSubmit: SubmitHandler<EditClientFormValues> = async (data) => {
     if (!clientToEdit) return;
     setIsEditing(true);
-    const paymentTerm = data.paymentTermDays?.toLowerCase() === 'contado' ? 'Contado' : Number(data.paymentTermDays);
+    const paymentTerm = data.paymentTermDays?.toLowerCase() === 'contado' ? 'Contado' : data.paymentTermDays ? Number(data.paymentTermDays) : undefined;
     const result = await updateClient(clientToEdit.id, data.razonSocial, paymentTerm);
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
@@ -214,7 +214,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   async function handleUploadFormAction(formData: FormData) {
     const file = formData.get('file') as File;
     if (!file || file.size === 0) {
-      setFormError('Por favor, seleccione un archivo para cargar.');
+        setUploadFormError('Por favor, seleccione un archivo para cargar.');
       return;
     }
 
@@ -492,7 +492,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                   <FormItem>
                     <FormLabel>Plazo de Vencimiento</FormLabel>
                     <FormControl>
-                      <Input type="text" placeholder="Ej: 30 o Contado" {...field} />
+                      <Input type="text" placeholder="Ej: 30 o Contado" {...field} value={field.value ?? ''}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
