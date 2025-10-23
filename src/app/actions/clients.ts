@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -5,6 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 export interface ClientInfo {
     id: string;
     razonSocial: string;
+    paymentTermDays?: number;
 }
 
 export async function getClients(): Promise<ClientInfo[]> {
@@ -20,7 +22,8 @@ export async function getClients(): Promise<ClientInfo[]> {
         }
         const clients = clientesSnapshot.docs.map(doc => ({
             id: doc.id,
-            razonSocial: doc.data().razonSocial as string
+            razonSocial: doc.data().razonSocial as string,
+            paymentTermDays: doc.data().paymentTermDays as number | undefined
         }));
         return clients;
     } catch (error) {

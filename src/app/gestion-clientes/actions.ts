@@ -4,7 +4,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 
-export async function addClient(razonSocial: string): Promise<{ success: boolean; message: string; newClient?: { id: string, razonSocial: string } }> {
+export async function addClient(razonSocial: string, paymentTermDays?: number): Promise<{ success: boolean; message: string; newClient?: { id: string, razonSocial: string, paymentTermDays?: number } }> {
   if (!firestore) {
     return { success: false, message: 'Error de configuración del servidor.' };
   }
@@ -22,7 +22,11 @@ export async function addClient(razonSocial: string): Promise<{ success: boolean
       return { success: false, message: `El cliente "${trimmedName}" ya existe.` };
     }
 
-    const docRef = await clientesRef.add({ razonSocial: trimmedName });
+    const newClientData = {
+      razonSocial: trimmedName,
+      paymentTermDays: Number.isFinite(paymentTermDays) ? paymentTermDays : null,
+    };
+    const docRef = await clientesRef.add(newClientData);
     
     revalidatePath('/gestion-clientes');
     revalidatePath('/fixed-weight-form');
@@ -30,7 +34,7 @@ export async function addClient(razonSocial: string): Promise<{ success: boolean
     revalidatePath('/variable-weight-reception-form');
     revalidatePath('/gestion-articulos');
 
-    return { success: true, message: `Cliente "${trimmedName}" agregado con éxito.`, newClient: { id: docRef.id, razonSocial: trimmedName } };
+    return { success: true, message: `Cliente "${trimmedName}" agregado con éxito.`, newClient: { id: docRef.id, ...newClientData } };
   } catch (error) {
     console.error('Error al agregar el cliente:', error);
     const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
@@ -38,7 +42,7 @@ export async function addClient(razonSocial: string): Promise<{ success: boolean
   }
 }
 
-export async function updateClient(id: string, newRazonSocial: string): Promise<{ success: boolean; message: string }> {
+export async function updateClient(id: string, newRazonSocial: string, paymentTermDays?: number): Promise<{ success: boolean; message: string }> {
   if (!firestore) {
     return { success: false, message: 'Error de configuración del servidor.' };
   }
@@ -65,10 +69,13 @@ export async function updateClient(id: string, newRazonSocial: string): Promise<
 
     const batch = firestore.batch();
     
-    // 1. Update client document
-    batch.update(clientRef, { razonSocial: trimmedName });
+    // Update client document
+    batch.update(clientRef, {
+      razonSocial: trimmedName,
+      paymentTermDays: Number.isFinite(paymentTermDays) ? paymentTermDays : null,
+    });
 
-    // 2. Update associated articles
+    // Update associated articles
     if (oldRazonSocial && oldRazonSocial !== trimmedName) {
       const articlesQuery = await firestore.collection('articulos').where('razonSocial', '==', oldRazonSocial).get();
       articlesQuery.forEach(doc => {
