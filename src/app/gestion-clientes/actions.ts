@@ -24,7 +24,7 @@ export async function addClient(razonSocial: string, paymentTermDays?: number): 
 
     const newClientData = {
       razonSocial: trimmedName,
-      paymentTermDays: Number.isFinite(paymentTermDays) ? paymentTermDays : null,
+      paymentTermDays: paymentTermDays !== undefined && !isNaN(paymentTermDays) ? Number(paymentTermDays) : null,
     };
     const docRef = await clientesRef.add(newClientData);
     
@@ -72,7 +72,7 @@ export async function updateClient(id: string, newRazonSocial: string, paymentTe
     // Update client document
     batch.update(clientRef, {
       razonSocial: trimmedName,
-      paymentTermDays: Number.isFinite(paymentTermDays) ? paymentTermDays : null,
+      paymentTermDays: paymentTermDays !== undefined && !isNaN(paymentTermDays) ? Number(paymentTermDays) : null,
     });
 
     // Update associated articles

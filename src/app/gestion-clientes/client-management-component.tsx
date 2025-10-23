@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState } from 'react';
@@ -40,11 +39,13 @@ import type { ClientInfo } from '@/app/actions/clients';
 // Schemas for forms
 const addClientSchema = z.object({
   razonSocial: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
+  paymentTermDays: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
 });
 type AddClientFormValues = z.infer<typeof addClientSchema>;
 
 const editClientSchema = z.object({
     razonSocial: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
+    paymentTermDays: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
 });
 type EditClientFormValues = z.infer<typeof editClientSchema>;
 
@@ -110,7 +111,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   // Forms
   const addForm = useForm<AddClientFormValues>({
     resolver: zodResolver(addClientSchema),
-    defaultValues: { razonSocial: '' },
+    defaultValues: { razonSocial: '', paymentTermDays: undefined },
   });
 
   const editForm = useForm<EditClientFormValues>({
@@ -137,7 +138,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
 
   const onAddSubmit: SubmitHandler<AddClientFormValues> = async (data) => {
     setIsSubmittingAdd(true);
-    const result = await addClient(data.razonSocial);
+    const result = await addClient(data.razonSocial, data.paymentTermDays);
     if (result.success && result.newClient) {
       toast({ title: 'Éxito', description: result.message });
       setClients(prev => [...prev, result.newClient!].sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
@@ -151,10 +152,10 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   const onEditSubmit: SubmitHandler<EditClientFormValues> = async (data) => {
     if (!clientToEdit) return;
     setIsEditing(true);
-    const result = await updateClient(clientToEdit.id, data.razonSocial);
+    const result = await updateClient(clientToEdit.id, data.razonSocial, data.paymentTermDays);
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setClients(prev => prev.map(c => c.id === clientToEdit.id ? { ...c, razonSocial: data.razonSocial } : c).sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
+      setClients(prev => prev.map(c => c.id === clientToEdit.id ? { ...c, razonSocial: data.razonSocial, paymentTermDays: data.paymentTermDays } : c).sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
       setClientToEdit(null);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -178,7 +179,10 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
 
   const openEditDialog = (client: ClientInfo) => {
     setClientToEdit(client);
-    editForm.reset({ razonSocial: client.razonSocial });
+    editForm.reset({ 
+        razonSocial: client.razonSocial, 
+        paymentTermDays: client.paymentTermDays ?? undefined
+    });
   };
 
   const handleUploadFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -309,6 +313,19 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={addForm.control}
+                      name="paymentTermDays"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Plazo de Pago (días)</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="Ej: 30" {...field} />
+                          </FormControl>
+                           <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <Button type="submit" disabled={isSubmittingAdd} className="w-full">
                       {isSubmittingAdd ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                       Agregar Cliente
@@ -384,13 +401,14 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                   <TableHeader>
                     <TableRow>
                       <TableHead>Razón Social</TableHead>
+                      <TableHead>Plazo de Pago</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
                          <TableRow>
-                            <TableCell colSpan={2} className="h-24 text-center">
+                            <TableCell colSpan={3} className="h-24 text-center">
                                 <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
                                 <p className="text-muted-foreground">Cargando...</p>
                             </TableCell>
@@ -399,6 +417,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                       filteredClients.map((client) => (
                         <TableRow key={client.id}>
                           <TableCell>{client.razonSocial}</TableCell>
+                          <TableCell>{client.paymentTermDays != null ? `${client.paymentTermDays} días` : 'No definido'}</TableCell>
                           <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-2">
                                     <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(client)}>
@@ -413,7 +432,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
+                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                           {searched ? "No se encontraron clientes." : "Haga clic en 'Buscar' para ver los clientes."}
                         </TableCell>
                       </TableRow>
@@ -444,6 +463,19 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                   <FormItem>
                     <FormLabel>Razón Social</FormLabel>
                     <FormControl><Input placeholder="Colocar nombre Propietario SISLOG" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="paymentTermDays"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Plazo de Pago (días)</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Ej: 30" {...field} value={field.value ?? ''} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
