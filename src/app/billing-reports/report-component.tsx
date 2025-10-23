@@ -46,7 +46,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 
 const ResultsSkeleton = () => (
   <>
@@ -246,6 +246,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isEditSettlementRowOpen, setIsEditSettlementRowOpen] = useState(false);
     const [originalSettlementData, setOriginalSettlementData] = useState<ClientSettlementRow[]>([]);
     const [hiddenRowIds, setHiddenRowIds] = useState<Set<string>>(new Set());
+    const [settlementPaymentTerm, setSettlementPaymentTerm] = useState<string>('');
 
     
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
@@ -255,6 +256,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
     const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
     const [isLogoLoading, setIsLogoLoading] = useState(true);
+
+    const settlementForm = useForm();
 
     useEffect(() => {
         getPedidoTypes().then(setAllPedidoTypes);
@@ -288,6 +291,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         handleFetchApplicableConcepts();
     }, [handleFetchApplicableConcepts]);
+    
+    useEffect(() => {
+        if (settlementClient) {
+            const clientData = clients.find(c => c.razonSocial === settlementClient);
+            setSettlementPaymentTerm(clientData?.paymentTermDays?.toString() || '');
+        } else {
+            setSettlementPaymentTerm('');
+        }
+    }, [settlementClient, clients]);
 
 
     useEffect(() => {
@@ -1516,7 +1528,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC)', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
     ];
     
@@ -1636,36 +1648,50 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             startY: lastY,
             pageBreak: 'auto',
             theme: 'grid',
-            margin: { left: 30 }, // <-- AGREGA ESTA LÍNEA AQUÍ
             headStyles: { fillColor: [26, 144, 200], fontSize: 12 },
             styles: { fontSize: 11, cellPadding: 1.5 },
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
             didDrawPage: (data) => {
-                addHeader(doc, "Resumen Liquidación de Servicios Clientes");
-                const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
-                if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
-                     const containerNumbers = [...new Set(
-                        visibleRows
-                            .filter(row => smylConceptNames.includes(row.conceptName) && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
-                            .map(row => row.container)
-                    )];
+                 let finalY = (doc as any).lastAutoTable.finalY || data.cursor?.y || 0;
+                 if (data.pageNumber === 1) { // Only on the first page of the summary
+                    const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
+                    if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
+                        const containerNumbers = [...new Set(
+                            visibleRows
+                                .filter(row => smylConceptNames.includes(row.conceptName) && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
+                                .map(row => row.container)
+                        )];
 
-                    if (containerNumbers.length > 0 && data.pageNumber === 1) {
-                         const finalY = (doc as any).lastAutoTable.finalY || data.cursor?.y || 0;
-                         doc.setFontSize(10);
-                         doc.setFont('helvetica', 'bold');
-                         doc.text('Contenedor(es):', margin + 15, finalY + 8);
-                         doc.setFont('helvetica', 'normal');
-                         doc.text(containerNumbers.join(', '), margin + 50, finalY + 8);
+                        if (containerNumbers.length > 0) {
+                             doc.setFontSize(10);
+                             doc.setFont('helvetica', 'bold');
+                             doc.text('Contenedor(es):', margin, finalY + 8);
+                             doc.setFont('helvetica', 'normal');
+                             doc.text(containerNumbers.join(', '), margin + 35, finalY + 8);
+                             finalY += 8;
+                        }
                     }
-                }
+                     if (settlementPaymentTerm) {
+                        doc.setFontSize(10);
+                        doc.setFont('helvetica', 'bold');
+                        
+                        let paymentTermText = '';
+                        const termAsNumber = parseInt(settlementPaymentTerm, 10);
+
+                        if (!isNaN(termAsNumber)) {
+                            paymentTermText = `PLAZO DE VENCIMIENTO: ${termAsNumber} DÍAS`;
+                        } else {
+                            paymentTermText = `PLAZO DE VENCIMIENTO: ${settlementPaymentTerm.toUpperCase()}`;
+                        }
+                        doc.text(paymentTermText, margin, finalY + 15);
+                    }
+                 }
             }
         });
-
+        
         doc.addPage();
         lastY = addHeader(doc, "Detalle Liquidación de Servicios Clientes");
-
 
         const groupedByConcept = visibleRows.reduce((acc, row) => {
             const conceptKey = row.conceptName;
@@ -1717,7 +1743,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
-            margin: { left: 30 }, // <-- AGREGA ESTA LÍNEA AQUÍ TAMBIÉN
             pageBreak: 'auto',
             headStyles: { fillColor: [26, 144, 200], fontSize: 8, cellPadding: 1 },
             styles: { fontSize: 8, cellPadding: 1 },
@@ -1779,7 +1804,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC)', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
         ];
         
@@ -1863,7 +1888,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     </TabsList>
 
                     <TabsContent value="detailed-operation">
-                        <Card>
+                       <Card>
                             <CardHeader>
                                 <CardTitle>Informe Detallado por Operación</CardTitle>
                                 <CardDescription>Filtre para ver un listado detallado de las operaciones registradas.</CardDescription>
@@ -2617,108 +2642,120 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <CardDescription>Genere un reporte de liquidación para los servicios prestados a un cliente.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
-                                     <div className="space-y-2">
-                                        <Label>Cliente</Label>
-                                         <Dialog open={isSettlementClientDialogOpen} onOpenChange={setIsSettlementClientDialogOpen}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                    {settlementClient || "Seleccione un cliente"}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent className="sm:max-w-[425px]">
-                                                <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
-                                                <div className="p-4">
-                                                    <Input placeholder="Buscar cliente..." value={settlementClientSearch} onChange={(e) => setSettlementClientSearch(e.target.value)} className="mb-4" />
-                                                    <ScrollArea className="h-72"><div className="space-y-1">
-                                                        {filteredSettlementClients.map((client) => (
-                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setSettlementClient(client.razonSocial); setIsSettlementClientDialogOpen(false); setSettlementClientSearch(''); }}>{client.razonSocial}</Button>
-                                                        ))}
-                                                    </div></ScrollArea>
-                                                </div>
-                                            </DialogContent>
-                                        </Dialog>
-                                    </div>
-                                    {showSmylLotInput ? (
-                                        <div className="space-y-2 lg:col-span-2">
-                                            <Label>No. de Contenedor(es)/Lote(s) (Opcional)</Label>
-                                            <Textarea 
-                                                placeholder="Para liquidación automática de SMYL. Separados por coma, espacio o salto de línea." 
-                                                value={settlementLotIds} 
-                                                onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} 
-                                            />
-                                        </div>
-                                    ) : (
+                                <Form {...settlementForm}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
                                         <div className="space-y-2">
-                                            <Label>No. Contenedor (Opcional)</Label>
-                                            <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
+                                            <Label>Cliente</Label>
+                                            <Dialog open={isSettlementClientDialogOpen} onOpenChange={setIsSettlementClientDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                        {settlementClient || "Seleccione un cliente"}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="sm:max-w-[425px]">
+                                                    <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                    <div className="p-4">
+                                                        <Input placeholder="Buscar cliente..." value={settlementClientSearch} onChange={(e) => setSettlementClientSearch(e.target.value)} className="mb-4" />
+                                                        <ScrollArea className="h-72"><div className="space-y-1">
+                                                            {filteredSettlementClients.map((client) => (
+                                                                <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setSettlementClient(client.razonSocial); setIsSettlementClientDialogOpen(false); setSettlementClientSearch(''); }}>{client.razonSocial}</Button>
+                                                            ))}
+                                                        </div></ScrollArea>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
                                         </div>
-                                    )}
-                                    <div className="space-y-2">
-                                        <Label>Rango de Fechas</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-between text-left font-normal", !settlementDateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{settlementDateRange?.from ? (settlementDateRange.to ? (<>{format(settlementDateRange.from, "LLL dd, y", { locale: es })} - {format(settlementDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(settlementDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={settlementDateRange?.from} selected={settlementDateRange} onSelect={(range) => {
-                                                if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
-                                                    toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
-                                                } else {
-                                                    setSettlementDateRange(range);
-                                                }
-                                            }} numberOfMonths={2} locale={es} disabled={{ after: tomorrow, before: sixtyTwoDaysAgo }} /></PopoverContent>
-                                        </Popover>
+                                        <div className="space-y-2">
+                                            <Label>Rango de Fechas</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-between text-left font-normal", !settlementDateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{settlementDateRange?.from ? (settlementDateRange.to ? (<>{format(settlementDateRange.from, "LLL dd, y", { locale: es })} - {format(settlementDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(settlementDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={settlementDateRange?.from} selected={settlementDateRange} onSelect={(range) => {
+                                                    if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
+                                                        toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                    } else {
+                                                        setSettlementDateRange(range);
+                                                    }
+                                                }} numberOfMonths={2} locale={es} disabled={{ after: tomorrow, before: sixtyTwoDaysAgo }} /></PopoverContent>
+                                            </Popover>
+                                        </div>
+                                         <div className="space-y-2">
+                                            <Label htmlFor="payment-term">Plazo de Vencimiento</Label>
+                                            <Input
+                                                id="payment-term"
+                                                placeholder="Ej: 30, o 'Contado'"
+                                                value={settlementPaymentTerm}
+                                                onChange={(e) => setSettlementPaymentTerm(e.target.value)}
+                                                disabled={!settlementClient}
+                                            />
+                                            <FormDescription className="text-xs">Días para el pago o 'Contado'.</FormDescription>
+                                        </div>
+                                        {showSmylLotInput ? (
+                                            <div className="space-y-2">
+                                                <Label>No. de Contenedor(es)/Lote(s) (Opcional)</Label>
+                                                <Textarea 
+                                                    placeholder="Para liquidación automática de SMYL. Separados por coma, espacio o salto de línea." 
+                                                    value={settlementLotIds} 
+                                                    onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} 
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <Label>No. Contenedor (Opcional)</Label>
+                                                <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
+                                            </div>
+                                        )}
+                                        <div className="space-y-2">
+                                            <Label>Conceptos a Liquidar</Label>
+                                            <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className="w-full justify-between"
+                                                        disabled={isConceptSelectorDisabled || !settlementClient || !settlementDateRange}
+                                                    >
+                                                        <span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>
+                                                        {isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent><DialogHeader><DialogTitle>Seleccionar Conceptos</DialogTitle><DialogDescription>Marque los conceptos que desea incluir en la liquidación.</DialogDescription></DialogHeader>
+                                                    <ScrollArea className="h-72 mt-4"><div className="space-y-2 pr-4">
+                                                        {isLoadingAvailableConcepts ? (
+                                                            <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                                                        ) : availableConcepts.length > 0 ? (
+                                                            <>
+                                                                <div className="flex items-center space-x-3 p-2 border-b">
+                                                                    <Checkbox
+                                                                        id="select-all-concepts"
+                                                                        checked={availableConcepts.length > 0 && selectedConcepts.length === availableConcepts.length}
+                                                                        onCheckedChange={(checked) => {
+                                                                            if (checked) {
+                                                                                setSelectedConcepts(availableConcepts.map(c => c.id));
+                                                                            } else {
+                                                                                setSelectedConcepts([]);
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <Label htmlFor="select-all-concepts" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                                        Seleccionar Todos
+                                                                    </Label>
+                                                                </div>
+                                                                {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))}
+                                                            </>
+                                                        ) : (
+                                                            <p className="text-sm text-muted-foreground text-center py-10">No hay conceptos de liquidación aplicables para el cliente y fechas seleccionados.</p>
+                                                        )}
+                                                    </div></ScrollArea>
+                                                <DialogFooter><Button onClick={() => setIsSettlementConceptDialogOpen(false)}>Cerrar</Button></DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
+                                            <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Conceptos a Liquidar</Label>
-                                        <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
-                                            <DialogTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    className="w-full justify-between"
-                                                    disabled={isConceptSelectorDisabled || !settlementClient || !settlementDateRange}
-                                                >
-                                                    <span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>
-                                                    {isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent><DialogHeader><DialogTitle>Seleccionar Conceptos</DialogTitle><DialogDescription>Marque los conceptos que desea incluir en la liquidación.</DialogDescription></DialogHeader>
-                                                <ScrollArea className="h-72 mt-4"><div className="space-y-2 pr-4">
-                                                    {isLoadingAvailableConcepts ? (
-                                                        <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                                                    ) : availableConcepts.length > 0 ? (
-                                                        <>
-                                                            <div className="flex items-center space-x-3 p-2 border-b">
-                                                                <Checkbox
-                                                                    id="select-all-concepts"
-                                                                    checked={availableConcepts.length > 0 && selectedConcepts.length === availableConcepts.length}
-                                                                    onCheckedChange={(checked) => {
-                                                                        if (checked) {
-                                                                            setSelectedConcepts(availableConcepts.map(c => c.id));
-                                                                        } else {
-                                                                            setSelectedConcepts([]);
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                <Label htmlFor="select-all-concepts" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                                    Seleccionar Todos
-                                                                </Label>
-                                                            </div>
-                                                            {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))}
-                                                        </>
-                                                    ) : (
-                                                        <p className="text-sm text-muted-foreground text-center py-10">No hay conceptos de liquidación aplicables para el cliente y fechas seleccionados.</p>
-                                                    )}
-                                                </div></ScrollArea>
-                                            <DialogFooter><Button onClick={() => setIsSettlementConceptDialogOpen(false)}>Cerrar</Button></DialogFooter>
-                                            </DialogContent>
-                                        </Dialog>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
-                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
-                                    </div>
-                                </div>
-
+                                </Form>
                                 {settlementSearched && (
                                     <>
                                     <div className="flex justify-between items-center gap-2 my-4">
