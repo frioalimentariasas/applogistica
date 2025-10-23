@@ -346,8 +346,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
 
   const isAdmin = permissions.canManageSessions;
-  const isAuthorizedEditor = submissionId && (email === 'sistemas@frioalimentaria.com.co' || email === 'planta@frioalimentaria.com.co');
-
+  const isAuthorizedEditor = email === 'sistemas@frioalimentaria.com.co' || (submissionId && email === 'planta@frioalimentaria.com.co');
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
