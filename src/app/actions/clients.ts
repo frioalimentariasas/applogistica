@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 export interface ClientInfo {
     id: string;
     razonSocial: string;
-    paymentTermDays?: number;
+    paymentTermDays?: number | string; // Allow string for "Contado"
 }
 
 export async function getClients(): Promise<ClientInfo[]> {
@@ -23,7 +23,7 @@ export async function getClients(): Promise<ClientInfo[]> {
         const clients = clientesSnapshot.docs.map(doc => ({
             id: doc.id,
             razonSocial: doc.data().razonSocial as string,
-            paymentTermDays: doc.data().paymentTermDays as number | undefined
+            paymentTermDays: doc.data().paymentTermDays as number | string | undefined
         }));
         return clients;
     } catch (error) {

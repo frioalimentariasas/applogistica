@@ -4,7 +4,8 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 
-export async function addClient(razonSocial: string, paymentTermDays?: number): Promise<{ success: boolean; message: string; newClient?: { id: string, razonSocial: string, paymentTermDays?: number } }> {
+// Update the type to allow string for "Contado"
+export async function addClient(razonSocial: string, paymentTerm?: number | string): Promise<{ success: boolean; message: string; newClient?: { id: string, razonSocial: string, paymentTermDays?: number | string } }> {
   if (!firestore) {
     return { success: false, message: 'Error de configuración del servidor.' };
   }
@@ -21,10 +22,13 @@ export async function addClient(razonSocial: string, paymentTermDays?: number): 
     if (!existingClient.empty) {
       return { success: false, message: `El cliente "${trimmedName}" ya existe.` };
     }
+    
+    // Prepare data to be saved, converting empty strings to null
+    const paymentTermToSave = paymentTerm === '' ? null : paymentTerm;
 
     const newClientData = {
       razonSocial: trimmedName,
-      paymentTermDays: paymentTermDays !== undefined && !isNaN(paymentTermDays) ? Number(paymentTermDays) : null,
+      paymentTermDays: paymentTermToSave,
     };
     const docRef = await clientesRef.add(newClientData);
     
@@ -34,7 +38,7 @@ export async function addClient(razonSocial: string, paymentTermDays?: number): 
     revalidatePath('/variable-weight-reception-form');
     revalidatePath('/gestion-articulos');
 
-    return { success: true, message: `Cliente "${trimmedName}" agregado con éxito.`, newClient: { id: docRef.id, ...newClientData } };
+    return { success: true, message: `Cliente "${trimmedName}" agregado con éxito.`, newClient: { id: docRef.id, razonSocial: trimmedName, paymentTermDays: paymentTerm } };
   } catch (error) {
     console.error('Error al agregar el cliente:', error);
     const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
@@ -42,7 +46,7 @@ export async function addClient(razonSocial: string, paymentTermDays?: number): 
   }
 }
 
-export async function updateClient(id: string, newRazonSocial: string, paymentTermDays?: number): Promise<{ success: boolean; message: string }> {
+export async function updateClient(id: string, newRazonSocial: string, paymentTerm?: number | string): Promise<{ success: boolean; message: string }> {
   if (!firestore) {
     return { success: false, message: 'Error de configuración del servidor.' };
   }
@@ -69,10 +73,13 @@ export async function updateClient(id: string, newRazonSocial: string, paymentTe
 
     const batch = firestore.batch();
     
+    // Prepare data for update, converting empty strings to null
+    const paymentTermToSave = paymentTerm === '' ? null : paymentTerm;
+
     // Update client document
     batch.update(clientRef, {
       razonSocial: trimmedName,
-      paymentTermDays: paymentTermDays !== undefined && !isNaN(paymentTermDays) ? Number(paymentTermDays) : null,
+      paymentTermDays: paymentTermToSave,
     });
 
     // Update associated articles

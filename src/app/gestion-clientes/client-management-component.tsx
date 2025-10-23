@@ -36,16 +36,25 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { ClientInfo } from '@/app/actions/clients';
 
-// Schemas for forms
+// Custom validation schema for payment term
+const paymentTermSchema = z.string().optional().refine((val) => {
+    if (val === undefined || val.trim() === '') return true; // Allow empty
+    if (val.toLowerCase() === 'contado') return true; // Allow "Contado"
+    const num = Number(val);
+    return !isNaN(num) && Number.isInteger(num) && num >= 0; // Allow non-negative integers
+}, {
+    message: "Debe ser un número entero no negativo o la palabra 'Contado'.",
+});
+
 const addClientSchema = z.object({
   razonSocial: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
-  paymentTermDays: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
+  paymentTermDays: paymentTermSchema,
 });
 type AddClientFormValues = z.infer<typeof addClientSchema>;
 
 const editClientSchema = z.object({
     razonSocial: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
-    paymentTermDays: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
+    paymentTermDays: paymentTermSchema,
 });
 type EditClientFormValues = z.infer<typeof editClientSchema>;
 
@@ -90,7 +99,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   const { permissions, loading: authLoading } = useAuth();
   const [clients, setClients] = useState<ClientInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [searched, setSearched] = useState(false);
 
   // Add state
@@ -111,7 +120,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   // Forms
   const addForm = useForm<AddClientFormValues>({
     resolver: zodResolver(addClientSchema),
-    defaultValues: { razonSocial: '', paymentTermDays: undefined },
+    defaultValues: { razonSocial: '', paymentTermDays: '' },
   });
 
   const editForm = useForm<EditClientFormValues>({
@@ -134,11 +143,17 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
         setIsLoading(false);
     }
   };
+  
+  // Fetch clients on initial load
+  useState(() => {
+      handleSearch();
+  });
 
 
   const onAddSubmit: SubmitHandler<AddClientFormValues> = async (data) => {
     setIsSubmittingAdd(true);
-    const result = await addClient(data.razonSocial, data.paymentTermDays);
+    const paymentTerm = data.paymentTermDays?.toLowerCase() === 'contado' ? 'Contado' : Number(data.paymentTermDays);
+    const result = await addClient(data.razonSocial, paymentTerm);
     if (result.success && result.newClient) {
       toast({ title: 'Éxito', description: result.message });
       setClients(prev => [...prev, result.newClient!].sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
@@ -152,10 +167,11 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   const onEditSubmit: SubmitHandler<EditClientFormValues> = async (data) => {
     if (!clientToEdit) return;
     setIsEditing(true);
-    const result = await updateClient(clientToEdit.id, data.razonSocial, data.paymentTermDays);
+    const paymentTerm = data.paymentTermDays?.toLowerCase() === 'contado' ? 'Contado' : Number(data.paymentTermDays);
+    const result = await updateClient(clientToEdit.id, data.razonSocial, paymentTerm);
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setClients(prev => prev.map(c => c.id === clientToEdit.id ? { ...c, razonSocial: data.razonSocial, paymentTermDays: data.paymentTermDays } : c).sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
+      setClients(prev => prev.map(c => c.id === clientToEdit.id ? { ...c, razonSocial: data.razonSocial, paymentTermDays: paymentTerm } : c).sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
       setClientToEdit(null);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -181,7 +197,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
     setClientToEdit(client);
     editForm.reset({ 
         razonSocial: client.razonSocial, 
-        paymentTermDays: client.paymentTermDays ?? undefined
+        paymentTermDays: client.paymentTermDays?.toString() ?? ''
     });
   };
 
@@ -198,7 +214,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   async function handleUploadFormAction(formData: FormData) {
     const file = formData.get('file') as File;
     if (!file || file.size === 0) {
-      setUploadFormError('Por favor, seleccione un archivo para cargar.');
+      setFormError('Por favor, seleccione un archivo para cargar.');
       return;
     }
 
@@ -212,10 +228,8 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
       setUploadFileName('');
       const form = document.getElementById('upload-clients-form') as HTMLFormElement;
       form?.reset();
-      // Refresh the list if it's already being shown
-      if (searched) {
-          await handleSearch();
-      }
+      // Refresh the list
+      await handleSearch();
     } else {
       toast({
         variant: "destructive",
@@ -318,9 +332,9 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                       name="paymentTermDays"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Plazo de Vencimiento (días)</FormLabel>
+                          <FormLabel>Plazo de Vencimiento</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="Ej: 30" {...field} />
+                            <Input type="text" placeholder="Ej: 30 o Contado" {...field} />
                           </FormControl>
                            <FormMessage />
                         </FormItem>
@@ -417,7 +431,11 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                       filteredClients.map((client) => (
                         <TableRow key={client.id}>
                           <TableCell>{client.razonSocial}</TableCell>
-                          <TableCell>{client.paymentTermDays != null ? `${client.paymentTermDays} días` : 'No definido'}</TableCell>
+                          <TableCell>
+                            {client.paymentTermDays != null 
+                              ? (typeof client.paymentTermDays === 'number' ? `${client.paymentTermDays} días` : client.paymentTermDays) 
+                              : 'No definido'}
+                          </TableCell>
                           <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-2">
                                     <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(client)}>
@@ -472,9 +490,9 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                 name="paymentTermDays"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Plazo de Vencimiento (días)</FormLabel>
+                    <FormLabel>Plazo de Vencimiento</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Ej: 30" {...field} value={field.value ?? ''} />
+                      <Input type="text" placeholder="Ej: 30 o Contado" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -2680,34 +2680,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </Popover>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="payment-term">Plazo de Vencimiento</Label>
-                                            <Input
-                                                id="payment-term"
-                                                placeholder="Ej: 30, o 'Contado'"
-                                                value={settlementPaymentTerm}
-                                                onChange={(e) => setSettlementPaymentTerm(e.target.value)}
-                                                disabled={!settlementClient}
-                                            />
-                                            <FormDescription className="text-xs">Días para el pago o 'Contado'.</FormDescription>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
-                                        {showSmylLotInput ? (
-                                            <div className="space-y-2">
-                                                <Label>No. de Contenedor(es)/Lote(s) (Opcional)</Label>
-                                                <Textarea 
-                                                    placeholder="Para liquidación automática de SMYL. Separados por coma, espacio o salto de línea." 
-                                                    value={settlementLotIds} 
-                                                    onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} 
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                <Label>No. Contenedor (Opcional)</Label>
-                                                <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
-                                            </div>
-                                        )}
-                                        <div className="space-y-2">
                                             <Label>Conceptos a Liquidar</Label>
                                             <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
                                                 <DialogTrigger asChild>
@@ -2751,6 +2723,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <DialogFooter><Button onClick={() => setIsSettlementConceptDialogOpen(false)}>Cerrar</Button></DialogFooter>
                                                 </DialogContent>
                                             </Dialog>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
+                                        {showSmylLotInput ? (
+                                            <div className="space-y-2">
+                                                <Label>No. de Contenedor(es)/Lote(s) (Opcional)</Label>
+                                                <Textarea 
+                                                    placeholder="Para liquidación automática de SMYL. Separados por coma, espacio o salto de línea." 
+                                                    value={settlementLotIds} 
+                                                    onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} 
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <Label>No. Contenedor (Opcional)</Label>
+                                                <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
+                                            </div>
+                                        )}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="payment-term">Plazo de Vencimiento</Label>
+                                            <Input
+                                                id="payment-term"
+                                                placeholder="Ej: 30, o 'Contado'"
+                                                value={settlementPaymentTerm}
+                                                onChange={(e) => setSettlementPaymentTerm(e.target.value)}
+                                                disabled={!settlementClient}
+                                            />
+                                            <FormDescription className="text-xs">Días para el pago o 'Contado'.</FormDescription>
                                         </div>
                                         <div className="flex gap-2">
                                             <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
