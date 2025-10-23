@@ -318,7 +318,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                       name="paymentTermDays"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Plazo de Pago (días)</FormLabel>
+                          <FormLabel>Plazo de Vencimiento (días)</FormLabel>
                           <FormControl>
                             <Input type="number" placeholder="Ej: 30" {...field} />
                           </FormControl>
@@ -401,7 +401,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                   <TableHeader>
                     <TableRow>
                       <TableHead>Razón Social</TableHead>
-                      <TableHead>Plazo de Pago</TableHead>
+                      <TableHead>Plazo de Vencimiento</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -472,7 +472,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                 name="paymentTermDays"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Plazo de Pago (días)</FormLabel>
+                    <FormLabel>Plazo de Vencimiento (días)</FormLabel>
                     <FormControl>
                       <Input type="number" placeholder="Ej: 30" {...field} value={field.value ?? ''} />
                     </FormControl>

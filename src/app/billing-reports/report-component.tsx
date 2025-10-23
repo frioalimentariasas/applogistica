@@ -1654,7 +1654,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             footStyles: { fontStyle: 'bold' },
             didDrawPage: (data) => {
                  let finalY = (doc as any).lastAutoTable.finalY || data.cursor?.y || 0;
-                 if (data.pageNumber === 1) { // Only on the first page of the summary
+                 if (data.pageNumber === doc.internal.pages.length - 1) { // Only on the last page of summary
                     const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
                     if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
                         const containerNumbers = [...new Set(
@@ -2643,7 +2643,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             </CardHeader>
                             <CardContent>
                                 <Form {...settlementForm}>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
                                         <div className="space-y-2">
                                             <Label>Cliente</Label>
                                             <Dialog open={isSettlementClientDialogOpen} onOpenChange={setIsSettlementClientDialogOpen}>
@@ -2679,7 +2679,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 }} numberOfMonths={2} locale={es} disabled={{ after: tomorrow, before: sixtyTwoDaysAgo }} /></PopoverContent>
                                             </Popover>
                                         </div>
-                                         <div className="space-y-2">
+                                        <div className="space-y-2">
                                             <Label htmlFor="payment-term">Plazo de Vencimiento</Label>
                                             <Input
                                                 id="payment-term"
@@ -2690,6 +2690,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             />
                                             <FormDescription className="text-xs">Días para el pago o 'Contado'.</FormDescription>
                                         </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
                                         {showSmylLotInput ? (
                                             <div className="space-y-2">
                                                 <Label>No. de Contenedor(es)/Lote(s) (Opcional)</Label>
