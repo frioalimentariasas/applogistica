@@ -110,11 +110,16 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             if (!clientName) return; // Skip if no client name
 
             if (
-              (clientName === 'GRUPO FRUTELLI SAS' || clientName === 'FABRIALIMENTOS SAS') &&
-              (submission.formType === 'variable-weight-recepcion' || submission.formType === 'variable-weight-reception')
-            ) {
-              return; // Exclude variable weight receptions for specified clients
-            }
+                // Condición original para FRUTELLI y FABRIALIMENTOS
+                ((clientName === 'GRUPO FRUTELLI SAS' || clientName === 'FABRIALIMENTOS SAS') &&
+                (submission.formType === 'variable-weight-recepcion' || submission.formType === 'variable-weight-reception')) ||
+              
+                // NUEVA condición para Agregar Clientes a la excepción de que no cuente paletas recibidas en Consolidado Movimientos/Inventario
+                (clientName === 'LOGISTICS & INTERNATIONAL TRADE SAS' && 
+                submission.formData.tipoPedido === 'TUNEL DE CONGELACIÓN')
+              ) {
+                return; // Excluir estas operaciones específicas del cálculo.
+              }              
             
             const formIsoDate = submission.formData.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return;
