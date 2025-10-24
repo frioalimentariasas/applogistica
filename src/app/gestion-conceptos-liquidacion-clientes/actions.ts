@@ -47,7 +47,7 @@ export interface ClientBillingConcept {
   status: 'activo' | 'inactivo'; // New status field
   unitOfMeasure: 'KILOGRAMOS' | 'TONELADA' | 'PALETA' | 'ESTIBA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO' | 'POSICION/DIA' | 'POSICIONES' | 'TIPO VEHÍCULO' | 'TRACTOMULA' | 'QUINCENA';
   
-  calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL' | 'SALDO_INVENTARIO' | 'LÓGICA ESPECIAL';
+  calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL' | 'SALDO_INVENTARIO' | 'LÓGICA ESPECIAL' | 'SALDO_CONTENEDOR';
 
   // For 'REGLAS'
   calculationBase?: 'TONELADAS' | 'KILOGRAMOS' | 'CANTIDAD_PALETAS' | 'CANTIDAD_CAJAS' | 'NUMERO_OPERACIONES' | 'NUMERO_CONTENEDORES' | 'PALETAS_SALIDA_MAQUILA_CONGELADOS' | 'PALETAS_SALIDA_MAQUILA_SECO' | 'CANTIDAD_SACOS_MAQUILA';
@@ -59,7 +59,7 @@ export interface ClientBillingConcept {
   // For 'OBSERVACION'
   associatedObservation?: string;
 
-  // For 'SALDO_INVENTARIO'
+  // For 'SALDO_INVENTARIO' or 'SALDO_CONTENEDOR'
   inventorySource?: 'POSICIONES_ALMACENADAS';
   inventorySesion?: 'CO' | 'RE' | 'SE';
 
@@ -220,7 +220,7 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                     break;
                 }
             }
-        } else if (concept.calculationType === 'SALDO_INVENTARIO') {
+        } else if (concept.calculationType === 'SALDO_INVENTARIO' || concept.calculationType === 'SALDO_CONTENEDOR') {
             if (!concept.inventorySesion) continue;
             const targetSesion = concept.inventorySesion;
 

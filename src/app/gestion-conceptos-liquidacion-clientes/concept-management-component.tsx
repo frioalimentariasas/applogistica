@@ -91,7 +91,7 @@ const conceptSchema = z.object({
   status: z.enum(['activo', 'inactivo']).default('activo'),
   unitOfMeasure: z.enum(['KILOGRAMOS', 'TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA', 'QUINCENA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   
-  calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO', 'LÓGICA ESPECIAL'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
+  calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO', 'LÓGICA ESPECIAL', 'SALDO_CONTENEDOR'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
   
   // Calculation Rules (for REGLAS)
   calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES', 'PALETAS_SALIDA_MAQUILA_CONGELADOS', 'PALETAS_SALIDA_MAQUILA_SECO', 'CANTIDAD_SACOS_MAQUILA']).optional(),
@@ -103,7 +103,7 @@ const conceptSchema = z.object({
   // Observation Rule (for OBSERVACION)
   associatedObservation: z.string().optional(),
 
-  // Inventory Rule (for SALDO_INVENTARIO)
+  // Inventory Rule (for SALDO_INVENTARIO or SALDO_CONTENEDOR)
   inventorySource: z.enum(['POSICIONES_ALMACENADAS']).optional(),
   inventorySesion: z.enum(['CO', 'RE', 'SE']).optional(),
 
@@ -131,8 +131,10 @@ const conceptSchema = z.object({
     if (data.calculationType === 'OBSERVACION' && !data.associatedObservation) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar una observación asociada.", path: ["associatedObservation"] });
     }
-     if (data.calculationType === 'SALDO_INVENTARIO') {
-        if (!data.inventorySource) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fuente del dato es requerida.", path: ["inventorySource"] });
+     if (data.calculationType === 'SALDO_INVENTARIO' || data.calculationType === 'SALDO_CONTENEDOR') {
+        if (data.calculationType !== 'SALDO_CONTENEDOR') { // Source not needed for container balance yet
+            if (!data.inventorySource) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fuente del dato es requerida.", path: ["inventorySource"] });
+        }
         if (!data.inventorySesion) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La sesión es requerida.", path: ["inventorySesion"] });
     }
 
@@ -215,6 +217,7 @@ const GroupIcon = ({ type }: { type: string }) => {
       OBSERVACION: Eye,
       'SALDO_INVENTARIO': Warehouse,
       'LÓGICA ESPECIAL': Sparkles,
+      'SALDO_CONTENEDOR': Warehouse,
     };
     const Icon = iconMap[type] || Calculator;
     return <Icon className="h-5 w-5 text-primary" />;
@@ -371,7 +374,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     return acc;
   }, {} as Record<string, ClientBillingConcept[]>);
 
-  const groupOrder: (keyof typeof groupedConcepts)[] = ['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO', 'LÓGICA ESPECIAL'];
+  const groupOrder: (keyof typeof groupedConcepts)[] = ['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO', 'SALDO_CONTENEDOR', 'LÓGICA ESPECIAL'];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -451,6 +454,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                 <SelectItem value="OBSERVACION">Por Observación</SelectItem>
                                 <SelectItem value="MANUAL">Op. Manual</SelectItem>
                                 <SelectItem value="SALDO_INVENTARIO">Saldo Inventario</SelectItem>
+                                <SelectItem value="SALDO_CONTENEDOR">Saldo por Contenedor</SelectItem>
                                 <SelectItem value="LÓGICA ESPECIAL">Lógica Especial</SelectItem>
                             </SelectContent>
                         </Select>
@@ -603,7 +607,7 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
           />
           <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida (Para Reporte)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una unidad" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{unitOfMeasureOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem>)}/>
           <Separator />
-          <FormField control={form.control} name="calculationType" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>Tipo de Cálculo</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id={`type-reglas-${isEditMode}`} /><Label htmlFor={`type-reglas-${isEditMode}`}>Por Reglas</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id={`type-obs-${isEditMode}`} /><Label htmlFor={`type-obs-${isEditMode}`}>Por Observación</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="MANUAL" id={`type-manual-${isEditMode}`} /><Label htmlFor={`type-manual-${isEditMode}`}>Op. Manual</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="SALDO_INVENTARIO" id={`type-saldo-${isEditMode}`} /><Label htmlFor={`type-saldo-${isEditMode}`}>Saldo Inventario</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="LÓGICA ESPECIAL" id={`type-logica-${isEditMode}`} /><Label htmlFor={`type-logica-${isEditMode}`}>Lógica Especial</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )}/>
+          <FormField control={form.control} name="calculationType" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>Tipo de Cálculo</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id={`type-reglas-${isEditMode}`} /><Label htmlFor={`type-reglas-${isEditMode}`}>Por Reglas</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id={`type-obs-${isEditMode}`} /><Label htmlFor={`type-obs-${isEditMode}`}>Por Observación</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="MANUAL" id={`type-manual-${isEditMode}`} /><Label htmlFor={`type-manual-${isEditMode}`}>Op. Manual</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="SALDO_INVENTARIO" id={`type-saldo-${isEditMode}`} /><Label htmlFor={`type-saldo-${isEditMode}`}>Saldo Inventario</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="SALDO_CONTENEDOR" id={`type-saldo-cont-${isEditMode}`} /><Label htmlFor={`type-saldo-cont-${isEditMode}`}>Saldo por Contenedor</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="LÓGICA ESPECIAL" id={`type-logica-${isEditMode}`} /><Label htmlFor={`type-logica-${isEditMode}`}>Lógica Especial</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )}/>
           
           {watchedCalculationType === 'REGLAS' && (
               <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
@@ -644,9 +648,11 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
                   <FormField control={form.control} name="associatedObservation" render={({ field }) => (<FormItem><FormLabel>Observación Asociada</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una observación..." /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{standardObservations.map(obs => <SelectItem key={obs.id} value={obs.name}>{obs.name}</SelectItem>)}</ScrollArea></SelectContent></Select><FormDescription>El sistema buscará esta observación en los formularios.</FormDescription><FormMessage /></FormItem>)}/>
               </div>
           )}
-          {watchedCalculationType === 'SALDO_INVENTARIO' && (
+          {(watchedCalculationType === 'SALDO_INVENTARIO' || watchedCalculationType === 'SALDO_CONTENEDOR') && (
               <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
-                  <FormField control={form.control} name="inventorySource" render={({ field }) => (<FormItem><FormLabel>Fuente del Dato</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione fuente..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="POSICIONES_ALMACENADAS">Posiciones Almacenadas (Consolidado)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                  {watchedCalculationType !== 'SALDO_CONTENEDOR' && (
+                    <FormField control={form.control} name="inventorySource" render={({ field }) => (<FormItem><FormLabel>Fuente del Dato</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione fuente..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="POSICIONES_ALMACENADAS">Posiciones Almacenadas (Consolidado)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                  )}
                   <FormField control={form.control} name="inventorySesion" render={({ field }) => (<FormItem><FormLabel>Sesión de Inventario</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione sesión..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="CO">Congelado (CO)</SelectItem><SelectItem value="RE">Refrigerado (RE)</SelectItem><SelectItem value="SE">Seco (SE)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
               </div>
           )}

@@ -6,11 +6,12 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff, TemperatureTariffRange } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
 import { getSmylLotAssistantReport, type AssistantReport } from '@/app/smyl-liquidation-assistant/actions';
+import { getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 
 
 export async function getAllManualClientOperations(): Promise<any[]> {
@@ -492,7 +493,7 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                     break;
                 }
             }
-        } else if (concept.calculationType === 'SALDO_INVENTARIO') {
+        } else if (concept.calculationType === 'SALDO_INVENTARIO' || concept.calculationType === 'SALDO_CONTENEDOR') {
             if (!concept.inventorySesion) continue;
             const targetSesion = concept.inventorySesion;
 
@@ -1295,12 +1296,59 @@ export async function generateClientSettlement(criteria: {
         }
     }
     
-    const inventoryConcepts = selectedConcepts.filter(c => c.calculationType === 'SALDO_INVENTARIO');
+    const inventoryConcepts = selectedConcepts.filter(c => c.calculationType === 'SALDO_INVENTARIO' || c.calculationType === 'SALDO_CONTENEDOR');
 
     for (const concept of inventoryConcepts) {
-        if (!concept.inventorySource || !concept.inventorySesion || !concept.value) continue;
+        if (!concept.inventorySesion || !concept.value) continue;
 
-        if (concept.inventorySource === 'POSICIONES_ALMACENADAS') {
+        if (concept.calculationType === 'SALDO_CONTENEDOR' && clientName === 'SERVILOGISTICS ADVANCED SAS' && concept.conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)') {
+            const detailedInventory = await getDetailedInventoryForExport({
+                clientNames: [clientName],
+                startDate: startDate,
+                endDate: endDate,
+            });
+
+            const dailyContainerPallets = detailedInventory.reduce((acc, row) => {
+                const rowDate = parse(String(row.FECHA), 'dd/MM/yyyy', new Date());
+                const date = format(rowDate, 'yyyy-MM-dd');
+                const container = String(row.CONTENEDOR || 'SIN_CONTENEDOR').trim();
+                const pallet = String(row.PALETA).trim();
+
+                if (!acc[date]) {
+                    acc[date] = {};
+                }
+                if (!acc[date][container]) {
+                    acc[date][container] = new Set();
+                }
+                acc[date][container].add(pallet);
+                return acc;
+            }, {} as Record<string, Record<string, Set<string>>>);
+
+            for (const date in dailyContainerPallets) {
+                if (isWithinInterval(new Date(date), { start: startOfDay(parseISO(startDate)), end: endOfDay(parseISO(endDate)) })) {
+                    for (const container in dailyContainerPallets[date]) {
+                        const palletCount = dailyContainerPallets[date][container].size;
+                        if (palletCount > 0) {
+                            settlementRows.push({
+                                date: date,
+                                placa: 'N/A',
+                                container: container === 'SIN_CONTENEDOR' ? 'N/A' : container,
+                                camara: concept.inventorySesion,
+                                totalPaletas: palletCount,
+                                operacionLogistica: 'Servicio Almacenamiento',
+                                pedidoSislog: 'N/A',
+                                conceptName: concept.conceptName,
+                                tipoVehiculo: 'No Aplica',
+                                quantity: palletCount,
+                                unitOfMeasure: concept.unitOfMeasure,
+                                unitValue: concept.value,
+                                totalValue: palletCount * concept.value,
+                            });
+                        }
+                    }
+                }
+            }
+        } else if (concept.inventorySource === 'POSICIONES_ALMACENADAS') {
             const consolidatedReport = await getConsolidatedMovementReport({
                 clientName: clientName,
                 startDate: startDate,
@@ -1316,7 +1364,7 @@ export async function generateClientSettlement(criteria: {
                         container: 'N/A',
                         camara: concept.inventorySesion,
                         totalPaletas: dayData.posicionesAlmacenadas,
-                        operacionLogistica: 'Servicio', 
+                        operacionLogistica: 'Servicio',
                         pedidoSislog: 'N/A',
                         conceptName: concept.conceptName,
                         tipoVehiculo: 'No Aplica',
@@ -1338,7 +1386,6 @@ export async function generateClientSettlement(criteria: {
         'OPERACIÓN DESCARGUE/TONELADAS',
         'OPERACIÓN CARGUE/TONELADAS',
         'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
-        'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
         'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
