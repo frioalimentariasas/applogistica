@@ -254,7 +254,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     // State for PDF logo
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
-    const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
+    const [logoDimensions, setLogoDimensions] = useState<{ width: number; height: number } | null>(null);
     const [isLogoLoading, setIsLogoLoading] = useState(true);
 
     const settlementForm = useForm();
@@ -1560,32 +1560,33 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 },
             });
         };
-        
+
         const addHeader = (docInstance: jsPDF, pageTitle: string) => {
             addInfoBox(docInstance);
             const logoWidth = 30;
             const aspectRatio = logoDimensions!.width / logoDimensions!.height;
             const logoHeight = logoWidth / aspectRatio;
             docInstance.addImage(logoBase64!, 'PNG', (pageWidth - logoWidth) / 2, 10, logoWidth, logoHeight);
-    
+
             let currentY = 10 + logoHeight + 6;
             docInstance.setFontSize(14);
             docInstance.setFont('helvetica', 'bold');
             docInstance.text(pageTitle, pageWidth / 2, currentY, { align: 'center' });
-    
+
             currentY += 6;
             docInstance.setFontSize(10);
             docInstance.setFont('helvetica', 'normal');
             docInstance.text(`Cliente: ${settlementClient}`, pageWidth / 2, currentY, { align: 'center' });
-    
+
             currentY += 5;
             docInstance.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, currentY, { align: 'center' });
-    
+
             return currentY + 10;
         };
-        
+
+        // Resumen
         let lastY = addHeader(doc, "Resumen Liquidación de Servicios Clientes");
-    
+        
         const summaryByConcept = visibleRows.reduce((acc, row) => {
              let conceptName: string;
             let conceptKey: string;
@@ -1652,44 +1653,42 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             styles: { fontSize: 11, cellPadding: 1.5 },
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
-            didDrawPage: (data) => {
-                 let finalY = (doc as any).lastAutoTable.finalY || data.cursor?.y || 0;
-                 if (data.pageNumber === doc.internal.pages.length - 1) { // Only on the last page of summary
-                    const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
-                    if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
-                        const containerNumbers = [...new Set(
-                            visibleRows
-                                .filter(row => smylConceptNames.includes(row.conceptName) && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
-                                .map(row => row.container)
-                        )];
-
-                        if (containerNumbers.length > 0) {
-                             doc.setFontSize(10);
-                             doc.setFont('helvetica', 'bold');
-                             doc.text('Contenedor(es):', margin, finalY + 8);
-                             doc.setFont('helvetica', 'normal');
-                             doc.text(containerNumbers.join(', '), margin + 35, finalY + 8);
-                             finalY += 8;
-                        }
-                    }
-                     if (settlementPaymentTerm) {
-                        doc.setFontSize(10);
-                        doc.setFont('helvetica', 'bold');
-                        
-                        let paymentTermText = '';
-                        const termAsNumber = parseInt(settlementPaymentTerm, 10);
-
-                        if (!isNaN(termAsNumber)) {
-                            paymentTermText = `PLAZO DE VENCIMIENTO: ${termAsNumber} DÍAS`;
-                        } else {
-                            paymentTermText = `PLAZO DE VENCIMIENTO: ${settlementPaymentTerm.toUpperCase()}`;
-                        }
-                        doc.text(paymentTermText, margin, finalY + 15);
-                    }
-                 }
-            }
         });
-        
+
+        let finalY = (doc as any).lastAutoTable.finalY || 0;
+        const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
+        if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
+            const containerNumbers = [...new Set(
+                visibleRows
+                    .filter(row => smylConceptNames.includes(row.conceptName) && row.container && row.container !== 'N/A' && row.container !== 'NO APLICA')
+                    .map(row => row.container)
+            )];
+
+            if (containerNumbers.length > 0) {
+                 doc.setFontSize(10);
+                 doc.setFont('helvetica', 'bold');
+                 doc.text('Contenedor(es):', margin, finalY + 8);
+                 doc.setFont('helvetica', 'normal');
+                 doc.text(containerNumbers.join(', '), margin + 35, finalY + 8);
+                 finalY += 8;
+            }
+        }
+         if (settlementPaymentTerm) {
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            
+            let paymentTermText = '';
+            const termAsNumber = parseInt(settlementPaymentTerm, 10);
+
+            if (!isNaN(termAsNumber)) {
+                paymentTermText = `PLAZO DE VENCIMIENTO: ${termAsNumber} DÍAS`;
+            } else {
+                paymentTermText = `PLAZO DE VENCIMIENTO: ${settlementPaymentTerm.toUpperCase()}`;
+            }
+            doc.text(paymentTermText, margin, finalY + 15);
+        }
+
+        // Detalle
         doc.addPage();
         lastY = addHeader(doc, "Detalle Liquidación de Servicios Clientes");
 
@@ -1748,7 +1747,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             styles: { fontSize: 8, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
-            didDrawPage: (data) => addHeader(doc, "Detalle Liquidación de Servicios Clientes")
         });
     
         const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
@@ -2643,6 +2641,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             </CardHeader>
                             <CardContent>
                                 <Form {...settlementForm}>
+                                <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
                                         <div className="space-y-2">
                                             <Label>Cliente</Label>
@@ -2683,14 +2682,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <Label htmlFor="payment-term">Plazo de Vencimiento</Label>
                                             <Input
                                                 id="payment-term"
-                                                placeholder="Ej: 30, o 'Contado'"
+                                                placeholder="Ej: 30 o Contado"
                                                 value={settlementPaymentTerm}
                                                 onChange={(e) => setSettlementPaymentTerm(e.target.value)}
                                                 disabled={!settlementClient}
                                             />
-                                            <FormDescription className="text-xs">Días para el pago o 'Contado'.</FormDescription>
                                         </div>
                                     </div>
+
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
                                         {showSmylLotInput ? (
                                             <div className="space-y-2">
@@ -2757,6 +2756,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                         </div>
                                     </div>
+                                </div>
                                 </Form>
                                 {settlementSearched && (
                                     <>
@@ -3058,6 +3058,9 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
     
 
+
+
+    
 
 
     
