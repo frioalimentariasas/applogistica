@@ -1234,7 +1234,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1434,46 +1434,96 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         sortedConceptKeys.forEach(conceptName => {
             const group = groupedByConcept[conceptName];
-            const sortedRowsForConcept = group.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            
-            sortedRowsForConcept.forEach(row => {
-                 detailWorksheet.addRow({
-                    date: format(parseISO(row.date), 'dd/MM/yyyy'),
-                    conceptName: row.conceptName,
-                    subConceptName: row.subConceptName,
-                    numeroPersonas: row.numeroPersonas,
-                    totalPaletas: row.totalPaletas > 0 ? row.totalPaletas : '',
-                    placa: row.placa,
-                    container: row.container,
-                    camara: getSessionName(row.camara),
-                    pedidoSislog: row.pedidoSislog,
-                    operacionLogistica: row.operacionLogistica,
-                    tipoVehiculo: (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : 'No Aplica',
-                    horaInicio: formatTime12Hour(row.horaInicio),
-                    horaFin: formatTime12Hour(row.horaFin),
-                    quantity: row.quantity,
-                    unitOfMeasure: row.unitOfMeasure,
-                    unitValue: row.unitValue,
-                    totalValue: row.totalValue
-                }).eachCell((cell, colNumber) => {
-                    const colKey = detailColumns[colNumber - 1].key;
-                    if (['quantity', 'unitValue', 'totalValue'].includes(colKey)) {
-                        cell.numFmt = colKey === 'quantity' ? '#,##0.00' : '$ #,##0.00';
+
+            const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR';
+
+            if (isContainerConcept) {
+                // Further group by container
+                const containerGroups = group.rows.reduce((acc, row) => {
+                    const containerKey = row.container || 'SIN_CONTENEDOR';
+                    if (!acc[containerKey]) {
+                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
                     }
+                    acc[containerKey].rows.push(row);
+                    acc[containerKey].subtotalCantidad += row.quantity;
+                    acc[containerKey].subtotalValor += row.totalValue;
+                    return acc;
+                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
+                
+                const containerHeaderRow = detailWorksheet.addRow([]);
+                containerHeaderRow.getCell('A').value = conceptName;
+                containerHeaderRow.font = { bold: true };
+                containerHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
+                detailWorksheet.mergeCells(containerHeaderRow.number, 1, containerHeaderRow.number, detailColumns.length);
+
+
+                Object.entries(containerGroups).forEach(([containerKey, containerData]) => {
+                    const subHeaderRow = detailWorksheet.addRow([]);
+                    subHeaderRow.getCell('B').value = `Contenedor: ${containerKey}`;
+                    subHeaderRow.font = { bold: true };
+                    subHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+                    detailWorksheet.mergeCells(subHeaderRow.number, 2, subHeaderRow.number, detailColumns.length);
+
+                    containerData.rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
+                        detailWorksheet.addRow({
+                            date: format(parseISO(row.date), 'dd/MM/yyyy'),
+                            quantity: row.quantity,
+                            unitValue: row.unitValue,
+                            totalValue: row.totalValue,
+                            ...row,
+                        }).eachCell((cell, colNumber) => { /* Formatting */ });
+                    });
+                    
+                    const containerSubtotalRow = detailWorksheet.addRow([]);
+                    containerSubtotalRow.getCell('conceptName').value = `Subtotal Contenedor ${containerKey}:`;
+                    containerSubtotalRow.getCell('quantity').value = containerData.subtotalCantidad;
+                    containerSubtotalRow.getCell('totalValue').value = containerData.subtotalValor;
+                    containerSubtotalRow.font = { bold: true };
+                    containerSubtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6E6' } };
                 });
-            });
-    
-            const subtotalRow = detailWorksheet.addRow([]);
-            subtotalRow.getCell('conceptName').value = `Subtotal ${conceptName}:`;
-            subtotalRow.getCell('conceptName').font = { bold: true };
-            subtotalRow.getCell('conceptName').alignment = { horizontal: 'right' };
-            subtotalRow.getCell('quantity').value = group.subtotalCantidad;
-            subtotalRow.getCell('quantity').numFmt = '#,##0.00';
-            subtotalRow.getCell('quantity').font = { bold: true };
-            subtotalRow.getCell('totalValue').value = group.subtotalValor;
-            subtotalRow.getCell('totalValue').numFmt = '$ #,##0.00';
-            subtotalRow.getCell('totalValue').font = { bold: true };
-            subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
+
+            } else {
+                const sortedRowsForConcept = group.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                
+                sortedRowsForConcept.forEach(row => {
+                     detailWorksheet.addRow({
+                        date: format(parseISO(row.date), 'dd/MM/yyyy'),
+                        conceptName: row.conceptName,
+                        subConceptName: row.subConceptName,
+                        numeroPersonas: row.numeroPersonas,
+                        totalPaletas: row.totalPaletas > 0 ? row.totalPaletas : '',
+                        placa: row.placa,
+                        container: row.container,
+                        camara: getSessionName(row.camara),
+                        pedidoSislog: row.pedidoSislog,
+                        operacionLogistica: row.operacionLogistica,
+                        tipoVehiculo: (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : 'No Aplica',
+                        horaInicio: formatTime12Hour(row.horaInicio),
+                        horaFin: formatTime12Hour(row.horaFin),
+                        quantity: row.quantity,
+                        unitOfMeasure: row.unitOfMeasure,
+                        unitValue: row.unitValue,
+                        totalValue: row.totalValue
+                    }).eachCell((cell, colNumber) => {
+                        const colKey = detailColumns[colNumber - 1].key;
+                        if (['quantity', 'unitValue', 'totalValue'].includes(colKey)) {
+                            cell.numFmt = colKey === 'quantity' ? '#,##0.00' : '$ #,##0.00';
+                        }
+                    });
+                });
+        
+                const subtotalRow = detailWorksheet.addRow([]);
+                subtotalRow.getCell('conceptName').value = `Subtotal ${conceptName}:`;
+                subtotalRow.getCell('conceptName').font = { bold: true };
+                subtotalRow.getCell('conceptName').alignment = { horizontal: 'right' };
+                subtotalRow.getCell('quantity').value = group.subtotalCantidad;
+                subtotalRow.getCell('quantity').numFmt = '#,##0.00';
+                subtotalRow.getCell('quantity').font = { bold: true };
+                subtotalRow.getCell('totalValue').value = group.subtotalValor;
+                subtotalRow.getCell('totalValue').numFmt = '$ #,##0.00';
+                subtotalRow.getCell('totalValue').font = { bold: true };
+                subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
+            }
         });
     
         detailWorksheet.addRow([]);
@@ -1520,7 +1570,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1711,25 +1761,57 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const detailBody: any[] = [];
         sortedConceptKeys.forEach(conceptName => {
-             detailBody.push([{ content: conceptName, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
-             const sortedRows = groupedByConcept[conceptName].rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-             sortedRows.forEach(row => {
-                 detailBody.push([
-                    format(parseISO(row.date), 'dd/MM/yyyy'),
-                    row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
-                    row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
-                    formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
-                    row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-                    row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-                ]);
-             });
+             const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR';
+             const group = groupedByConcept[conceptName];
+
+             detailBody.push([{ content: conceptName, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+             
+             if (isContainerConcept) {
+                const containerGroups = group.rows.reduce((acc, row) => {
+                    const containerKey = row.container || 'SIN_CONTENEDOR';
+                    if (!acc[containerKey]) {
+                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
+                    }
+                    acc[containerKey].rows.push(row);
+                    acc[containerKey].subtotalCantidad += row.quantity;
+                    acc[containerKey].subtotalValor += row.totalValue;
+                    return acc;
+                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
+
+                Object.entries(containerGroups).forEach(([containerKey, containerData]) => {
+                     detailBody.push([{ content: `Contenedor: ${containerKey}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
+                     containerData.rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
+                        detailBody.push(generateDetailRow(row));
+                     });
+                     detailBody.push([
+                        { content: `Subtotal Contenedor ${containerKey}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: containerData.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: '', colSpan: 2 },
+                        { content: containerData.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+                     ]);
+                });
+             } else {
+                group.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
+                     detailBody.push(generateDetailRow(row));
+                });
+             }
+
              detailBody.push([
                 { content: `Subtotal ${conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: groupedByConcept[conceptName].subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: group.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: '', colSpan: 2 },
-                { content: groupedByConcept[conceptName].subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+                { content: group.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
             ]);
         });
+        
+        const generateDetailRow = (row: ClientSettlementRow) => [
+            format(parseISO(row.date), 'dd/MM/yyyy'),
+            row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
+            row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
+            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
+            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
+            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+        ];
     
         autoTable(doc, {
             head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
@@ -1794,6 +1876,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -2808,17 +2891,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR';
                                                             const group = settlementGroupedData[conceptName];
                                                             
-                                                            // Group by container if it's the specific concept
                                                             const containerGroups = isContainerConcept
                                                                 ? group.rows.reduce((acc, row) => {
                                                                     const containerKey = row.container || 'SIN_CONTENEDOR';
                                                                     if (!acc[containerKey]) {
-                                                                        acc[containerKey] = [];
+                                                                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
                                                                     }
-                                                                    acc[containerKey].push(row);
+                                                                    acc[containerKey].rows.push(row);
+                                                                    acc[containerKey].subtotalCantidad += row.quantity;
+                                                                    acc[containerKey].subtotalValor += row.totalValue;
                                                                     return acc;
-                                                                }, {} as Record<string, ClientSettlementRow[]>)
-                                                                : { 'default': group.rows };
+                                                                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>)
+                                                                : { 'default': group };
                                                             
                                                             return (
                                                                 <React.Fragment key={conceptName}>
@@ -2826,10 +2910,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableCell colSpan={18} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                     </TableRow>
 
-                                                                    {Object.entries(containerGroups).map(([containerKey, rows]) => {
-                                                                        const subtotalCantidad = rows.reduce((sum, row) => sum + row.quantity, 0);
-                                                                        const subtotalValor = rows.reduce((sum, row) => sum + row.totalValue, 0);
-
+                                                                    {Object.entries(containerGroups).map(([containerKey, data]) => {
+                                                                        const rows = data.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                                                                         return (
                                                                             <React.Fragment key={containerKey}>
                                                                                 {isContainerConcept && containerKey !== 'SIN_CONTENEDOR' && (
@@ -2876,9 +2958,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 {isContainerConcept && (
                                                                                     <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
                                                                                         <TableCell colSpan={13} className="text-right text-xs p-2">Subtotal Contenedor {containerKey}:</TableCell>
-                                                                                        <TableCell className="text-xs p-2 text-right">{subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                                        <TableCell className="text-xs p-2 text-right">{data.subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                                         <TableCell colSpan={2}></TableCell>
-                                                                                        <TableCell colSpan={2} className="text-right text-xs p-2">{subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                                                        <TableCell colSpan={2} className="text-right text-xs p-2">{data.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                                                     </TableRow>
                                                                                 )}
                                                                             </React.Fragment>
@@ -3064,46 +3146,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-    
-
-
-    
-
-
-
-
-
-
-
-    
-
-    
-
-
-
-    
-
-
-
-
-
-
-
-
-    
-
-
-    
-
-
-
-    
-
-
-
-    
-
-
-    
-
     
