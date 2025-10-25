@@ -12,6 +12,71 @@ import { getSmylLotAssistantReport, type AssistantReport } from '@/app/smyl-liqu
 import { getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 
 
+async function generateSmylLiquidation(
+  startDate: string,
+  endDate: string,
+  lotIds: string[],
+  allConcepts: ClientBillingConcept[]
+): Promise<ClientSettlementRow[]> {
+    const smylRows: ClientSettlementRow[] = [];
+
+    const manipulationConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA');
+    const dailyFeeConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
+
+    for (const lotId of lotIds) {
+        const assistantReport = await getSmylLotAssistantReport(lotId, startDate, endDate);
+
+        if ('error' in assistantReport) {
+            console.warn(`No se pudo procesar el lote ${lotId}: ${assistantReport.error}`);
+            continue;
+        }
+
+        if (manipulationConcept) {
+            smylRows.push({
+                date: format(assistantReport.initialReception.date, 'yyyy-MM-dd'),
+                placa: 'N/A',
+                container: assistantReport.initialReception.container,
+                camara: 'CO',
+                totalPaletas: assistantReport.initialReception.pallets,
+                operacionLogistica: 'Servicio de Manipulación',
+                pedidoSislog: assistantReport.initialReception.pedidoSislog,
+                conceptName: manipulationConcept.conceptName,
+                subConceptName: 'Servicio de Manipulación',
+                tipoVehiculo: 'No Aplica',
+                quantity: assistantReport.initialReception.pallets,
+                unitOfMeasure: manipulationConcept.unitOfMeasure,
+                unitValue: manipulationConcept.value || 0,
+                totalValue: assistantReport.initialReception.pallets * (manipulationConcept.value || 0),
+            });
+        }
+        
+        if (dailyFeeConcept) {
+            assistantReport.dailyBalances.forEach(day => {
+                if (day.finalBalance > 0 && !day.isGracePeriod) {
+                    smylRows.push({
+                        date: day.date,
+                        placa: 'N/A',
+                        container: assistantReport.initialReception.container,
+                        camara: 'CO',
+                        totalPaletas: day.finalBalance,
+                        operacionLogistica: 'Servicio Congelación',
+                        pedidoSislog: assistantReport.initialReception.pedidoSislog,
+                        conceptName: dailyFeeConcept.conceptName,
+                        subConceptName: `Día ${day.dayNumber}`,
+                        tipoVehiculo: 'No Aplica',
+                        quantity: day.finalBalance,
+                        unitOfMeasure: dailyFeeConcept.unitOfMeasure,
+                        unitValue: dailyFeeConcept.value || 0,
+                        totalValue: day.finalBalance * (dailyFeeConcept.value || 0),
+                    });
+                }
+            });
+        }
+    }
+    return smylRows;
+}
+
+
 export async function getAllManualClientOperations(): Promise<any[]> {
     if (!firestore) {
         return [];
@@ -496,7 +561,7 @@ export async function generateClientSettlement(criteria: {
     const serverQueryEndDate = endOfDay(parseISO(endDate));
     const dayBeforeStartDate = subDays(serverQueryStartDate, 1);
 
-    const [articlesSnapshot, submissionsSnapshot, manualOpsSnapshot, crewManualOpsSnapshot] = await Promise.all([
+    const [articlesSnapshot, allSubmissionsSnapshot, manualOpsSnapshot, crewManualOpsSnapshot] = await Promise.all([
         firestore.collection('articulos').where('razonSocial', '==', clientName).get(),
         firestore.collection('submissions').where('formData.fecha', '<=', serverQueryEndDate).get(),
         firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get(),
@@ -511,7 +576,7 @@ export async function generateClientSettlement(criteria: {
 
     const allOperations: BasicOperation[] = [];
 
-    const allSubmissions = submissionsSnapshot.docs.map(doc => serializeTimestamps(doc.data()));
+    const allSubmissions = allSubmissionsSnapshot.docs.map(doc => serializeTimestamps(doc.data()));
 
     const clientSubmissions = allSubmissions.filter(data => {
         const docClientName = data.formData?.cliente || data.formData?.nombreCliente;
@@ -1147,53 +1212,40 @@ export async function generateClientSettlement(criteria: {
         if (!concept.value) continue;
 
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
-            const containerMovements: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]> = {};
-            const allClientSubmissions = allOperations.filter(op => op.type === 'form' && (op.data.formData?.cliente === clientName || op.data.formData?.nombreCliente === clientName));
-
-            allClientSubmissions.forEach(op => {
+            const containerMovements = allOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
+                if (op.type !== 'form') return acc;
                 const container = op.data.formData?.contenedor?.trim();
-                if (!container || container.toUpperCase() === 'N/A' || container.toUpperCase() === 'NO APLICA') return;
+                if (!container || container.toUpperCase() === 'N/A' || container.toUpperCase() === 'NO APLICA') return acc;
 
                 const pallets = calculatePalletsForOperation(op.data, concept.inventorySesion, articleSessionMap);
-                if (pallets === 0) return;
+                if (pallets === 0) return acc;
 
-                if (!containerMovements[container]) {
-                    containerMovements[container] = [];
+                if (!acc[container]) {
+                    acc[container] = [];
                 }
-                containerMovements[container].push({
+                acc[container].push({
                     date: startOfDay(new Date(op.data.formData.fecha)),
                     type: op.data.formType.includes('recepcion') ? 'entry' : 'exit',
                     pallets: pallets,
                 });
-            });
+                return acc;
+            }, {});
 
             for (const container in containerMovements) {
-                const movements = containerMovements[container].sort((a, b) => a.date.getTime() - b.date.getTime());
-                let balance = 0;
-                
-                const allDatesInRange = eachDayOfInterval({ start: serverQueryStartDate, end: serverQueryEndDate });
-                let initialBalance = 0;
+                const movementsForContainer = allSubmissions
+                    .filter(op => (op.formData?.cliente === clientName || op.formData?.nombreCliente === clientName) && op.formData.contenedor === container)
+                    .map(op => ({
+                        date: startOfDay(new Date(op.formData.fecha)),
+                        pallets: calculatePalletsForOperation(op, concept.inventorySesion, articleSessionMap),
+                        type: op.formType.includes('recepcion') ? 'entry' : 'exit',
+                    }));
 
-                const movementsBeforeRange = allSubmissions.filter(data => {
-                    const opDate = startOfDay(new Date(data.formData.fecha));
-                    const docClientName = data.formData?.cliente || data.formData?.nombreCliente;
-                    return docClientName === clientName && data.formData.contenedor === container && isBefore(opDate, serverQueryStartDate);
-                });
-                
-                movementsBeforeRange.forEach(op => {
-                    const pallets = calculatePalletsForOperation(op, concept.inventorySesion, articleSessionMap);
-                    initialBalance += op.formType.includes('recepcion') ? pallets : -pallets;
-                });
-                
-                balance = initialBalance;
+                const initialBalanceMovements = movementsForContainer.filter(m => isBefore(m.date, serverQueryStartDate));
+                let balance = initialBalanceMovements.reduce((acc, mov) => acc + (mov.type === 'entry' ? mov.pallets : -mov.pallets), 0);
 
-                for (const date of allDatesInRange) {
-                    const movementsForDay = movements.filter(m => format(m.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd'));
-                    const entriesToday = movementsForDay.filter(m => m.type === 'entry').reduce((sum, m) => sum + m.pallets, 0);
-                    const exitsToday = movementsForDay.filter(m => m.type === 'exit').reduce((sum, m) => sum + m.pallets, 0);
-                    
-                    balance += entriesToday - exitsToday;
+                const dateRangeArray = eachDayOfInterval({ start: serverQueryStartDate, end: serverQueryEndDate });
 
+                for (const date of dateRangeArray) {
                     if (balance > 0) {
                         settlementRows.push({
                             date: format(date, 'yyyy-MM-dd'),
@@ -1211,9 +1263,14 @@ export async function generateClientSettlement(criteria: {
                             totalValue: balance * concept.value,
                         });
                     }
+
+                    const movementsForDay = movementsForContainer.filter(m => isEqual(m.date, date));
+                    const entriesToday = movementsForDay.filter(m => m.type === 'entry').reduce((sum, m) => sum + m.pallets, 0);
+                    const exitsToday = movementsForDay.filter(m => m.type === 'exit').reduce((sum, m) => sum + m.pallets, 0);
+                    
+                    balance += entriesToday - exitsToday;
                 }
             }
-
         } else if (concept.inventorySource === 'POSICIONES_ALMACENADAS' && concept.inventorySesion) {
             const consolidatedReport = await getConsolidatedMovementReport({
                 clientName: clientName,
@@ -1256,6 +1313,7 @@ export async function generateClientSettlement(criteria: {
         'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
         'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+        'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
         'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
         'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
         'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1326,3 +1384,5 @@ const minutesToTime = (minutes: number): string => {
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
     
+
+  
