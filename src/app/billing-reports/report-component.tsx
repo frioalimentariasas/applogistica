@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -1791,7 +1790,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'OPERACIÓN DESCARGUE/TONELADAS',
             'OPERACIÓN CARGUE/TONELADAS',
             'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
-            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
             'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
             'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
@@ -2806,55 +2804,98 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={18}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                                 ) : Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
-                                                        {Object.keys(settlementGroupedData).map(conceptName => (
-                                                            <React.Fragment key={conceptName}>
-                                                                <TableRow className="bg-muted hover:bg-muted">
-                                                                    <TableCell colSpan={18} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
-                                                                </TableRow>
-                                                                {settlementGroupedData[conceptName].rows.map((row) => (
-                                                                    <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
-                                                                        <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
-                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.placa}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.container}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
-                                                                        <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                        <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                        <TableCell className="text-right p-1">
-                                                                            <div className="flex items-center justify-end gap-0">
-                                                                                {row.isEdited && (
-                                                                                    <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original">
-                                                                                        <Undo2 className="h-4 w-4" />
-                                                                                    </Button>
-                                                                                )}
-                                                                                <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }} title="Editar fila">
-                                                                                    <Edit2 className="h-4 w-4" />
-                                                                                </Button>
-                                                                                 <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
-                                                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                                                                </Button>
-                                                                            </div>
-                                                                        </TableCell>
+                                                        {Object.keys(settlementGroupedData).map(conceptName => {
+                                                            const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR';
+                                                            const group = settlementGroupedData[conceptName];
+                                                            
+                                                            // Group by container if it's the specific concept
+                                                            const containerGroups = isContainerConcept
+                                                                ? group.rows.reduce((acc, row) => {
+                                                                    const containerKey = row.container || 'SIN_CONTENEDOR';
+                                                                    if (!acc[containerKey]) {
+                                                                        acc[containerKey] = [];
+                                                                    }
+                                                                    acc[containerKey].push(row);
+                                                                    return acc;
+                                                                }, {} as Record<string, ClientSettlementRow[]>)
+                                                                : { 'default': group.rows };
+                                                            
+                                                            return (
+                                                                <React.Fragment key={conceptName}>
+                                                                    <TableRow className="bg-muted hover:bg-muted">
+                                                                        <TableCell colSpan={18} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                     </TableRow>
-                                                                ))}
-                                                                <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                    <TableCell colSpan={13} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
-                                                                    <TableCell className="text-xs p-2 text-right">{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                                    <TableCell colSpan={2} className="text-xs p-2"></TableCell>
-                                                                    <TableCell className="text-right text-xs p-2" colSpan={2}>{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                </TableRow>
-                                                            </React.Fragment>
-                                                        ))}
+
+                                                                    {Object.entries(containerGroups).map(([containerKey, rows]) => {
+                                                                        const subtotalCantidad = rows.reduce((sum, row) => sum + row.quantity, 0);
+                                                                        const subtotalValor = rows.reduce((sum, row) => sum + row.totalValue, 0);
+
+                                                                        return (
+                                                                            <React.Fragment key={containerKey}>
+                                                                                {isContainerConcept && containerKey !== 'SIN_CONTENEDOR' && (
+                                                                                     <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                                                                        <TableCell colSpan={18} className="font-semibold text-foreground text-xs p-2 pl-6">Contenedor: {containerKey}</TableCell>
+                                                                                    </TableRow>
+                                                                                )}
+                                                                                {rows.map((row) => (
+                                                                                    <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
+                                                                                        <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
+                                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{row.placa}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{row.container}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                                        <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
+                                                                                        <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                                        <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                                        <TableCell className="text-right p-1">
+                                                                                            <div className="flex items-center justify-end gap-0">
+                                                                                                {row.isEdited && (
+                                                                                                    <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original">
+                                                                                                        <Undo2 className="h-4 w-4" />
+                                                                                                    </Button>
+                                                                                                )}
+                                                                                                <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }} title="Editar fila">
+                                                                                                    <Edit2 className="h-4 w-4" />
+                                                                                                </Button>
+                                                                                                <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
+                                                                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                                                                </Button>
+                                                                                            </div>
+                                                                                        </TableCell>
+                                                                                    </TableRow>
+                                                                                ))}
+                                                                                {isContainerConcept && (
+                                                                                    <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
+                                                                                        <TableCell colSpan={13} className="text-right text-xs p-2">Subtotal Contenedor {containerKey}:</TableCell>
+                                                                                        <TableCell className="text-xs p-2 text-right">{subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                                        <TableCell colSpan={2}></TableCell>
+                                                                                        <TableCell colSpan={2} className="text-right text-xs p-2">{subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                                                    </TableRow>
+                                                                                )}
+                                                                            </React.Fragment>
+                                                                        );
+                                                                    })}
+                                                                    
+                                                                    {!isContainerConcept && (
+                                                                        <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
+                                                                            <TableCell colSpan={13} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
+                                                                            <TableCell className="text-xs p-2 text-right">{group.subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                            <TableCell colSpan={2}></TableCell>
+                                                                            <TableCell colSpan={2} className="text-right text-xs p-2">{group.subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                        </TableRow>
+                                                                    )}
+                                                                </React.Fragment>
+                                                            )
+                                                        })}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
                                                             <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
                                                             <TableCell className="text-right p-2">{visibleSettlementData.reduce((sum, row) => sum + row.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
@@ -3062,5 +3103,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
     
 
+
+    
 
     

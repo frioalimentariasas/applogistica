@@ -363,68 +363,93 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
 };
 
 async function generateSmylLiquidation(
-  startDate: string,
-  endDate: string,
-  lotIds: string[],
-  allConcepts: ClientBillingConcept[]
-): Promise<ClientSettlementRow[]> {
-    const smylRows: ClientSettlementRow[] = [];
-
-    const manipulationConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA');
-    const dailyFeeConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
-
-    for (const lotId of lotIds) {
-        const assistantReport = await getSmylLotAssistantReport(lotId, startDate, endDate);
-
-        if ('error' in assistantReport) {
-            console.warn(`No se pudo procesar el lote ${lotId}: ${assistantReport.error}`);
-            continue;
-        }
-
-        if (manipulationConcept) {
-            smylRows.push({
-                date: format(assistantReport.initialReception.date, 'yyyy-MM-dd'),
-                placa: 'N/A',
-                container: assistantReport.initialReception.container,
-                camara: 'CO',
-                totalPaletas: assistantReport.initialReception.pallets,
-                operacionLogistica: 'Servicio de Manipulación',
-                pedidoSislog: assistantReport.initialReception.pedidoSislog,
-                conceptName: manipulationConcept.conceptName,
-                subConceptName: 'Servicio de Manipulación',
-                tipoVehiculo: 'No Aplica',
-                quantity: assistantReport.initialReception.pallets,
-                unitOfMeasure: manipulationConcept.unitOfMeasure,
-                unitValue: manipulationConcept.value || 0,
-                totalValue: assistantReport.initialReception.pallets * (manipulationConcept.value || 0),
-            });
-        }
-        
-        if (dailyFeeConcept) {
-            assistantReport.dailyBalances.forEach(day => {
-                if (day.finalBalance > 0 && !day.isGracePeriod) {
-                    smylRows.push({
-                        date: day.date,
-                        placa: 'N/A',
-                        container: assistantReport.initialReception.container,
-                        camara: 'CO',
-                        totalPaletas: day.finalBalance,
-                        operacionLogistica: 'Servicio Congelación',
-                        pedidoSislog: assistantReport.initialReception.pedidoSislog,
-                        conceptName: dailyFeeConcept.conceptName,
-                        subConceptName: `Día ${day.dayNumber}`,
-                        tipoVehiculo: 'No Aplica',
-                        quantity: day.finalBalance,
-                        unitOfMeasure: dailyFeeConcept.unitOfMeasure,
-                        unitValue: dailyFeeConcept.value || 0,
-                        totalValue: day.finalBalance * (dailyFeeConcept.value || 0),
-                    });
-                }
-            });
-        }
-    }
-    return smylRows;
-}
+    startDate: string,
+    endDate: string,
+    lotIds: string[],
+    allConcepts: ClientBillingConcept[]
+  ): Promise<ClientSettlementRow[]> {
+      if (lotIds.length === 0) return [];
+      
+      let allLotRows: ClientSettlementRow[] = [];
+      
+      const conceptsToFind = [
+          'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+          'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'
+      ];
+  
+      const mainConcept = allConcepts.find(c => c.conceptName.toUpperCase() === conceptsToFind[0]);
+      const dailyConcept = allConcepts.find(c => c.conceptName.toUpperCase() === conceptsToFind[1]);
+      
+      if (!mainConcept?.value || !dailyConcept?.value) {
+          throw new Error(`No se encontraron las tarifas para los conceptos de SMYL ('MANIPULACIÓN CARGA', 'COBRO DIARIO'). Verifique la configuración.`);
+      }
+      
+      const mainTariff = mainConcept.value;
+      const dailyPalletRate = dailyConcept.value;
+  
+      for (const lotId of lotIds) {
+          const report = await getSmylLotAssistantReport(lotId, startDate, endDate);
+          if ('error' in report) {
+              console.warn(`Skipping lot ${lotId}: ${report.error}`);
+              continue;
+          }
+  
+          const { initialReception, dailyBalances } = report;
+          const receptionDate = startOfDay(initialReception.date);
+          const queryStart = startOfDay(parseISO(startDate));
+          const queryEnd = endOfDay(parseISO(endDate));
+          
+          if (receptionDate >= queryStart && receptionDate <= queryEnd) {
+              const freezingTotal = initialReception.pallets * dailyPalletRate * 4;
+              const manipulationTotal = mainTariff - freezingTotal;
+  
+              allLotRows.push({
+                  date: format(receptionDate, 'yyyy-MM-dd'),
+                  conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+                  subConceptName: 'Servicio logístico Congelación (4 Días)',
+                  quantity: initialReception.pallets,
+                  unitOfMeasure: 'PALETA',
+                  unitValue: dailyPalletRate,
+                  totalValue: freezingTotal,
+                  placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Recepción', 
+                  pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialReception.pallets,
+              });
+  
+              allLotRows.push({
+                  date: format(receptionDate, 'yyyy-MM-dd'),
+                  conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+                  subConceptName: 'Servicio de Manipulación',
+                  quantity: 1, unitOfMeasure: 'UNIDAD', unitValue: manipulationTotal, totalValue: manipulationTotal,
+                  placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Recepción', 
+                  pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: 0,
+              });
+          }
+          
+          const gracePeriodEndDate = addDays(receptionDate, 3);
+          const relevantDailyBalances = dailyBalances.filter(day => {
+              const dayDate = parseISO(day.date);
+              return dayDate > gracePeriodEndDate && dayDate >= queryStart && dayDate <= queryEnd;
+          });
+  
+          for (const day of relevantDailyBalances) {
+              if (day.finalBalance > 0) {
+                  allLotRows.push({
+                      date: day.date,
+                      conceptName: 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+                      quantity: day.finalBalance,
+                      unitOfMeasure: 'PALETA/DIA',
+                      unitValue: dailyPalletRate,
+                      totalValue: day.finalBalance * dailyPalletRate,
+                      placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Servicio Congelación',
+                      pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: day.finalBalance
+                  });
+              }
+          }
+      }
+      
+      return allLotRows;
+  }
+  
 
 
 export async function generateClientSettlement(criteria: {
