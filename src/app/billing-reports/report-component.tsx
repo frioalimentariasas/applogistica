@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -8,7 +9,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
-import { format, addDays, differenceInDays, subDays, parseISO } from 'date-fns';
+import { format, addDays, differenceInDays, subDays, parseISO, isEqual } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -1598,7 +1599,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
-    ];
+        ];
     
         const addInfoBox = (docInstance: jsPDF) => {
             const tableWidth = 55;
@@ -1707,15 +1708,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         const summaryFoot = [
             [
-                { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
-                { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
-                { content: '', styles: {fillColor: [26, 144, 200]} },
-                { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
+                { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold'} },
+                { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: '' },
+                { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
             ]
         ];
-
-        summaryBody.push(...summaryFoot);
-
 
         autoTable(doc, {
             head: [['#', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
@@ -1727,12 +1725,29 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             styles: { fontSize: 11, cellPadding: 1.5 },
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
             didParseCell: (data) => {
-                // Style the total row
-                if (data.row.raw[0].content === 'TOTALES:') {
+                 if (data.row.raw[0].content === 'TOTALES:') {
                     data.row.cells[0].styles.fillColor = [26, 144, 200];
-                    data.row.cells[1].styles.fillColor = [26, 144, 200];
+                    data.row.cells[0].styles.textColor = '#ffffff';
+                    if (data.row.cells[1]) {
+                        data.row.cells[1].styles.fillColor = [26, 144, 200];
+                        data.row.cells[1].styles.textColor = '#ffffff';
+                    }
+                    if (data.row.cells[2]) {
+                        data.row.cells[2].styles.fillColor = [26, 144, 200];
+                        data.row.cells[2].styles.textColor = '#ffffff';
+                    }
+                    if (data.row.cells[3]) {
+                        data.row.cells[3].styles.fillColor = [26, 144, 200];
+                        data.row.cells[3].styles.textColor = '#ffffff';
+                    }
                 }
-            }
+            },
+            foot: summaryFoot,
+            footStyles: {
+                fillColor: [26, 144, 200],
+                textColor: '#ffffff',
+                fontStyle: 'bold',
+            },
         });
 
         let finalY = (doc as any).lastAutoTable.finalY || 0;
@@ -1837,12 +1852,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         const detailFoot = [[
             { content: 'TOTAL GENERAL:', colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
-            { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+            { content: visibleRows.reduce((sum, row) => sum + row.quantity, 0).toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
             { content: '', colSpan: 2, },
             { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
         ]];
-        
-        detailBody.push(...detailFoot);
     
         autoTable(doc, {
             head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
@@ -1856,14 +1869,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 if (data.row.raw[0].content === 'TOTAL GENERAL:') {
                      data.row.cells[0].styles.fillColor = [26, 144, 200];
                      data.row.cells[0].styles.textColor = '#ffffff';
-                     data.row.cells[12].styles.fillColor = [26, 144, 200];
-                     data.row.cells[12].styles.textColor = '#ffffff';
-                     data.row.cells[13].styles.fillColor = [26, 144, 200];
-                     data.row.cells[14].styles.fillColor = [26, 144, 200];
-                     data.row.cells[15].styles.fillColor = [26, 144, 200];
-                     data.row.cells[15].styles.textColor = '#ffffff';
+                     if (data.row.cells[12]) {
+                         data.row.cells[12].styles.fillColor = [26, 144, 200];
+                         data.row.cells[12].styles.textColor = '#ffffff';
+                     }
+                     if (data.row.cells[13]) data.row.cells[13].styles.fillColor = [26, 144, 200];
+                     if (data.row.cells[14]) data.row.cells[14].styles.fillColor = [26, 144, 200];
+                     if (data.row.cells[15]) {
+                         data.row.cells[15].styles.fillColor = [26, 144, 200];
+                         data.row.cells[15].styles.textColor = '#ffffff';
+                     }
                 }
-            }
+            },
+            foot: detailFoot,
+            footStyles: { fillColor: [26, 144, 200], textColor: '#ffffff', fontStyle: 'bold' },
         });
     
         const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
@@ -3186,3 +3205,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+
+    
