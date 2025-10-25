@@ -1558,6 +1558,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
 
+        const generateDetailRow = (row: ClientSettlementRow) => [
+            format(parseISO(row.date), 'dd/MM/yyyy'),
+            row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
+            row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
+            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
+            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
+            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+        ];
+
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
@@ -1804,14 +1813,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             ]);
         });
         
-        const generateDetailRow = (row: ClientSettlementRow) => [
-            format(parseISO(row.date), 'dd/MM/yyyy'),
-            row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
-            row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
-            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
-            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-        ];
     
         autoTable(doc, {
             head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
@@ -3147,3 +3148,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     );
 }
     
+
