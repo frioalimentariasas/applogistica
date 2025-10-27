@@ -1026,7 +1026,7 @@ export async function generateClientSettlement(criteria: {
                         totalPaletas: opData.details?.totalPallets || 0,
                         camara: 'N/A',
                         operacionLogistica: 'No Aplica',
-                        pedidoSislog: opData.details?.pedidoSislog || 'Manual',
+                        pedidoSislog: opData.details?.pedidoSislog || 'No aplica',
                         conceptName: concept.conceptName,
                         subConceptName: specificTariffInfo.name,
                         tipoVehiculo: 'No Aplica',
@@ -1253,7 +1253,15 @@ export async function generateClientSettlement(criteria: {
         'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
         'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
+        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 
+        'TIEMPO EXTRA ZFPC',
+        'HORA EXTRA DIURNA',//child (TIEMPO EXTRA ZFPC)
+        'HORA EXTRA NOCTURNA',//child (TIEMPO EXTRA ZFPC)
+        'HORA EXTRA DIURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
+        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
+        'ALIMENTACIÓN',//child (TIEMPO EXTRA ZFPC)
+        'TRANSPORTE EXTRAORDINARIO',//child (TIEMPO EXTRA ZFPC)
+        'TRANSPORTE DOMINICAL Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
         'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
         'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'

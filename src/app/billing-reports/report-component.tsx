@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -571,13 +570,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             formatObservaciones(row.observaciones)
         ]);
         
+        let finalY = 0;
         autoTable(doc, {
             startY: titleY + 18,
             head: head,
             body: body,
             theme: 'grid',
             headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
-            footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
             styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
             columnStyles: {
                  0: { cellWidth: 18 }, // Fecha
@@ -587,27 +586,27 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                  15: { cellWidth: 35 }, // Observaciones column
             },
             didDrawPage: (data) => {
-                // Add footer only on the last page
-                if (data.pageNumber === data.pageCount) {
-                    const foot = [
-                        [
-                            { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                            { content: formatDuration(totalDuration) }, 
-                            { content: '', colSpan: 11},
-                            { content: totalGeneralPesoKg.toFixed(2), styles: {fontStyle: 'bold'} },
-                            { content: ''}
-                        ]
-                    ];
-                    autoTable(doc, {
-                        body: foot,
-                        startY: data.cursor!.y + 2,
-                        theme: 'grid',
-                        styles: { fontSize: 6, cellPadding: 1 },
-                        headStyles: { display: 'none' },
-                        footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
-                    });
-                }
+                finalY = data.cursor!.y;
             }
+        });
+        
+        const foot = [
+            [
+                { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                { content: formatDuration(totalDuration) }, 
+                { content: '', colSpan: 11},
+                { content: totalGeneralPesoKg.toFixed(2), styles: {fontStyle: 'bold'} },
+                { content: ''}
+            ]
+        ];
+        
+        autoTable(doc, {
+            body: foot,
+            startY: finalY + 2,
+            theme: 'grid',
+            styles: { fontSize: 6, cellPadding: 1 },
+            headStyles: { display: 'none' },
+            footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
         });
 
         const fileName = `Reporte_Detallado_Operacion_${format(detailedReportDateRange!.from!, 'yyyy-MM-dd')}_a_${format(detailedReportDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
@@ -1250,7 +1249,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
+            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 
+            'TIEMPO EXTRA ZFPC',
+            'HORA EXTRA DIURNA',//child (TIEMPO EXTRA ZFPC)
+            'HORA EXTRA NOCTURNA',//child (TIEMPO EXTRA ZFPC)
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
+            'ALIMENTACIÓN',//child (TIEMPO EXTRA ZFPC)
+            'TRANSPORTE EXTRAORDINARIO',//child (TIEMPO EXTRA ZFPC)
+            'TRANSPORTE DOMINICAL Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
@@ -1438,7 +1445,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -1494,7 +1501,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 });
 
             } else {
-                const sortedRowsForConcept = group.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                const sortedRowsForConcept = group.rows.sort((a,b) => {
+                  const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+                  if (dateComparison !== 0) return dateComparison;
+
+                  // Custom sort logic for TIEMPO EXTRA ZFPC
+                  if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
+                      const zfpcOrder = ['HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'ALIMENTACIÓN', 'TRANSPORTE'];
+                      const subOrderA = zfpcOrder.indexOf(a.subConceptName || '');
+                      const subOrderB = zfpcOrder.indexOf(b.subConceptName || '');
+                      return (subOrderA === -1 ? Infinity : subOrderA) - (subOrderB === -1 ? Infinity : subOrderB);
+                  }
+                  
+                  return (a.subConceptName || '').localeCompare(b.subConceptName || '');
+              });
                 
                 sortedRowsForConcept.forEach(row => {
                      detailWorksheet.addRow({
@@ -1569,15 +1589,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
 
-        const generateDetailRow = (row: ClientSettlementRow) => [
-            format(parseISO(row.date), 'dd/MM/yyyy'),
-            row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
-            row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
-            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
-            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-        ];
-
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
             'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
@@ -1595,12 +1606,30 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
+            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 
+            'TIEMPO EXTRA ZFPC',
+            'HORA EXTRA DIURNA',
+            'HORA EXTRA NOCTURNA',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+            'ALIMENTACIÓN',
+            'TRANSPORTE EXTRAORDINARIO',
+            'TRANSPORTE DOMINICAL Y FESTIVO',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
         ];
-    
+
+        const zfpcSubConceptOrder = [
+            'HORA EXTRA DIURNA',
+            'HORA EXTRA NOCTURNA',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+            'ALIMENTACIÓN',
+            'TRANSPORTE EXTRAORDINARIO',
+            'TRANSPORTE DOMINICAL Y FESTIVO',
+        ];
+
         const addInfoBox = (docInstance: jsPDF) => {
             const tableWidth = 55;
             const startX = pageWidth - margin - tableWidth;
@@ -1724,30 +1753,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             headStyles: { fillColor: [26, 144, 200], fontSize: 12 },
             styles: { fontSize: 11, cellPadding: 1.5 },
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
-            didParseCell: (data) => {
-                 if (data.row.raw[0].content === 'TOTALES:') {
-                    data.row.cells[0].styles.fillColor = [26, 144, 200];
-                    data.row.cells[0].styles.textColor = '#ffffff';
-                    if (data.row.cells[1]) {
-                        data.row.cells[1].styles.fillColor = [26, 144, 200];
-                        data.row.cells[1].styles.textColor = '#ffffff';
-                    }
-                    if (data.row.cells[2]) {
-                        data.row.cells[2].styles.fillColor = [26, 144, 200];
-                        data.row.cells[2].styles.textColor = '#ffffff';
-                    }
-                    if (data.row.cells[3]) {
-                        data.row.cells[3].styles.fillColor = [26, 144, 200];
-                        data.row.cells[3].styles.textColor = '#ffffff';
-                    }
-                }
-            },
-            foot: summaryFoot,
-            footStyles: {
-                fillColor: [26, 144, 200],
-                textColor: '#ffffff',
-                fontStyle: 'bold',
-            },
         });
 
         let finalY = (doc as any).lastAutoTable.finalY || 0;
@@ -1787,6 +1792,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.addPage();
         lastY = addHeader(doc, "Detalle Liquidación de Servicios Clientes");
 
+        const detailBody: any[] = [];
+        const generateDetailRow = (row: ClientSettlementRow) => [
+            format(parseISO(row.date), 'dd/MM/yyyy'),
+            row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
+            row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
+            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
+            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
+            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+        ];
+
         const groupedByConcept = visibleRows.reduce((acc, row) => {
             const conceptKey = row.conceptName;
             if (!acc[conceptKey]) {
@@ -1800,12 +1815,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
 
-        const detailBody: any[] = [];
         sortedConceptKeys.forEach(conceptName => {
              const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR';
              const group = groupedByConcept[conceptName];
@@ -1837,7 +1851,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                      ]);
                 });
              } else {
-                group.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
+                group.rows.sort((a,b) => {
+                    const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+                    if (dateComparison !== 0) return dateComparison;
+
+                    if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
+                        const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
+                        const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
+                        return (subOrderA === -1 ? Infinity : subOrderA) - (subOrderB === -1 ? Infinity : subOrderB);
+                    }
+                    
+                    return (a.subConceptName || '').localeCompare(b.subConceptName || '');
+                }).forEach(row => {
                      detailBody.push(generateDetailRow(row));
                 });
              }
@@ -1850,12 +1875,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             ]);
         });
         
-        const detailFoot = [[
+        detailBody.push([
             { content: 'TOTAL GENERAL:', colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
             { content: visibleRows.reduce((sum, row) => sum + row.quantity, 0).toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
             { content: '', colSpan: 2, },
             { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-        ]];
+        ]);
     
         autoTable(doc, {
             head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
@@ -1866,23 +1891,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             styles: { fontSize: 8, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             didParseCell: (data) => {
-                if (data.row.raw[0].content === 'TOTAL GENERAL:') {
-                     data.row.cells[0].styles.fillColor = [26, 144, 200];
-                     data.row.cells[0].styles.textColor = '#ffffff';
-                     if (data.row.cells[12]) {
-                         data.row.cells[12].styles.fillColor = [26, 144, 200];
-                         data.row.cells[12].styles.textColor = '#ffffff';
-                     }
-                     if (data.row.cells[13]) data.row.cells[13].styles.fillColor = [26, 144, 200];
-                     if (data.row.cells[14]) data.row.cells[14].styles.fillColor = [26, 144, 200];
-                     if (data.row.cells[15]) {
-                         data.row.cells[15].styles.fillColor = [26, 144, 200];
-                         data.row.cells[15].styles.textColor = '#ffffff';
-                     }
+                if (
+                    (data.row.raw[0]?.content?.toString().startsWith('Subtotal') && data.section === 'body') ||
+                    (data.row.raw[0]?.content === 'TOTAL GENERAL:' && data.section === 'body')
+                ) {
+                    data.cell.styles.fillColor = data.row.raw[0].content === 'TOTAL GENERAL:' ? [26, 144, 200] : '#f1f5f9';
+                    if (data.row.raw[0].content === 'TOTAL GENERAL:') {
+                        data.cell.styles.textColor = '#ffffff';
+                    }
                 }
             },
-            foot: detailFoot,
-            footStyles: { fillColor: [26, 144, 200], textColor: '#ffffff', fontStyle: 'bold' },
         });
     
         const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
@@ -1936,7 +1954,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
+            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 
+            'TIEMPO EXTRA ZFPC',
+            'HORA EXTRA DIURNA',//child (TIEMPO EXTRA ZFPC)
+            'HORA EXTRA NOCTURNA',//child (TIEMPO EXTRA ZFPC)
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
+            'ALIMENTACIÓN',//child (TIEMPO EXTRA ZFPC)
+            'TRANSPORTE EXTRAORDINARIO',//child (TIEMPO EXTRA ZFPC)
+            'TRANSPORTE DOMINICAL Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
@@ -3206,5 +3232,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+    
 
     
