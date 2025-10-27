@@ -696,7 +696,7 @@ export async function generateClientSettlement(criteria: {
                         conceptName: concept.conceptName,
                         tipoVehiculo: matchingTariff.vehicleType,
                         quantity: 1, // Liquidate per vehicle
-                        unitOfMeasure: 'VIAJE',
+                        unitOfMeasure: concept.unitOfMeasure,
                         unitValue: unitValue,
                         totalValue: unitValue,
                         horaInicio: op.formData.horaInicio,
@@ -704,6 +704,7 @@ export async function generateClientSettlement(criteria: {
                     });
                 }
             }
+            continue; // Continue to next concept after handling this special case
         }
             
         // General processing for all other order types for OPERACIÓN DESCARGUE and other concepts
@@ -752,6 +753,7 @@ export async function generateClientSettlement(criteria: {
             let quantity = 0;
             let totalPallets = 0;
             
+            // Highlight this line for the user
             const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
             
             switch (concept.calculationBase) {
@@ -811,7 +813,7 @@ export async function generateClientSettlement(criteria: {
 
                 vehicleTypeForReport = matchingTariff.vehicleType;
                 if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
-                    unitOfMeasureForReport = 'VIAJE';
+                    unitOfMeasureForReport = concept.unitOfMeasure;
                     if (operacionLogistica === 'Diurno') unitValue = matchingTariff.dayTariff;
                     else if (operacionLogistica === 'Nocturno') unitValue = matchingTariff.nightTariff;
                     else if (operacionLogistica === 'Extra') unitValue = matchingTariff.extraTariff;
