@@ -4,7 +4,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff, TemperatureTariffRange } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, subDays } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, subDays, isEqual } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
@@ -228,6 +228,14 @@ const calculateWeightForOperation = (
         if (isSummaryFormat) {
             return items.reduce((sum: number, item: any) => sum + (Number(item.totalPesoNeto) || 0), 0);
         }
+        
+        // For detailed variable weight reception, calculate net from gross
+        if(formType.includes('recepcion') || formType.includes('reception')) {
+             const totalPesoBruto = items.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
+             const totalTaraEstiba = items.reduce((sum: number, p: any) => sum + (Number(p.taraEstiba) || 0), 0);
+             return totalPesoBruto - totalTaraEstiba;
+        }
+        // For detailed dispatch, sum pre-calculated net weights
         return items.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
     }
 
@@ -651,9 +659,55 @@ export async function generateClientSettlement(criteria: {
     const ruleConcepts = selectedConcepts.filter(c => c.calculationType === 'REGLAS');
 
     for (const concept of ruleConcepts) {
+        
+        // START: Special handling for 'TUNEL DE CONGELACIÓN'
+        if (concept.conceptName === 'OPERACIÓN DESCARGUE' && clientName === 'AVICOLA EL MADROÑO S.A.') {
+            const tunelOperations = allOperations
+                .filter(op => op.type === 'form' && op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN' && op.data.formData?.recepcionPorPlaca)
+                .map(op => op.data)
+                .filter(op => {
+                    const opDate = startOfDay(new Date(op.formData.fecha));
+                    return opDate >= serverQueryStartDate && opDate <= serverQueryEndDate;
+                });
+            
+            for (const op of tunelOperations) {
+                for (const placa of op.formData.placas || []) {
+                    const weightKg = (placa.items || []).reduce((sum: number, item: any) => sum + ((Number(item.pesoBruto) || 0) - (Number(item.taraEstiba) || 0)), 0);
+                    const totalTons = weightKg / 1000;
+                    
+                    if (totalTons <= 0) continue;
+
+                    const operacionLogistica = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
+                    const matchingTariff = findMatchingTariff(totalTons, concept);
+                    if (!matchingTariff) continue;
+
+                    const unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : operacionLogistica === 'Nocturno' ? matchingTariff.nightTariff : matchingTariff.extraTariff;
+
+                    settlementRows.push({
+                        date: op.formData.fecha,
+                        placa: placa.numeroPlaca,
+                        container: 'N/A', // Not applicable per vehicle
+                        camara: 'CO', // Assumed for this concept
+                        totalPaletas: (placa.items || []).length,
+                        operacionLogistica,
+                        pedidoSislog: op.formData.pedidoSislog,
+                        conceptName: concept.conceptName,
+                        tipoVehiculo: matchingTariff.vehicleType,
+                        quantity: 1, // Liquidate per vehicle
+                        unitOfMeasure: 'VIAJE',
+                        unitValue: unitValue,
+                        totalValue: unitValue,
+                        horaInicio: op.formData.horaInicio,
+                        horaFin: op.formData.horaFin,
+                    });
+                }
+            }
+            continue; // Skip the general processing for this concept
+        }
+        // END: Special handling for 'TUNEL DE CONGELACIÓN'
             
         const applicableOperations = allOperations
-            .filter(op => op.type === 'form')
+            .filter(op => op.type === 'form' && op.data.formData?.tipoPedido !== 'TUNEL DE CONGELACIÓN')
             .map(op => op.data)
             .filter(op => {
                 const opDate = startOfDay(new Date(op.formData.fecha));
@@ -754,10 +808,11 @@ export async function generateClientSettlement(criteria: {
 
                 vehicleTypeForReport = matchingTariff.vehicleType;
                 if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
-                    unitOfMeasureForReport = vehicleTypeForReport as any;
+                    unitOfMeasureForReport = 'VIAJE';
                     if (operacionLogistica === 'Diurno') unitValue = matchingTariff.dayTariff;
                     else if (operacionLogistica === 'Nocturno') unitValue = matchingTariff.nightTariff;
                     else if (operacionLogistica === 'Extra') unitValue = matchingTariff.extraTariff;
+                    quantity = 1; // It's per trip now
                 } else {
                     unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                 }
@@ -1142,19 +1197,19 @@ export async function generateClientSettlement(criteria: {
     }
     
     const inventoryConcepts = selectedConcepts.filter(c => c.calculationType === 'SALDO_INVENTARIO' || c.calculationType === 'SALDO_CONTENEDOR');
-
+    
     for (const concept of inventoryConcepts) {
         if (!concept.value) continue;
-
+    
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
             const containerMovements = allOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
                 if (op.type !== 'form') return acc;
                 const container = op.data.formData?.contenedor?.trim();
                 if (!container || container.toUpperCase() === 'N/A' || container.toUpperCase() === 'NO APLICA') return acc;
-
+    
                 const pallets = calculatePalletsForOperation(op.data, concept.inventorySesion, articleSessionMap);
                 if (pallets === 0) return acc;
-
+    
                 if (!acc[container]) {
                     acc[container] = [];
                 }
@@ -1165,8 +1220,9 @@ export async function generateClientSettlement(criteria: {
                 });
                 return acc;
             }, {});
-
+    
             for (const container in containerMovements) {
+                // Find all movements for THIS container across ALL time
                 const movementsForContainer = allSubmissions
                     .filter(op => (op.formData?.cliente === clientName || op.formData?.nombreCliente === clientName) && op.formData.contenedor === container)
                     .map(op => ({
@@ -1174,12 +1230,13 @@ export async function generateClientSettlement(criteria: {
                         pallets: calculatePalletsForOperation(op, concept.inventorySesion, articleSessionMap),
                         type: op.formType.includes('recepcion') ? 'entry' : 'exit',
                     }));
-
+    
+                // Calculate balance before the selected start date
                 const initialBalanceMovements = movementsForContainer.filter(m => isBefore(m.date, serverQueryStartDate));
                 let balance = initialBalanceMovements.reduce((acc, mov) => acc + (mov.type === 'entry' ? mov.pallets : -mov.pallets), 0);
-
+    
                 const dateRangeArray = eachDayOfInterval({ start: serverQueryStartDate, end: serverQueryEndDate });
-
+    
                 for (const date of dateRangeArray) {
                     if (balance > 0) {
                         settlementRows.push({
@@ -1198,7 +1255,7 @@ export async function generateClientSettlement(criteria: {
                             totalValue: balance * concept.value,
                         });
                     }
-
+    
                     const movementsForDay = movementsForContainer.filter(m => isEqual(m.date, date));
                     const entriesToday = movementsForDay.filter(m => m.type === 'entry').reduce((sum, m) => sum + m.pallets, 0);
                     const exitsToday = movementsForDay.filter(m => m.type === 'exit').reduce((sum, m) => sum + m.pallets, 0);
@@ -1213,7 +1270,7 @@ export async function generateClientSettlement(criteria: {
                 endDate: endDate,
                 sesion: concept.inventorySesion,
             });
-
+    
             for (const dayData of consolidatedReport) {
                 if (dayData.posicionesAlmacenadas > 0) {
                     settlementRows.push({
@@ -1235,7 +1292,7 @@ export async function generateClientSettlement(criteria: {
             }
         }
     }
-
+    
     const conceptOrder = [
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
         'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
@@ -1259,7 +1316,7 @@ export async function generateClientSettlement(criteria: {
         'HORA EXTRA NOCTURNA',//child (TIEMPO EXTRA ZFPC)
         'HORA EXTRA DIURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
         'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
-        'ALIMENTACIÓN',//child (TIEMPO EXTRA ZFPC)
+        'ALIMENTACION',//child (TIEMPO EXTRA ZFPC)
         'TRANSPORTE EXTRAORDINARIO',//child (TIEMPO EXTRA ZFPC)
         'TRANSPORTE DOMINICAL Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
@@ -1329,3 +1386,4 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
