@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -502,17 +503,18 @@ export async function generateClientSettlement(criteria: {
   try {
     const serverQueryStartDate = startOfDay(parseISO(startDate));
     const serverQueryEndDate = endOfDay(parseISO(endDate));
-    const dayBeforeStartDate = subDays(serverQueryStartDate, 1);
-
-    const [articlesSnapshot, allSubmissionsSnapshot, manualOpsSnapshot, crewManualOpsSnapshot] = await Promise.all([
-        firestore.collection('articulos').where('razonSocial', '==', clientName).get(),
-        firestore.collection('submissions').where('formData.fecha', '<=', serverQueryEndDate).get(),
+    
+    // Fetch ALL submissions up to the end date to calculate initial balances correctly
+    const allSubmissionsSnapshot = await firestore.collection('submissions').where('formData.fecha', '<=', serverQueryEndDate).get();
+    
+    const [manualOpsSnapshot, crewManualOpsSnapshot, clientArticlesSnapshot] = await Promise.all([
         firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get(),
         firestore.collection('manual_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).where('clientName', '==', clientName).get(),
+        firestore.collection('articulos').where('razonSocial', '==', clientName).get(),
     ]);
     
     const articleSessionMap = new Map();
-    articlesSnapshot.forEach(doc => {
+    clientArticlesSnapshot.forEach(doc => {
         const article = doc.data() as ArticuloData;
         articleSessionMap.set(article.codigoProducto, article.sesion);
     });
@@ -660,7 +662,7 @@ export async function generateClientSettlement(criteria: {
 
     for (const concept of ruleConcepts) {
         
-        // START: Special handling for 'TUNEL DE CONGELACIÓN'
+        // Special handling for 'TUNEL DE CONGELACIÓN' discharge
         if (concept.conceptName === 'OPERACIÓN DESCARGUE' && clientName === 'AVICOLA EL MADROÑO S.A.') {
             const tunelOperations = allOperations
                 .filter(op => op.type === 'form' && op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN' && op.data.formData?.recepcionPorPlaca)
@@ -702,12 +704,13 @@ export async function generateClientSettlement(criteria: {
                     });
                 }
             }
-            continue; // Skip the general processing for this concept
         }
-        // END: Special handling for 'TUNEL DE CONGELACIÓN'
             
+        // General processing for all other order types for OPERACIÓN DESCARGUE and other concepts
         const applicableOperations = allOperations
-            .filter(op => op.type === 'form' && op.data.formData?.tipoPedido !== 'TUNEL DE CONGELACIÓN')
+            .filter(op => op.type === 'form')
+            // Exclude TUNEL DE CONGELACIÓN if it was handled above
+            .filter(op => !(concept.conceptName === 'OPERACIÓN DESCARGUE' && op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN'))
             .map(op => op.data)
             .filter(op => {
                 const opDate = startOfDay(new Date(op.formData.fecha));
@@ -1202,6 +1205,7 @@ export async function generateClientSettlement(criteria: {
         if (!concept.value) continue;
     
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
+            // New logic to calculate balance for each container over the full date range
             const containerMovements = allOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
                 if (op.type !== 'form') return acc;
                 const container = op.data.formData?.contenedor?.trim();
@@ -1386,4 +1390,5 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
