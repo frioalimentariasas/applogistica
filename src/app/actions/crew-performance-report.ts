@@ -77,6 +77,7 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
         // For itemized (non-summary) variable weight reception (the user's specific case)
         const totalPesoBruto = allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
         const totalTaraEstiba = allItems.reduce((sum: number, p: any) => sum + (Number(p.taraEstiba) || 0), 0);
+        // AQUI ESTA EL CALCULO: Se resta la tara de la estiba del peso bruto de las paletas.
         return totalPesoBruto - totalTaraEstiba;
     }
     
