@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -209,11 +210,17 @@ const getFilteredItems = (
 const calculateWeightForOperation = (
     op: any,
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
-    articleSessionMap: Map<string, string>
+    articleSessionMap: Map<string, string>,
+    forceNetWeight: boolean = false // Nuevo parámetro
 ): number => {
     const { formType, formData } = op;
     const items = getFilteredItems(op, sessionFilter, articleSessionMap);
     if (items.length === 0) return 0;
+
+    // --- NUEVA CONDICIÓN PARA FORZAR PESO NETO ---
+    if (forceNetWeight) {
+        return items.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
+    }
 
     if (formType === 'fixed-weight-despacho' || formType === 'fixed-weight-recepcion' || formType === 'fixed-weight-reception') {
         if (!sessionFilter || sessionFilter === 'AMBOS') {
@@ -752,9 +759,13 @@ export async function generateClientSettlement(criteria: {
 
             let quantity = 0;
             let totalPallets = 0;
+
+            const isConceptTunel = concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
+            const isTariffPorTemperatura = concept.tariffType === 'POR_TEMPERATURA';
+            const isPedidoTunel = op.formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
+            const forceNetWeight = isConceptTunel && isTariffPorTemperatura && isPedidoTunel;
             
-            // Highlight this line for the user
-            const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
+            const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap, forceNetWeight);
             
             switch (concept.calculationBase) {
                 case 'TONELADAS': quantity = weightKg / 1000; break;
@@ -1392,5 +1403,6 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
