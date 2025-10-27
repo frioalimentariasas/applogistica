@@ -31,7 +31,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff } from 'lucide-react';
@@ -1443,6 +1443,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return acc;
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number, order: number }>);
     
+        const zfpcSubConceptOrder = [
+            'HORA EXTRA DIURNA',
+            'HORA EXTRA NOCTURNA',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+            'ALIMENTACION',
+            'TRANSPORTE EXTRAORDINARIO',
+            'TRANSPORTE DOMINICAL Y FESTIVO',
+        ];
+
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
@@ -1501,20 +1511,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 });
 
             } else {
-                const sortedRowsForConcept = group.rows.sort((a,b) => {
-                  const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-                  if (dateComparison !== 0) return dateComparison;
+                 const sortedRowsForConcept = group.rows.sort((a,b) => {
+                    const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+                    if (dateComparison !== 0) return dateComparison;
 
-                  // Custom sort logic for TIEMPO EXTRA ZFPC
-                  if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
-                      const zfpcOrder = ['HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'ALIMENTACIÓN', 'TRANSPORTE'];
-                      const subOrderA = zfpcOrder.indexOf(a.subConceptName || '');
-                      const subOrderB = zfpcOrder.indexOf(b.subConceptName || '');
-                      return (subOrderA === -1 ? Infinity : subOrderA) - (subOrderB === -1 ? Infinity : subOrderB);
-                  }
-                  
-                  return (a.subConceptName || '').localeCompare(b.subConceptName || '');
-              });
+                    // Custom sort logic for TIEMPO EXTRA ZFPC
+                    if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
+                        const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
+                        const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
+                        const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
+                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
+                        if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
+                    }
+                    
+                    return (a.subConceptName || '').localeCompare(b.subConceptName || '');
+                });
                 
                 sortedRowsForConcept.forEach(row => {
                      detailWorksheet.addRow({
@@ -1557,20 +1568,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
         });
     
-        detailWorksheet.addRow([]);
-        const totalDetailRow = detailWorksheet.addRow([]);
+        const totalGeneralDetalleRow = detailWorksheet.addRow([]);
         const totalGeneralDetalleCantidad = visibleRows.reduce((sum, row) => sum + row.quantity, 0);
 
-        totalDetailRow.getCell('conceptName').value = 'TOTAL GENERAL:';
-        totalDetailRow.getCell('conceptName').font = { bold: true, size: 12 };
-        totalDetailRow.getCell('conceptName').alignment = { horizontal: 'right' };
-        totalDetailRow.getCell('quantity').value = totalGeneralDetalleCantidad;
-        totalDetailRow.getCell('quantity').numFmt = '#,##0.00';
-        totalDetailRow.getCell('quantity').font = { bold: true, size: 12 };
-        totalDetailRow.getCell('totalValue').value = settlementTotalGeneral;
-        totalDetailRow.getCell('totalValue').numFmt = '$ #,##0.00';
-        totalDetailRow.getCell('totalValue').font = { bold: true, size: 12 };
-        totalDetailRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC5E0B3' } };
+        totalGeneralDetalleRow.getCell('conceptName').value = 'TOTAL GENERAL:';
+        totalGeneralDetalleRow.getCell('conceptName').font = { bold: true, size: 12 };
+        totalGeneralDetalleRow.getCell('conceptName').alignment = { horizontal: 'right' };
+        totalGeneralDetalleRow.getCell('quantity').value = totalGeneralDetalleCantidad;
+        totalGeneralDetalleRow.getCell('quantity').numFmt = '#,##0.00';
+        totalGeneralDetalleRow.getCell('quantity').font = { bold: true, size: 12 };
+        totalGeneralDetalleRow.getCell('totalValue').value = settlementTotalGeneral;
+        totalGeneralDetalleRow.getCell('totalValue').numFmt = '$ #,##0.00';
+        totalGeneralDetalleRow.getCell('totalValue').font = { bold: true, size: 12 };
+        totalGeneralDetalleRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC5E0B3' } };
     
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1625,10 +1635,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'HORA EXTRA NOCTURNA',
             'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
             'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-            'ALIMENTACIÓN',
+            'ALIMENTACION',
             'TRANSPORTE EXTRAORDINARIO',
             'TRANSPORTE DOMINICAL Y FESTIVO',
         ];
+
 
         const addInfoBox = (docInstance: jsPDF) => {
             const tableWidth = 55;
@@ -1735,7 +1746,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
         ]);
         
-        const summaryFoot = [
+        const summaryBodyWithTotal = [
+            ...summaryBody,
             [
                 { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold'} },
                 { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
@@ -1746,13 +1758,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         autoTable(doc, {
             head: [['#', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
-            body: summaryBody,
+            body: summaryBodyWithTotal,
             startY: lastY,
             pageBreak: 'auto',
             theme: 'grid',
             headStyles: { fillColor: [26, 144, 200], fontSize: 12 },
             styles: { fontSize: 11, cellPadding: 1.5 },
             columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
+            didParseCell: function(data) {
+                if(data.row.raw[0].content === 'TOTALES:') {
+                    if(data.row.cells[0]) data.row.cells[0].styles.fillColor = [26, 144, 200];
+                    if(data.row.cells[2]) data.row.cells[2].styles.fillColor = [26, 144, 200];
+                    if(data.row.cells[3]) data.row.cells[3].styles.fillColor = [26, 144, 200];
+                    if(data.row.cells[4]) data.row.cells[4].styles.fillColor = [26, 144, 200];
+                }
+            },
         });
 
         let finalY = (doc as any).lastAutoTable.finalY || 0;
@@ -1829,16 +1849,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
              if (isContainerConcept) {
                 const containerGroups = group.rows.reduce((acc, row) => {
                     const containerKey = row.container || 'SIN_CONTENEDOR';
-                    if (!acc[containerKey]) {
-                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
-                    }
-                    acc[containerKey].rows.push(row);
-                    acc[containerKey].subtotalCantidad += row.quantity;
-                    acc[containerKey].subtotalValor += row.totalValue;
+                    if (!acc[containerKey]) acc[containerKey] = [];
+                    acc[containerKey].push(row);
                     return acc;
-                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
+                }, {} as Record<string, ClientSettlementRow[]>);
 
-                Object.entries(containerGroups).forEach(([containerKey, containerData]) => {
+                Object.entries(containerGroups).forEach(([containerKey, rows]) => {
                      detailBody.push([{ content: `Contenedor: ${containerKey}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
                      containerData.rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
                         detailBody.push(generateDetailRow(row));
@@ -1851,18 +1867,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                      ]);
                 });
              } else {
-                group.rows.sort((a,b) => {
+                 const sortedRowsForConcept = group.rows.sort((a,b) => {
                     const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
                     if (dateComparison !== 0) return dateComparison;
 
                     if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
                         const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
                         const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
-                        return (subOrderA === -1 ? Infinity : subOrderA) - (subOrderB === -1 ? Infinity : subOrderB);
+                        const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
+                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
+                        if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
                     }
                     
                     return (a.subConceptName || '').localeCompare(b.subConceptName || '');
-                }).forEach(row => {
+                });
+                
+                sortedRowsForConcept.forEach(row => {
                      detailBody.push(generateDetailRow(row));
                 });
              }
@@ -1875,12 +1895,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             ]);
         });
         
-        detailBody.push([
+        const totalDetailRow = [
             { content: 'TOTAL GENERAL:', colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
             { content: visibleRows.reduce((sum, row) => sum + row.quantity, 0).toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
             { content: '', colSpan: 2, },
             { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-        ]);
+        ];
     
         autoTable(doc, {
             head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
@@ -1892,15 +1912,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             didParseCell: (data) => {
                 if (
-                    (data.row.raw[0]?.content?.toString().startsWith('Subtotal') && data.section === 'body') ||
-                    (data.row.raw[0]?.content === 'TOTAL GENERAL:' && data.section === 'body')
+                    (data.row.raw[0]?.content?.toString().startsWith('Subtotal') && data.section === 'body')
                 ) {
-                    data.cell.styles.fillColor = data.row.raw[0].content === 'TOTAL GENERAL:' ? [26, 144, 200] : '#f1f5f9';
-                    if (data.row.raw[0].content === 'TOTAL GENERAL:') {
-                        data.cell.styles.textColor = '#ffffff';
-                    }
+                    data.cell.styles.fillColor = '#f1f5f9';
                 }
             },
+        });
+
+        // Add the total row separately without foot to prevent repetition
+        const finalTableY = (doc as any).lastAutoTable.finalY || lastY;
+        autoTable(doc, {
+            startY: finalTableY + 1,
+            body: [totalDetailRow],
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 1, fontStyle: 'bold' },
+            headStyles: { display: 'none' },
+            didParseCell: (data) => {
+                // Since this is the only row, it's the total row.
+                if (data.row.index === 0 && data.cell) {
+                    data.cell.styles.fillColor = [26, 144, 200];
+                    data.cell.styles.textColor = '#ffffff';
+                }
+            }
         });
     
         const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
@@ -1956,18 +1989,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 
             'TIEMPO EXTRA ZFPC',
-            'HORA EXTRA DIURNA',//child (TIEMPO EXTRA ZFPC)
-            'HORA EXTRA NOCTURNA',//child (TIEMPO EXTRA ZFPC)
-            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
-            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
-            'ALIMENTACIÓN',//child (TIEMPO EXTRA ZFPC)
-            'TRANSPORTE EXTRAORDINARIO',//child (TIEMPO EXTRA ZFPC)
-            'TRANSPORTE DOMINICAL Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
+            'HORA EXTRA DIURNA',
+            'HORA EXTRA NOCTURNA',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+            'ALIMENTACIÓN',
+            'TRANSPORTE EXTRAORDINARIO',
+            'TRANSPORTE DOMINICAL Y FESTIVO',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
         ];
         
+        const zfpcSubConceptOrder = [
+            'HORA EXTRA DIURNA',
+            'HORA EXTRA NOCTURNA',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+            'ALIMENTACION',
+            'TRANSPORTE EXTRAORDINARIO',
+            'TRANSPORTE DOMINICAL Y FESTIVO',
+        ];
+
         const grouped = visibleSettlementData.reduce((acc, row) => {
             const conceptKey = row.conceptName;
             if (!acc[conceptKey]) {
@@ -1993,7 +2036,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const sortedGroupedData: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }> = {};
         sortedKeys.forEach(key => {
-            sortedGroupedData[key] = grouped[key];
+            const group = grouped[key];
+            if (key === 'TIEMPO EXTRA ZFPC') {
+                group.rows.sort((a, b) => {
+                    const orderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
+                    const orderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
+                    return (orderA === -1 ? Infinity : orderA) - (orderB === -1 ? Infinity : orderB);
+                });
+            }
+            sortedGroupedData[key] = group;
         });
 
         return sortedGroupedData;
@@ -2969,95 +3020,82 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 ) : Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
                                                         {Object.keys(settlementGroupedData).map(conceptName => {
-                                                            const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR';
                                                             const group = settlementGroupedData[conceptName];
                                                             
-                                                            const containerGroups = isContainerConcept
-                                                                ? group.rows.reduce((acc, row) => {
-                                                                    const containerKey = row.container || 'SIN_CONTENEDOR';
-                                                                    if (!acc[containerKey]) {
-                                                                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
-                                                                    }
-                                                                    acc[containerKey].rows.push(row);
-                                                                    acc[containerKey].subtotalCantidad += row.quantity;
-                                                                    acc[containerKey].subtotalValor += row.totalValue;
-                                                                    return acc;
-                                                                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>)
-                                                                : { 'default': group };
-                                                            
-                                                            return (
-                                                                <React.Fragment key={conceptName}>
-                                                                    <TableRow className="bg-muted hover:bg-muted">
-                                                                        <TableCell colSpan={18} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
-                                                                    </TableRow>
-
-                                                                    {Object.entries(containerGroups).map(([containerKey, data]) => {
-                                                                        const rows = data.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                                                                        return (
-                                                                            <React.Fragment key={containerKey}>
-                                                                                {isContainerConcept && containerKey !== 'SIN_CONTENEDOR' && (
-                                                                                     <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                                                                        <TableCell colSpan={18} className="font-semibold text-foreground text-xs p-2 pl-6">Contenedor: {containerKey}</TableCell>
-                                                                                    </TableRow>
-                                                                                )}
-                                                                                {rows.map((row) => (
-                                                                                    <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
-                                                                                        <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
-                                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{row.placa}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{row.container}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                                                        <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
-                                                                                        <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                                        <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                                        <TableCell className="text-right p-1">
-                                                                                            <div className="flex items-center justify-end gap-0">
-                                                                                                {row.isEdited && (
-                                                                                                    <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original">
-                                                                                                        <Undo2 className="h-4 w-4" />
-                                                                                                    </Button>
-                                                                                                )}
-                                                                                                <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }} title="Editar fila">
-                                                                                                    <Edit2 className="h-4 w-4" />
-                                                                                                </Button>
-                                                                                                <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
-                                                                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                                                                                </Button>
-                                                                                            </div>
-                                                                                        </TableCell>
-                                                                                    </TableRow>
-                                                                                ))}
-                                                                                {isContainerConcept && (
-                                                                                    <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
-                                                                                        <TableCell colSpan={13} className="text-right text-xs p-2">Subtotal Contenedor {containerKey}:</TableCell>
-                                                                                        <TableCell className="text-xs p-2 text-right">{data.subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                                                        <TableCell colSpan={2}></TableCell>
-                                                                                        <TableCell colSpan={2} className="text-right text-xs p-2">{data.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
-                                                                                    </TableRow>
-                                                                                )}
-                                                                            </React.Fragment>
-                                                                        );
-                                                                    })}
-                                                                    
-                                                                    {!isContainerConcept && (
-                                                                        <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                            <TableCell colSpan={13} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
-                                                                            <TableCell className="text-xs p-2 text-right">{group.subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                            const renderGroup = (rows: ClientSettlementRow[], title: string, subtotalLabel: string) => (
+                                                                <React.Fragment key={title}>
+                                                                    {title && (
+                                                                        <TableRow className="bg-muted hover:bg-muted/90">
+                                                                            <TableCell colSpan={18} className="font-semibold text-primary text-sm p-2">{title}</TableCell>
+                                                                        </TableRow>
+                                                                    )}
+                                                                    {rows.map((row) => (
+                                                                        <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
+                                                                            <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                                            <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
+                                                                            <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{row.placa}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{row.container}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                            <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
+                                                                            <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                            <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                            <TableCell className="text-right p-1">
+                                                                                <div className="flex items-center justify-end gap-0">
+                                                                                    {row.isEdited && (
+                                                                                        <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original">
+                                                                                            <Undo2 className="h-4 w-4" />
+                                                                                        </Button>
+                                                                                    )}
+                                                                                    <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }} title="Editar fila">
+                                                                                        <Edit2 className="h-4 w-4" />
+                                                                                    </Button>
+                                                                                    <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
+                                                                                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                    {subtotalLabel && (
+                                                                        <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
+                                                                            <TableCell colSpan={13} className="text-right text-xs p-2">{subtotalLabel}</TableCell>
+                                                                            <TableCell className="text-xs p-2 text-right">{rows.reduce((s, r) => s + r.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                             <TableCell colSpan={2}></TableCell>
-                                                                            <TableCell colSpan={2} className="text-right text-xs p-2">{group.subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                            <TableCell colSpan={2} className="text-right text-xs p-2">{rows.reduce((s, r) => s + r.totalValue, 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                                         </TableRow>
                                                                     )}
                                                                 </React.Fragment>
-                                                            )
+                                                            );
+                                                            
+                                                            const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR';
+                                                            
+                                                            if (isContainerConcept) {
+                                                                const containerGroups = group.rows.reduce((acc, row) => {
+                                                                    const containerKey = row.container || 'SIN_CONTENEDOR';
+                                                                    if (!acc[containerKey]) acc[containerKey] = [];
+                                                                    acc[containerKey].push(row);
+                                                                    return acc;
+                                                                }, {} as Record<string, ClientSettlementRow[]>);
+
+                                                                return (
+                                                                    <React.Fragment key={conceptName}>
+                                                                        {Object.entries(containerGroups).map(([containerKey, rows]) => 
+                                                                            renderGroup(rows, `Contenedor: ${containerKey}`, `Subtotal Contenedor ${containerKey}:`)
+                                                                        )}
+                                                                    </React.Fragment>
+                                                                );
+                                                            } else {
+                                                                return renderGroup(group.rows, conceptName, `Subtotal ${conceptName}:`);
+                                                            }
                                                         })}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
                                                             <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
@@ -3132,7 +3170,8 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     }, [row]);
 
     const handleSave = () => {
-        const newTotal = (editedRow.quantity || 0) * (editedRow.unitValue || 0);
+        const numPersonas = editedRow.numeroPersonas || 1;
+        const newTotal = (editedRow.quantity || 0) * (editedRow.unitValue || 0) * numPersonas;
         onSave({ ...editedRow, totalValue: newTotal });
     };
 
@@ -3232,6 +3271,8 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+    
 
     
 
