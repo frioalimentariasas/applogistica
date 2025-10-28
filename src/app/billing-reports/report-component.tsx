@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -1849,12 +1850,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
              if (isContainerConcept) {
                 const containerGroups = group.rows.reduce((acc, row) => {
                     const containerKey = row.container || 'SIN_CONTENEDOR';
-                    if (!acc[containerKey]) acc[containerKey] = [];
-                    acc[containerKey].push(row);
+                    if (!acc[containerKey]) acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
+                    acc[containerKey].rows.push(row);
+                    acc[containerKey].subtotalCantidad += row.quantity;
+                    acc[containerKey].subtotalValor += row.totalValue;
                     return acc;
-                }, {} as Record<string, ClientSettlementRow[]>);
+                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
 
-                Object.entries(containerGroups).forEach(([containerKey, rows]) => {
+                Object.entries(containerGroups).forEach(([containerKey, containerData]) => {
                      detailBody.push([{ content: `Contenedor: ${containerKey}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
                      containerData.rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
                         detailBody.push(generateDetailRow(row));
@@ -3088,9 +3091,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
                                                                 return (
                                                                     <React.Fragment key={conceptName}>
-                                                                        {Object.entries(containerGroups).map(([containerKey, rows]) => 
-                                                                            renderGroup(rows, `Contenedor: ${containerKey}`, `Subtotal Contenedor ${containerKey}:`)
-                                                                        )}
+                                                                        {Object.entries(containerGroups).map(([containerKey, rows]) => {
+                                                                            const containerSubtotalLabel = `Subtotal Contenedor ${containerKey}:`;
+                                                                            return renderGroup(rows, `Contenedor: ${containerKey}`, containerSubtotalLabel);
+                                                                        })}
                                                                     </React.Fragment>
                                                                 );
                                                             } else {
