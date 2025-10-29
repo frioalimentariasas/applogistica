@@ -217,33 +217,31 @@ const calculateWeightForOperation = (
     const items = getFilteredItems(op, sessionFilter, articleSessionMap);
     if (items.length === 0) return 0;
 
-    // --- NUEVA CONDICIÓN PARA FORZAR PESO NETO ---
-    if (forceNetWeight) {
-        return items.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
-    }
-
     if (formType === 'fixed-weight-despacho' || formType === 'fixed-weight-recepcion' || formType === 'fixed-weight-reception') {
+        if (forceNetWeight) {
+            return items.reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
+        }
         if (!sessionFilter || sessionFilter === 'AMBOS') {
             const grossWeight = Number(formData.totalPesoBrutoKg);
             if (grossWeight > 0) return grossWeight;
         }
-        // If filtered by session, we must calculate from items
         return items.reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
     if (formType === 'variable-weight-despacho' || formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
+        if (forceNetWeight) {
+             return items.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || Number(item.totalPesoNeto) || 0), 0);
+        }
         const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
         if (isSummaryFormat) {
             return items.reduce((sum: number, item: any) => sum + (Number(item.totalPesoNeto) || 0), 0);
         }
         
-        // For detailed variable weight reception, calculate net from gross
         if(formType.includes('recepcion') || formType.includes('reception')) {
              const totalPesoBruto = items.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
              const totalTaraEstiba = items.reduce((sum: number, p: any) => sum + (Number(p.taraEstiba) || 0), 0);
              return totalPesoBruto - totalTaraEstiba;
         }
-        // For detailed dispatch, sum pre-calculated net weights
         return items.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
     }
 
@@ -774,7 +772,6 @@ export async function generateClientSettlement(criteria: {
             
             if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) continue;
 
-            // --- Lógica de ajuste de peso ---
             let finalWeightKg = weightKg;
             if (isConceptTunel && op.formData.cliente === 'AVICOLA EL MADROÑO S.A.' && weightKg < 10000) {
                 finalWeightKg = 10000;
@@ -838,22 +835,21 @@ export async function generateClientSettlement(criteria: {
                 }
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
                 let tempSourceArray = [];
-                // Unifica la fuente de temperaturas. Para peso variable, el resumen está en 'summary', pero para peso fijo, los productos mismos son el resumen.
+                // CORRECCIÓN: Unificar la fuente de temperaturas. Para peso fijo y algunos de peso variable, los datos están en 'productos'. Para otros de peso variable, en 'summary'.
                 if (op.formType.startsWith('fixed-weight-')) {
-                  tempSourceArray = op.formData.productos || [];
-                } else {
-                  // Para peso variable, puede estar en 'summary' o en 'productos' (para TUNEL DE CONGELACIÓN)
-                  tempSourceArray = (op.formData.summary || []).concat(op.formData.productos || []);
+                    tempSourceArray = op.formData.productos || [];
+                } else { // Variable Weight
+                    tempSourceArray = (op.formData.summary || []).concat(op.formData.productos || []);
                 }
             
-                const allTemps: number[] = tempSourceArray.flatMap((item: any) => 
-                    [
-                        item.temperatura1, 
-                        item.temperatura2, 
-                        item.temperatura3,
-                        item.temperatura 
-                    ].filter((t: any): t is number => t !== null && t !== undefined && !isNaN(Number(t)))
-                );
+                let tempFields: (number | null | undefined)[] = [];
+                if (op.formType.startsWith('fixed-weight-')) {
+                    tempFields = tempSourceArray.flatMap((item: any) => [item.temperatura1, item.temperatura2, item.temperatura3]);
+                } else {
+                    tempFields = tempSourceArray.flatMap((item: any) => [item.temperatura1, item.temperatura2, item.temperatura3, item.temperatura]);
+                }
+
+                const allTemps: number[] = tempFields.filter((t: any): t is number => t !== null && t !== undefined && !isNaN(Number(t)));
             
                 if (allTemps.length > 0) {
                     const highestTemp = Math.max(...allTemps);
@@ -1411,6 +1407,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
