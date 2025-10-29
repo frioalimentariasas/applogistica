@@ -158,7 +158,6 @@ async function isArinNumberDuplicate(arinNumber: string, concept: string, curren
         'ARIN DE SALIDA ZFPC (MANUAL)',
         'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
         'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
-        'INSPECCIÓN ZFPC'
     ];
 
     if (!arinConcepts.includes(concept)) {

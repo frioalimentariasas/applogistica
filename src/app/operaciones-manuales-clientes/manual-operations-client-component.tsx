@@ -80,7 +80,7 @@ const manualOperationSchema = z.object({
   concept: z.string().min(1, 'El concepto es obligatorio.'),
   specificTariffs: z.array(specificTariffEntrySchema).optional(),
   quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.').optional(),
-  numeroPersonas: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
+  numeroPersonas: z.coerce.number({ invalid_type_error: "Debe ser un número." }).min(0.1, "Debe ser mayor a 0.").optional(),
   numeroPosiciones: z.coerce.number().int().min(1, 'Debe ingresar al menos una posición.').optional(),
   comentarios: z.string().max(150, "Máximo 150 caracteres.").optional(),
   details: z.object({
@@ -246,7 +246,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             operationDate: new Date(),
             quantity: 1,
             specificTariffs: [],
-            numeroPersonas: 1,
+            numeroPersonas: undefined,
             comentarios: "",
             details: { 
                 startTime: '', 
@@ -452,7 +452,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 operationDate: new Date(),
                 quantity: 1,
                 specificTariffs: [],
-                numeroPersonas: 1,
+                numeroPersonas: undefined,
                 comentarios: "",
                 details: { 
                 startTime: '', 
@@ -1431,13 +1431,13 @@ function ConceptFormBody(props: any) {
               <FormLabel>Número de Personas</FormLabel>
               <FormControl>
                 <Input
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="Ej: 3"
+                  type="text"
+                  inputMode="decimal"
+                  step="0.1"
+                  placeholder="Ej: 3.5"
                   {...field}
                   disabled={dialogMode === 'view'}
-                  onChange={(e) => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                  onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                   value={field.value ?? ''}
                 />
               </FormControl>
