@@ -1247,6 +1247,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
             'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+            'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1465,7 +1466,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         sortedConceptKeys.forEach(conceptName => {
             const group = groupedByConcept[conceptName];
 
-            const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR' || conceptName === 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR' || conceptName === 'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR';
+            const isContainerConcept = [
+                'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+                'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
+                'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR'
+            ].includes(conceptName);
 
             if (isContainerConcept) {
                 // Further group by container
@@ -1615,6 +1620,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
             'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+            'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1844,7 +1850,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
 
         sortedConceptKeys.forEach(conceptName => {
-             const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR' || conceptName === 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR' || conceptName === 'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR' ;
+             const isContainerConcept = [
+                'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+                'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
+                'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR'
+             ].includes(conceptName);
              const group = groupedByConcept[conceptName];
 
              detailBody.push([{ content: conceptName, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
@@ -1968,6 +1978,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
             'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+            'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -3007,6 +3018,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         {Object.keys(settlementGroupedData).map(conceptName => {
                                                             const group = settlementGroupedData[conceptName];
                                                             
+                                                            const isContainerConcept = [
+                                                                'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+                                                                'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
+                                                                'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR'
+                                                            ].includes(conceptName);
+                                                            
                                                             const renderGroup = (rows: ClientSettlementRow[], title: string, subtotalLabel: string) => (
                                                                 <React.Fragment key={title}>
                                                                     {title && (
@@ -3060,8 +3077,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     )}
                                                                 </React.Fragment>
                                                             );
-                                                            
-                                                            const isContainerConcept = conceptName === 'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR' || conceptName === 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR' || conceptName === 'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR';
                                                             
                                                             if (isContainerConcept) {
                                                                 const containerGroups = group.rows.reduce((acc, row) => {
@@ -3263,3 +3278,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+
