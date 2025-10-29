@@ -852,8 +852,8 @@ export async function generateClientSettlement(criteria: {
                 );
             
                 if (allTemps.length > 0) {
-                    const averageTemp = allTemps.reduce((sum, current) => sum + Number(current), 0) / allTemps.length;
-                    const matchingTariff = findMatchingTemperatureTariff(averageTemp, concept);
+                    const highestTemp = Math.max(...allTemps);
+                    const matchingTariff = findMatchingTemperatureTariff(highestTemp, concept);
                     if (matchingTariff) {
                         unitValue = matchingTariff.ratePerKg;
                     }
@@ -1317,7 +1317,7 @@ export async function generateClientSettlement(criteria: {
         'Servicio de Manipulación', // Child
         'OPERACIÓN DESCARGUE/TONELADAS',
         'OPERACIÓN CARGUE/TONELADAS',
-        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+        'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
         'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
@@ -1336,7 +1336,7 @@ export async function generateClientSettlement(criteria: {
         'ALIMENTACION',//child (TIEMPO EXTRA ZFPC)
         'TRANSPORTE EXTRAORDINARIO',//child (TIEMPO EXTRA ZFPC)
         'TRANSPORTE DOMINICAL Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
-        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
+        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUEDADO',
         'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
         'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
     ];
@@ -1403,6 +1403,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
