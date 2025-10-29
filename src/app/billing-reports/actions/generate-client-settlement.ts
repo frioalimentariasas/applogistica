@@ -759,17 +759,30 @@ export async function generateClientSettlement(criteria: {
 
             let quantity = 0;
             let totalPallets = 0;
-
+            let unitValue = 0;
+            let operacionLogistica: string = 'No Aplica';
+            let vehicleTypeForReport = 'No Aplica';
+            let unitOfMeasureForReport = concept.unitOfMeasure;
+            
+            // --- INICIO DE LA LÓGICA DE CALCULO DE PESO Y TARIFA ---
             const isConceptTunel = concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
             const isTariffPorTemperatura = concept.tariffType === 'POR_TEMPERATURA';
             const isPedidoTunel = op.formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
             const forceNetWeight = isConceptTunel && isTariffPorTemperatura && isPedidoTunel;
             
-            const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap, forceNetWeight);
+            let weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap, forceNetWeight);
+            
+            if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) continue;
+
+            // --- Lógica de ajuste de peso ---
+            let finalWeightKg = weightKg;
+            if (isConceptTunel && op.formData.cliente === 'AVICOLA EL MADROÑO S.A.' && weightKg < 10000) {
+                finalWeightKg = 10000;
+            }
             
             switch (concept.calculationBase) {
-                case 'TONELADAS': quantity = weightKg / 1000; break;
-                case 'KILOGRAMOS': quantity = weightKg; break;
+                case 'TONELADAS': quantity = finalWeightKg / 1000; break;
+                case 'KILOGRAMOS': quantity = finalWeightKg; break;
                 case 'CANTIDAD_PALETAS': quantity = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap); break;
                 case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
                 case 'NUMERO_OPERACIONES': quantity = 1; break;
@@ -780,7 +793,7 @@ export async function generateClientSettlement(criteria: {
                     } else {
                         quantity = 0;
                     }
-                    totalPallets = quantity; // Ensure totalPallets reflects the calculated quantity
+                    totalPallets = quantity;
                     break;
                 case 'PALETAS_SALIDA_MAQUILA_SECO':
                      if ((op.formType.includes('reception') || op.formType.includes('recepcion')) && op.formData.tipoPedido === 'MAQUILA') {
@@ -788,7 +801,7 @@ export async function generateClientSettlement(criteria: {
                     } else {
                         quantity = 0;
                     }
-                    totalPallets = quantity; // Ensure totalPallets reflects the calculated quantity
+                    totalPallets = quantity;
                     break;
                 case 'CANTIDAD_SACOS_MAQUILA':
                     if ((op.formType.includes('reception') || op.formType.includes('recepcion')) && op.formData.tipoPedido === 'MAQUILA' && op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
@@ -801,15 +814,6 @@ export async function generateClientSettlement(criteria: {
             
             if (quantity <= 0) continue;
 
-            if (concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_CONGELADOS' && concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_SECO') {
-                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
-            }
-
-            let unitValue = 0;
-            let operacionLogistica: string = 'No Aplica';
-            let vehicleTypeForReport = 'No Aplica';
-            let unitOfMeasureForReport = concept.unitOfMeasure;
-            
             if (concept.tariffType === 'UNICA') {
                 unitValue = concept.value || 0;
             } else if (concept.tariffType === 'RANGOS') {
@@ -819,7 +823,7 @@ export async function generateClientSettlement(criteria: {
                 const matchingTariff = findMatchingTariff(totalTons, concept);
 
                 if (!matchingTariff) {
-                    continue; // If no range matches, skip this operation
+                    continue;
                 }
 
                 vehicleTypeForReport = matchingTariff.vehicleType;
@@ -828,17 +832,18 @@ export async function generateClientSettlement(criteria: {
                     if (operacionLogistica === 'Diurno') unitValue = matchingTariff.dayTariff;
                     else if (operacionLogistica === 'Nocturno') unitValue = matchingTariff.nightTariff;
                     else if (operacionLogistica === 'Extra') unitValue = matchingTariff.extraTariff;
-                    quantity = 1; // It's per trip now
+                    quantity = 1;
                 } else {
                     unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                 }
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
                 let tempSourceArray = [];
-                // Verifica si el formulario es de peso fijo o variable para saber de dónde sacar las temperaturas
+                // Unifica la fuente de temperaturas. Para peso variable, el resumen está en 'summary', pero para peso fijo, los productos mismos son el resumen.
                 if (op.formType.startsWith('fixed-weight-')) {
-                    tempSourceArray = op.formData.productos || [];
+                  tempSourceArray = op.formData.productos || [];
                 } else {
-                    tempSourceArray = op.formData.summary || [];
+                  // Para peso variable, puede estar en 'summary' o en 'productos' (para TUNEL DE CONGELACIÓN)
+                  tempSourceArray = (op.formData.summary || []).concat(op.formData.productos || []);
                 }
             
                 const allTemps: number[] = tempSourceArray.flatMap((item: any) => 
@@ -846,7 +851,6 @@ export async function generateClientSettlement(criteria: {
                         item.temperatura1, 
                         item.temperatura2, 
                         item.temperatura3,
-                        // También busca `temperatura` por compatibilidad con datos antiguos
                         item.temperatura 
                     ].filter((t: any): t is number => t !== null && t !== undefined && !isNaN(Number(t)))
                 );
@@ -859,9 +863,13 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
             }
-            
 
+            // --- FIN DE LA LÓGICA DE CÁLCULO ---
             
+            if (concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_CONGELADOS' && concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_SECO') {
+                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
+            }
+
             const filteredItems = getFilteredItems(op, concept.filterSesion, articleSessionMap);
             const firstProductCode = filteredItems[0]?.codigo;
             const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
@@ -1163,7 +1171,7 @@ export async function generateClientSettlement(criteria: {
                     'ARIN DE SALIDA ZFPC (MANUAL)',
                     'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
                     'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
-                    'ALQUILER IMPRESORA ETIQUEDADO',
+                    'ALQUILER IMPRESORA ETIQUETADO',
                     'CONEXIÓN ELÉCTRICA CONTENEDOR',
                     'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
                     'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1336,7 +1344,7 @@ export async function generateClientSettlement(criteria: {
         'ALIMENTACION',//child (TIEMPO EXTRA ZFPC)
         'TRANSPORTE EXTRAORDINARIO',//child (TIEMPO EXTRA ZFPC)
         'TRANSPORTE DOMINICAL Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
-        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUEDADO',
+        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
         'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
         'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
     ];
@@ -1403,6 +1411,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
