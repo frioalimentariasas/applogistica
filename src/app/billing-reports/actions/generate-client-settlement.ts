@@ -772,6 +772,7 @@ export async function generateClientSettlement(criteria: {
             
             if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) continue;
 
+            // logíca para llevar a 10 toneladas los formularios de Tunel de congelación.
             let finalWeightKg = weightKg;
             if (isConceptTunel && op.formData.cliente === 'AVICOLA EL MADROÑO S.A.' && weightKg < 10000) {
                 finalWeightKg = 10000;
@@ -1326,6 +1327,7 @@ export async function generateClientSettlement(criteria: {
         'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
         'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
         'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
         'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
