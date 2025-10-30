@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -202,6 +203,31 @@ const manualOperationSchema = z.object({
 
 type ManualOperationValues = z.infer<typeof manualOperationSchema>;
 
+const addFormDefaultValues: ManualOperationValues = {
+    clientName: "",
+    concept: "",
+    operationDate: new Date(),
+    quantity: 1,
+    specificTariffs: [],
+    numeroPersonas: 1,
+    comentarios: "",
+    details: { 
+        startTime: '', 
+        endTime: '', 
+        plate: '', 
+        container: '', 
+        totalPallets: null, 
+        arin: '', 
+        opLogistica: undefined, 
+        fmmNumber: '', 
+        pedidoSislog: '', 
+        noDocumento: '' },
+    bulkRoles: [],
+    excedentes: [],
+    selectedDates: [],
+    dailyLocations: [],
+};
+
 interface ManualOperationsClientComponentProps {
     clients: ClientInfo[];
     billingConcepts: ClientBillingConcept[];
@@ -232,37 +258,14 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [isDeleting, setIsDeleting] = useState(false);
     const [isConceptDialogOpen, setConceptDialogOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadError, setUploadError<{ message: string, errors: string[] } | null>(null);
+    const [uploadError, setUploadError] = useState<{ message: string, errors: string[] } | null>(null);
     const [isUploadResultOpen, setIsUploadResultOpen] = useState(false);
-    const [uploadType, setUploadType<'FMM' | 'INSPECCION' | 'ARIN'>('FMM');
-    const [extraHoursResult, setExtraHoursResult<any[] | null>(null);
+    const [uploadType, setUploadType] = useState<'FMM' | 'INSPECCION' | 'ARIN'>('FMM');
+    const [extraHoursResult, setExtraHoursResult] = useState<any[] | null>(null);
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
-        defaultValues: {
-            clientName: "",
-            concept: "",
-            operationDate: new Date(),
-            quantity: 1,
-            specificTariffs: [],
-            numeroPersonas: 1,
-            comentarios: "",
-            details: { 
-                startTime: '', 
-                endTime: '', 
-                plate: '', 
-                container: '', 
-                totalPallets: null, 
-                arin: '', 
-                opLogistica: undefined, 
-                fmmNumber: '', 
-                pedidoSislog: '', 
-                noDocumento: '' },
-            bulkRoles: [],
-            excedentes: [],
-            selectedDates: [],
-            dailyLocations: [],
-        }
+        defaultValues: addFormDefaultValues
     });
 
     const { setValue, watch } = form;
@@ -359,8 +362,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
     }, [watchedConcept, selectedConceptInfo, form, isBulkMode, isLocationMode]);
     
-    const [indexErrorMessage, setIndexErrorMessage(string);
-    const [isIndexErrorOpen, setIsIndexErrorOpen(boolean);
+    const [indexErrorMessage, setIndexErrorMessage] = useState('');
+    const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
 
     const fetchAllOperations = useCallback(async () => {
         setIsLoading(true);
@@ -957,7 +960,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 }
 
 function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { billingConcepts: ClientBillingConcept[], selectedClient: string, onSelect: (conceptName: string) => void }) {
-    const [search, setSearch(string);
+    const [search, setSearch] = useState('');
 
     const specialSmylConcepts = [
         'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
@@ -1115,12 +1118,12 @@ function BulkRolesSection({ form, dialogMode, conceptName }: { form: any; dialog
 }
 
 function DailyLocationManager() {
-    const { control, getValues, setValue } = useFormContext<ManualOperationValues>();
+    const { control, getValues, setValue, watch } = useFormContext<ManualOperationValues>();
     const { fields, replace } = useFieldArray({
         control,
         name: "dailyLocations"
     });
-    const selectedDates = useWatch({ control, name: 'selectedDates' }) || [];
+    const selectedDates = watch('selectedDates') || [];
 
     useEffect(() => {
         const currentLocations = getValues('dailyLocations') || [];
@@ -1131,7 +1134,6 @@ function DailyLocationManager() {
             return existing || { date: new Date(dateStr + 'T05:00:00.000Z'), quantity: 1 };
         }).sort((a, b) => a.date.getTime() - b.date.getTime());
         
-        // This check avoids infinite re-renders by comparing string representations
         if (JSON.stringify(newDailyData) !== JSON.stringify(currentLocations)) {
             replace(newDailyData);
         }
@@ -1532,11 +1534,10 @@ function ExtraHoursAssistant(
     }
 ) {
     const { isOpen, onOpenChange, data, billingConcepts, onSuccess } = props;
-    const [isSaving, setIsSaving(boolean);
+    const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
+    const [extraHourItems, setExtraHourItems] = useState<any[]>([]);
     
-    const [extraHourItems, setExtraHourItems(any[]);
-
     const extraHoursConcept = useMemo(() => {
         return billingConcepts.find(c => c.conceptName === 'TIEMPO EXTRA ZFPC');
     }, [billingConcepts]);
