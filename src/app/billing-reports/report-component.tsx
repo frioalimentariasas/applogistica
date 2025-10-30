@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -1705,8 +1704,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         // Resumen
         let lastY = addHeader(doc, "Resumen Liquidación de Servicios Clientes");
         
+        const isLogisticsClient = settlementClient === 'LOGISTICS & INTERNATIONAL TRADE SAS';
+
         const summaryByConcept = visibleRows.reduce((acc, row) => {
-             let conceptName: string;
+            let conceptName: string;
             let conceptKey: string;
             let unitOfMeasure: string;
 
@@ -1718,6 +1719,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 conceptName = row.conceptName;
                 unitOfMeasure = row.unitOfMeasure;
                 conceptKey = row.conceptName; // Consolidate
+            } else if (isLogisticsClient) {
+                conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+                unitOfMeasure = row.unitOfMeasure;
+                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${row.container || 'N/A'}-${unitOfMeasure}`;
             } else {
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
                 unitOfMeasure = row.unitOfMeasure;
@@ -1730,13 +1735,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     totalQuantity: 0, 
                     totalValue: 0, 
                     unitOfMeasure: unitOfMeasure, 
-                    order: conceptOrder.indexOf(row.conceptName) 
+                    order: conceptOrder.indexOf(row.conceptName),
+                    container: row.container,
                 };
             }
             acc[conceptKey].totalQuantity += row.quantity;
             acc[conceptKey].totalValue += row.totalValue;
             return acc;
-        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number; }>);
+        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number; container?: string }>);
     
         const sortedSummary = Object.values(summaryByConcept).sort((a, b) => {
             const orderA = a.order === -1 ? Infinity : a.order;
@@ -1747,39 +1753,59 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const totalGeneralQuantity = sortedSummary.reduce((sum, item) => sum + item.totalQuantity, 0);
 
-        const summaryBody = sortedSummary.map((item, index) => [
-            index + 1,
-            item.concept,
-            item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-            item.unitOfMeasure,
-            item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-        ]);
-        
+        const summaryHead = isLogisticsClient
+            ? [['#', 'Concepto', 'Contenedor', 'Total Cantidad', 'Unidad', 'Total Valor']]
+            : [['#', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']];
+
+        const summaryBody = sortedSummary.map((item, index) => {
+            const rowData = [
+                index + 1,
+                item.concept,
+            ];
+            if (isLogisticsClient) {
+                rowData.push(item.container || 'N/A');
+            }
+            rowData.push(
+                item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                item.unitOfMeasure,
+                item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+            );
+            return rowData;
+        });
+
+        const totalRowColSpan = isLogisticsClient ? 3 : 2;
+
         const summaryBodyWithTotal = [
             ...summaryBody,
             [
-                { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: 'TOTALES:', colSpan: totalRowColSpan, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: '', styles: {fillColor: [26, 144, 200]} },
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]
         ];
+        
+        const summaryColumnStyles: { [key: number]: any } = {
+            0: { cellWidth: 10 },
+            [totalRowColSpan]: { halign: 'right' }, // Total Cantidad
+            [totalRowColSpan + 2]: { halign: 'right' }, // Total Valor
+        };
 
         autoTable(doc, {
-            head: [['#', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
+            head: summaryHead,
             body: summaryBodyWithTotal,
             startY: lastY,
             pageBreak: 'auto',
             theme: 'grid',
-            headStyles: { fillColor: [26, 144, 200], fontSize: 12 },
-            styles: { fontSize: 11, cellPadding: 1.5 },
-            columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
+            headStyles: { fillColor: [26, 144, 200], fontSize: 10 },
+            styles: { fontSize: 9, cellPadding: 1.5 },
+            columnStyles: summaryColumnStyles,
             didParseCell: function(data) {
                 if(data.row.raw[0].content === 'TOTALES:') {
                     if(data.row.cells[0]) data.row.cells[0].styles.fillColor = [26, 144, 200];
-                    if(data.row.cells[2]) data.row.cells[2].styles.fillColor = [26, 144, 200];
-                    if(data.row.cells[3]) data.row.cells[3].styles.fillColor = [26, 144, 200];
-                    if(data.row.cells[4]) data.row.cells[4].styles.fillColor = [26, 144, 200];
+                    if(data.row.cells[totalRowColSpan]) data.row.cells[totalRowColSpan].styles.fillColor = [26, 144, 200];
+                    if(data.row.cells[totalRowColSpan + 1]) data.row.cells[totalRowColSpan + 1].styles.fillColor = [26, 144, 200];
+                    if(data.row.cells[totalRowColSpan + 2]) data.row.cells[totalRowColSpan + 2].styles.fillColor = [26, 144, 200];
                 }
             },
         });
@@ -1814,7 +1840,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             } else {
                 paymentTermText = `PLAZO DE VENCIMIENTO: ${settlementPaymentTerm.toUpperCase()}`;
             }
-            doc.text(paymentTermText, margin, finalY + 15);
+            doc.text(paymentTermText, margin + 20, finalY + 15);
         }
 
         // Detalle
@@ -1903,7 +1929,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
              }
 
              detailBody.push([
-                { content: `Subtotal ${conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold', textColor: '#ffffff' } },
+                { content: `Subtotal ${conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: group.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: '', colSpan: 2 },
                 { content: group.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
@@ -1920,13 +1946,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
-            margin: { left: 30 }, // <-- AGREGA ESTA LÍNEA AQUÍ TAMBIÉN
+            margin: { left: margin },
             pageBreak: 'auto',
-            headStyles: { fillColor: [26, 144, 200], fontSize: 8, cellPadding: 1 },
-            styles: { fontSize: 8, cellPadding: 1 },
+            headStyles: { fillColor: [26, 144, 200], fontSize: 7, cellPadding: 1 },
+            styles: { fontSize: 7, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
-            didDrawPage: (data) => addHeader(doc, "Detalle Liquidación de Servicios Clientes")
+            didDrawPage: (data) => {
+              addHeader(doc, "Detalle Liquidación de Servicios Clientes");
+              data.cursor!.y = lastY; // Reset cursor to after header on new page
+            }
         });
 
     
@@ -3278,4 +3307,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+
 

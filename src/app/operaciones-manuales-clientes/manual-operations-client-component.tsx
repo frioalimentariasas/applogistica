@@ -11,7 +11,7 @@ import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
 
-import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations, uploadInspeccionOperations, uploadArinOperations, addDailyLocationOperation, type DailyLocationOperationData, addExtraHoursFromAssistant } from './actions';
+import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations, uploadInspeccionOperations, uploadArinOperations, addDailyLocationOperation, type DailyLocationOperationData } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData, ExcedentEntry } from './actions';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +25,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign, ChevronsUpDown, Check, FileUp, AlertTriangle, Send, Info } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign, ChevronsUpDown, Check, FileUp, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -185,7 +185,7 @@ const manualOperationSchema = z.object({
     }
     if (isArinZfpc) {
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
-      if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details", "container"] });
+      if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details.container"] });
     }
     if (isInspeccionZfpc) {
         if (!data.details?.fmmNumber?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio.", path: ["details.fmmNumber"] });
@@ -202,31 +202,6 @@ const manualOperationSchema = z.object({
 
 
 type ManualOperationValues = z.infer<typeof manualOperationSchema>;
-
-const addFormDefaultValues: ManualOperationValues = {
-    clientName: "",
-    concept: "",
-    operationDate: new Date(),
-    quantity: 1,
-    specificTariffs: [],
-    numeroPersonas: 1,
-    comentarios: "",
-    details: { 
-        startTime: '', 
-        endTime: '', 
-        plate: '', 
-        container: '', 
-        totalPallets: null, 
-        arin: '', 
-        opLogistica: undefined, 
-        fmmNumber: '', 
-        pedidoSislog: '', 
-        noDocumento: '' },
-    bulkRoles: [],
-    excedentes: [],
-    selectedDates: [],
-    dailyLocations: [],
-};
 
 interface ManualOperationsClientComponentProps {
     clients: ClientInfo[];
@@ -265,7 +240,30 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
-        defaultValues: addFormDefaultValues
+        defaultValues: {
+            clientName: "",
+            concept: "",
+            operationDate: new Date(),
+            quantity: 1,
+            specificTariffs: [],
+            numeroPersonas: 1,
+            comentarios: "",
+            details: { 
+                startTime: '', 
+                endTime: '', 
+                plate: '', 
+                container: '', 
+                totalPallets: null, 
+                arin: '', 
+                opLogistica: undefined, 
+                fmmNumber: '', 
+                pedidoSislog: '', 
+                noDocumento: '' },
+            bulkRoles: [],
+            excedentes: [],
+            selectedDates: [],
+            dailyLocations: [],
+        }
     });
 
     const { setValue, watch } = form;
@@ -448,7 +446,29 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 comentarios: op.comentarios || '',
             });
         } else {
-            form.reset(addFormDefaultValues);
+            form.reset({
+                clientName: "",
+                concept: "",
+                operationDate: new Date(),
+                quantity: 1,
+                specificTariffs: [],
+                numeroPersonas: 1,
+                comentarios: "",
+                details: { 
+                startTime: '', 
+                endTime: '', 
+                plate: '', 
+                container: '', 
+                totalPallets: null, 
+                arin: '', 
+                opLogistica: undefined, 
+                fmmNumber: '', 
+                pedidoSislog: '', 
+                noDocumento: '' },
+                bulkRoles: [],
+                excedentes: [],
+                selectedDates: [],
+            });
         }
         setIsDialogOpen(true);
     };
@@ -555,6 +575,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     
             toast({ title: 'Éxito', description: result.message });
             
+            // Check for extra hours and show dialog
             if (result.extraHoursData) {
                 setExtraHoursResult([result.extraHoursData]);
             }
@@ -606,7 +627,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         
         setIsUploading(true);
         setUploadError(null);
-        setExtraHoursResult(null);
         formData.append('userId', user.uid);
         formData.append('userDisplayName', displayName || user.email!);
         
@@ -941,12 +961,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     </DialogContent>
                 </Dialog>
                 
-                <ExtraHoursAssistant
+                <ExtraHoursDialog
                     isOpen={!!extraHoursResult}
                     onOpenChange={() => setExtraHoursResult(null)}
                     data={extraHoursResult || []}
-                    billingConcepts={billingConcepts}
-                    onSuccess={() => fetchAllOperations().then(handleSearch)}
                 />
                 
                  <IndexCreationDialog 
@@ -1118,12 +1136,12 @@ function BulkRolesSection({ form, dialogMode, conceptName }: { form: any; dialog
 }
 
 function DailyLocationManager() {
-    const { control, getValues, setValue, watch } = useFormContext<ManualOperationValues>();
+    const { control, getValues, setValue } = useFormContext<ManualOperationValues>();
     const { fields, replace } = useFieldArray({
         control,
         name: "dailyLocations"
     });
-    const selectedDates = watch('selectedDates') || [];
+    const selectedDates = useWatch({ control, name: 'selectedDates' }) || [];
 
     useEffect(() => {
         const currentLocations = getValues('dailyLocations') || [];
@@ -1134,6 +1152,7 @@ function DailyLocationManager() {
             return existing || { date: new Date(dateStr + 'T05:00:00.000Z'), quantity: 1 };
         }).sort((a, b) => a.date.getTime() - b.date.getTime());
         
+        // This check avoids infinite re-renders by comparing string representations
         if (JSON.stringify(newDailyData) !== JSON.stringify(currentLocations)) {
             replace(newDailyData);
         }
@@ -1526,142 +1545,80 @@ function ConceptFormBody(props: any) {
   );
 }
 
-function ExtraHoursAssistant(
-    props: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
-        data: any[];
-        billingConcepts: ClientBillingConcept[];
-        onSuccess: () => void;
-    }
-) {
-    const { isOpen, onOpenChange, data, billingConcepts, onSuccess } = props;
-    const [isSaving, setIsSaving] = useState(false);
+// --- INICIO DEL NUEVO COMPONENTE DIALOG ---
+function ExtraHoursDialog({
+    isOpen,
+    onOpenChange,
+    data,
+}: {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    data: { date: string; container: string; arin: string; hours: number; startTime: string; endTime: string }[];
+}) {
     const { toast } = useToast();
-    const [extraHourItems, setExtraHourItems] = useState<any[]>([]);
-    
-    const extraHoursConcept = useMemo(() => {
-        return billingConcepts.find(c => c.conceptName === 'TIEMPO EXTRA ZFPC');
-    }, [billingConcepts]);
-    
-    useEffect(() => {
-        if (data.length > 0 && extraHoursConcept) {
-            const items = data.map((item) => {
-                const tariffs = (extraHoursConcept.specificTariffs || []).reduce((acc: any, tariff) => {
-                    acc[tariff.id] = { tariffId: tariff.id, quantity: 0 };
-                    return acc;
-                }, {});
 
-                const { diurna, nocturna, diurnaFestivo, nocturnaFestivo } = item.breakdown;
-
-                const diurnaTariff = extraHoursConcept.specificTariffs?.find(t => t.name === 'HORA EXTRA DIURNA');
-                const nocturnaTariff = extraHoursConcept.specificTariffs?.find(t => t.name === 'HORA EXTRA NOCTURNA');
-                const diurnaFestivoTariff = extraHoursConcept.specificTariffs?.find(t => t.name === 'HORA EXTRA DIURNA DOMINGO Y FESTIVO');
-                const nocturnaFestivoTariff = extraHoursConcept.specificTariffs?.find(t => t.name === 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO');
-                
-                if (diurnaTariff && diurna > 0) tariffs[diurnaTariff.id] = { ...tariffs[diurnaTariff.id], quantity: diurna };
-                if (nocturnaTariff && nocturna > 0) tariffs[nocturnaTariff.id] = { ...tariffs[nocturnaTariff.id], quantity: nocturna };
-                if (diurnaFestivoTariff && diurnaFestivo > 0) tariffs[diurnaFestivoTariff.id] = { ...tariffs[diurnaFestivoTariff.id], quantity: diurnaFestivo };
-                if (nocturnaFestivoTariff && nocturnaFestivo > 0) tariffs[nocturnaFestivoTariff.id] = { ...tariffs[nocturnaFestivoTariff.id], quantity: nocturnaFestivo };
-
-                return { ...item, tariffs };
-            });
-            setExtraHourItems(items);
-        }
-    }, [data, extraHoursConcept]);
-
-    const handleTariffChange = (itemIndex: number, tariffId: string, value: string) => {
-        const newItems = [...extraHourItems];
-        const quantity = Number(value);
-        if (!isNaN(quantity)) {
-            newItems[itemIndex].tariffs[tariffId].quantity = quantity;
-            setExtraHourItems(newItems);
-        }
+    const copyToClipboard = () => {
+        const tableHeader = "Fecha\tContenedor\t# ARIN\tH. Inicio Extra\tH. Fin Extra\tHoras Extra a Liquidar";
+        const tableContent = data
+            .map(row => `${format(parseISO(row.date), 'dd/MM/yyyy')}\t${row.container}\t${row.arin}\t${row.startTime}\t${row.endTime}\t${row.hours}`)
+            .join('\n');
+        
+        const fullText = `${tableHeader}\n${tableContent}`;
+        
+        navigator.clipboard.writeText(fullText).then(() => {
+            toast({ title: "Copiado", description: "El resumen de horas extra se ha copiado al portapapeles." });
+        }, (err) => {
+            toast({ variant: 'destructive', title: "Error", description: "No se pudo copiar al portapapeles." });
+            console.error('Could not copy text: ', err);
+        });
     };
-
-    const handleSave = async () => {
-        setIsSaving(true);
-        const payload: AssistantExtraHourData[] = extraHourItems.map(item => ({
-            clientName: item.clientName,
-            operationDate: item.date,
-            details: {
-                container: item.container,
-                arin: item.arin,
-            },
-            tariffsToApply: Object.values(item.tariffs).filter((t: any) => t.quantity > 0)
-        }));
-
-        try {
-            const result = await addExtraHoursFromAssistant(payload);
-            if (result.success) {
-                toast({ title: "Éxito", description: result.message });
-                onSuccess();
-                if (onOpenChange) onOpenChange(false);
-            } else {
-                throw new Error(result.message);
-            }
-        } catch (e: any) {
-             toast({ variant: "destructive", title: "Error", description: e.message || "No se pudieron guardar los registros." });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    if (!extraHoursConcept) return null;
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <AlertTriangle className="h-6 w-6 text-yellow-500" />
-                        Asistente de Registro de Horas Extra
+                        Alerta de Horas Extra Detectadas
                     </DialogTitle>
                     <DialogDescription>
-                        Revise las horas calculadas y complete los campos de alimentación y transporte antes de guardar.
+                        Se detectaron horas extra para el concepto 'TIEMPO EXTRA ZFPC' en las siguientes operaciones de inspección. Por favor, registre estas horas manualmente.
                     </DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="max-h-[60vh] -mx-4 px-4">
-                    <div className="space-y-4 py-4">
-                        {extraHourItems.map((item, index) => (
-                            <Card key={index}>
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between">
-                                        <CardTitle className="text-base">{format(parseISO(item.date), 'EEEE, d \'de\' MMMM', { locale: es })}</CardTitle>
-                                        <div className="text-sm text-muted-foreground space-x-4">
-                                            <span>Cont: {item.container}</span>
-                                            <span>ARIN: {item.arin}</span>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                                        {(extraHoursConcept.specificTariffs || []).map(tariff => (
-                                            <div key={tariff.id} className="space-y-1">
-                                                <Label htmlFor={`tariff-${index}-${tariff.id}`} className="text-xs">{tariff.name}</Label>
-                                                <Input
-                                                    id={`tariff-${index}-${tariff.id}`}
-                                                    type="number"
-                                                    min="0"
-                                                    step={tariff.unit === 'HORA' ? "0.1" : "1"}
-                                                    value={item.tariffs[tariff.id]?.quantity || 0}
-                                                    onChange={(e) => handleTariffChange(index, tariff.id, e.target.value)}
-                                                    className="h-8"
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                </ScrollArea>
+                <div className="py-4">
+                    <ScrollArea className="h-60 w-full rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Fecha</TableHead>
+                                    <TableHead>Contenedor</TableHead>
+                                    <TableHead># ARIN</TableHead>
+                                    <TableHead>H. Inicio Extra</TableHead>
+                                    <TableHead>H. Fin Extra</TableHead>
+                                    <TableHead className="text-right">Horas Extra a Liquidar</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {data.map((item, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>{format(parseISO(item.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                        <TableCell>{item.container}</TableCell>
+                                        <TableCell>{item.arin}</TableCell>
+                                        <TableCell>{item.startTime}</TableCell>
+                                        <TableCell>{item.endTime}</TableCell>
+                                        <TableCell className="text-right font-bold">{item.hours}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </ScrollArea>
+                </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => { if(onOpenChange) onOpenChange(false) }}>Cancelar</Button>
-                    <Button onClick={handleSave} disabled={isSaving}>
-                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Guardar Registros
-                    </Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cerrar</Button>
+                    <Button onClick={copyToClipboard}>Copiar Tabla</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
+// --- FIN DEL NUEVO COMPONENTE DIALOG ---
