@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -1707,22 +1708,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const isLogisticsClient = settlementClient === 'LOGISTICS & INTERNATIONAL TRADE SAS';
 
         const summaryByConcept = visibleRows.reduce((acc, row) => {
-            let conceptName: string;
             let conceptKey: string;
+            let conceptName: string;
             let unitOfMeasure: string;
 
-            if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'No Aplica') {
+            if (isLogisticsClient && settlementContainer) {
+                conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+                unitOfMeasure = row.unitOfMeasure;
+                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${unitOfMeasure}`;
+            } else if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'No Aplica') {
                 conceptName = `${row.conceptName} (${row.operacionLogistica})`;
                 unitOfMeasure = row.tipoVehiculo;
                 conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
             } else if (row.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                 conceptName = row.conceptName;
                 unitOfMeasure = row.unitOfMeasure;
-                conceptKey = row.conceptName; // Consolidate
-            } else if (isLogisticsClient) {
-                conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
-                unitOfMeasure = row.unitOfMeasure;
-                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${row.container || 'N/A'}-${unitOfMeasure}`;
+                conceptKey = row.conceptName;
             } else {
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
                 unitOfMeasure = row.unitOfMeasure;
@@ -1736,7 +1737,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     totalValue: 0, 
                     unitOfMeasure: unitOfMeasure, 
                     order: conceptOrder.indexOf(row.conceptName),
-                    container: row.container,
+                    container: settlementContainer || row.container,
                 };
             }
             acc[conceptKey].totalQuantity += row.quantity;
@@ -2929,22 +2930,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
-                                        {showSmylLotInput ? (
-                                            <div className="space-y-2">
-                                                <Label>No. de Contenedor(es)/Lote(s) (Opcional)</Label>
+                                        <div className="space-y-2 md:col-span-1">
+                                            <Label>No. Contenedor (Opcional)</Label>
+                                            <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
+                                        </div>
+                                        
+                                        {showSmylLotInput && (
+                                            <div className="space-y-2 md:col-span-2">
+                                                <Label>No. de Lote(s) para SMYL (Opcional)</Label>
                                                 <Textarea 
                                                     placeholder="Para liquidación automática de SMYL. Separados por coma, espacio o salto de línea." 
                                                     value={settlementLotIds} 
                                                     onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} 
                                                 />
                                             </div>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                <Label>No. Contenedor (Opcional)</Label>
-                                                <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
-                                            </div>
                                         )}
-                                        <div className="space-y-2">
+                                        <div className={cn("space-y-2", showSmylLotInput ? "md:col-span-3" : "md:col-span-2")}>
                                             <Label>Conceptos a Liquidar</Label>
                                             <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
                                                 <DialogTrigger asChild>
@@ -2989,10 +2990,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </DialogContent>
                                             </Dialog>
                                         </div>
-                                        <div className="flex gap-2">
-                                            <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
-                                            <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
-                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
+                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                     </div>
                                 </div>
                                 </Form>
@@ -3307,5 +3308,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+
 
 
