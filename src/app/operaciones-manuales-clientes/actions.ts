@@ -1,4 +1,3 @@
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -8,63 +7,150 @@ import { getDaysInMonth, startOfDay, addDays, format, isBefore, isEqual, parseIS
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import * as ExcelJS from 'exceljs';
 
-// --- INICIO DE LA NUEVA FUNCIÓN (NO EXPORTADA) ---
-/**
- * Calculates extra hours for an inspection based on specific business rules.
- * @returns An object with the calculated hours and the start/end times of the extra period.
- */
-function calculateExtraHoursForInspeccion(operationDate: Date, startTime: string, endTime: string): { hours: number; extraStartTime: string; extraEndTime: string } {
+// --- INICIO DE LA NUEVA LÓGICA DE HORAS EXTRA ---
+
+// Festivos de Colombia (Formato YYYY-MM-DD) - Es importante mantener esta lista actualizada anualmente.
+const colombianHolidays = (year: number): Set<string> => new Set([
+    `${year}-01-01`, `${year}-01-08`, `${year}-03-25`, `${year}-03-28`, `${year}-03-29`,
+    `${year}-05-01`, `${year}-05-13`, `${year}-06-03`, `${year}-06-10`, `${year}-07-01`,
+    `${year}-07-20`, `${year}-08-07`, `${year}-08-19`, `${year}-10-14`, `${year}-11-04`,
+    `${year}-11-11`, `${year}-12-08`, `${year}-12-25`,
+]);
+
+const getHolidaySetForYears = (startYear: number, endYear: number): Set<string> => {
+    let holidays = new Set<string>();
+    for (let year = startYear; year <= endYear; year++) {
+        colombianHolidays(year).forEach(holiday => holidays.add(holiday));
+    }
+    // Add specific dates for years not following the general rule if necessary
+    holidays.add('2024-01-08'); holidays.add('2024-03-25'); holidays.add('2024-05-13'); holidays.add('2024-06-03'); holidays.add('2024-06-10'); holidays.add('2024-07-01');
+    holidays.add('2025-01-06'); holidays.add('2025-03-24'); holidays.add('2025-05-12'); holidays.add('2025-06-02'); holidays.add('2025-06-09'); holidays.add('2025-06-30');
+    return holidays;
+};
+const HOLIDAYS = getHolidaySetForYears(new Date().getFullYear() - 1, new Date().getFullYear() + 2);
+
+function calculateExtraHoursForInspeccion(operationDate: Date, startTime: string, endTime: string): {
+  totalHours: number;
+  breakdown: { diurna: number; nocturna: number; diurnaFestivo: number; nocturnaFestivo: number };
+  extraStartTime: string;
+  extraEndTime: string;
+} {
     if (!operationDate || !startTime || !endTime) {
-        return { hours: 0, extraStartTime: '', extraEndTime: '' };
+        return { totalHours: 0, breakdown: { diurna: 0, nocturna: 0, diurnaFestivo: 0, nocturnaFestivo: 0 }, extraStartTime: '', extraEndTime: '' };
     }
 
     const start = parse(startTime, 'HH:mm', operationDate);
     let end = parse(endTime, 'HH:mm', operationDate);
-
     if (end < start) {
         end = addDays(end, 1);
     }
-    
-    const dayOfWeek = getDay(operationDate); // 0=Sunday, 6=Saturday
 
-    let extraTimeRuleStart: Date;
+    const dateString = format(operationDate, 'yyyy-MM-dd');
+    const dayOfWeek = getDay(operationDate);
+    const isHoliday = HOLIDAYS.has(dateString);
 
-    if (isSunday(operationDate)) {
-        extraTimeRuleStart = start;
+    let rule: { start: number, end: number, type: 'diurna' | 'nocturna' | 'diurnaFestivo' | 'nocturnaFestivo' }[] = [];
+
+    if (isSunday(operationDate) || isHoliday) {
+        rule = [
+            { start: 6, end: 21, type: 'diurnaFestivo' },
+            { start: 21, end: 24, type: 'nocturnaFestivo' }
+        ];
     } else if (isSaturday(operationDate)) {
-        extraTimeRuleStart = new Date(operationDate);
-        extraTimeRuleStart.setHours(12, 0, 0, 0);
-    } else {
-        extraTimeRuleStart = new Date(operationDate);
-        extraTimeRuleStart.setHours(18, 0, 0, 0);
+        rule = [
+            { start: 12, end: 21, type: 'diurna' },
+            { start: 21, end: 24, type: 'nocturna' }
+        ];
+    } else { // Weekday
+        rule = [
+            { start: 17, end: 21, type: 'diurna' },
+            { start: 21, end: 24, type: 'nocturna' }
+        ];
     }
 
-    const overlapStart = new Date(Math.max(start.getTime(), extraTimeRuleStart.getTime()));
-    const overlapEnd = end;
+    const breakdown = { diurna: 0, nocturna: 0, diurnaFestivo: 0, nocturnaFestivo: 0 };
+    let totalMinutes = 0;
 
-    if (overlapEnd.getTime() <= overlapStart.getTime()) {
-        return { hours: 0, extraStartTime: '', extraEndTime: '' };
+    for (let current = new Date(start); current < end; current = addMinutes(current, 1)) {
+        const hour = current.getHours();
+        for (const r of rule) {
+            if (hour >= r.start && hour < r.end) {
+                breakdown[r.type] += 1;
+                totalMinutes++;
+                break;
+            }
+        }
     }
 
-    const extraMinutes = (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60);
+    Object.keys(breakdown).forEach(key => {
+        const k = key as keyof typeof breakdown;
+        const minutes = breakdown[k];
+        const integerHours = Math.floor(minutes / 60);
+        const remaining = minutes % 60;
+        breakdown[k] = integerHours + (remaining > 9 ? 1 : 0);
+    });
 
-    const integerHours = Math.floor(extraMinutes / 60);
-    const remainingMinutes = extraMinutes % 60;
-    
-    let roundedHours = integerHours;
-    if (remainingMinutes > 9) {
-        roundedHours = integerHours + 1;
-    }
-    
-    return {
-        hours: roundedHours,
-        extraStartTime: format(overlapStart, 'HH:mm'),
-        extraEndTime: format(overlapEnd, 'HH:mm'),
-    };
+    const totalHours = breakdown.diurna + breakdown.nocturna + breakdown.diurnaFestivo + breakdown.nocturnaFestivo;
+
+    return { totalHours, breakdown, extraStartTime: startTime, extraEndTime: endTime };
 }
-// --- FIN DE LA NUEVA FUNCIÓN ---
 
+export interface AssistantExtraHourData {
+    clientName: string;
+    operationDate: string; // ISO String
+    details: {
+        container?: string;
+        arin?: string;
+    };
+    tariffsToApply: {
+        tariffId: string;
+        quantity: number;
+    }[];
+}
 
+export async function addExtraHoursFromAssistant(data: AssistantExtraHourData[]): Promise<{ success: boolean; message: string; count: number }> {
+    if (!firestore) return { success: false, message: 'El servidor no está configurado.', count: 0 };
+    if (!data || data.length === 0) return { success: false, message: 'No se proporcionaron datos para guardar.', count: 0 };
+
+    try {
+        const batch = firestore.batch();
+        let operationsCount = 0;
+        
+        const currentUser = { uid: 'system-assistant', displayName: 'Asistente de Horas Extra' }; 
+
+        for (const operationData of data) {
+            if (operationData.tariffsToApply.length === 0) continue;
+
+            const docRef = firestore.collection('manual_client_operations').doc();
+            const operationDate = admin.firestore.Timestamp.fromDate(new Date(operationData.operationDate));
+
+            batch.set(docRef, {
+                clientName: operationData.clientName,
+                concept: 'TIEMPO EXTRA ZFPC',
+                operationDate: operationDate,
+                specificTariffs: operationData.tariffsToApply,
+                details: operationData.details,
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser,
+            });
+            operationsCount++;
+        }
+        
+        if (operationsCount > 0) {
+            await batch.commit();
+        }
+
+        revalidatePath('/billing-reports');
+        revalidatePath('/operaciones-manuales-clientes');
+
+        return { success: true, message: `Se crearon ${operationsCount} registros de horas extra.`, count: operationsCount };
+    } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : 'Error desconocido al guardar horas extra.';
+        console.error("Error in addExtraHoursFromAssistant:", e);
+        return { success: false, message: `Error del servidor: ${errorMessage}`, count: 0 };
+    }
+}
+// --- FIN DE LA NUEVA LÓGICA ---
 
 export interface ExcedentEntry {
     date: string; // YYYY-MM-DD
@@ -227,18 +313,19 @@ export async function addManualClientOperation(data: ManualClientOperationData):
         revalidatePath('/billing-reports');
         revalidatePath('/operaciones-manuales-clientes');
 
-       // Bloque de código NUEVO
         let extraHoursData;
         if (data.concept === 'INSPECCIÓN ZFPC' && data.operationDate && data.details?.startTime && data.details?.endTime) {
-            const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
-            if (hours > 0) {
+            const result = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
+            if (result.totalHours > 0) {
                 extraHoursData = {
+                    clientName: data.clientName,
                     date: format(new Date(data.operationDate), 'yyyy-MM-dd'),
                     container: data.details.container || 'N/A',
                     arin: data.details.arin || 'N/A',
-                    hours: hours,
-                    startTime: extraStartTime,
-                    endTime: extraEndTime
+                    hours: result.totalHours,
+                    breakdown: result.breakdown,
+                    startTime: result.extraStartTime,
+                    endTime: result.extraEndTime
                 };
             }
         }
@@ -620,15 +707,17 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         
         let extraHoursData;
         if (data.concept === 'INSPECCIÓN ZFPC' && data.operationDate && data.details?.startTime && data.details?.endTime) {
-            const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
-            if (hours > 0) {
+            const result = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
+            if (result.totalHours > 0) {
                 extraHoursData = {
+                    clientName: data.clientName,
                     date: format(new Date(data.operationDate), 'yyyy-MM-dd'),
                     container: data.details.container || 'N/A',
                     arin: data.details.arin || 'N/A',
-                    hours: hours,
-                    startTime: extraStartTime,
-                    endTime: extraEndTime
+                    hours: result.totalHours,
+                    breakdown: result.breakdown,
+                    startTime: result.extraStartTime,
+                    endTime: result.extraEndTime
                 };
             }
         }
@@ -749,7 +838,8 @@ export async function uploadFmmOperations(
                 'FMM DE INGRESO ZFPC (MANUAL)', 
                 'FMM DE SALIDA ZFPC (MANUAL)',
                 'FMM DE INGRESO ZFPC (NACIONALIZADO)',
-                'FMM DE SALIDA ZFPC (NACIONALIZADO)'
+                'FMM DE SALIDA ZFPC (NACIONALIZADO)',
+                'INSPECCIÓN ZFPC'
             ];
             for (const chunk of fmmChunks) {
                 const querySnapshot = await firestore.collection('manual_client_operations')
@@ -984,17 +1074,18 @@ export async function uploadInspeccionOperations(
             throw new Error("Formato de Hora Final inválido. " + (e as Error).message);
         }
         
-        // Bloque de código NUEVO en uploadInspeccionOperations
-        const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(operationDate, startTime, endTime);
-        if (hours > 0) {
-        extraHoursData.push({
-            date: format(operationDate, 'yyyy-MM-dd'),
-            container: String(row.Contenedor || 'N/A'),
-            arin: String(row.Arin || 'N/A'),
-            hours: hours,
-            startTime: extraStartTime,
-            endTime: extraEndTime
-        });
+        const result = calculateExtraHoursForInspeccion(operationDate, startTime, endTime);
+        if (result.totalHours > 0) {
+            extraHoursData.push({
+                clientName: String(row.Cliente),
+                date: format(operationDate, 'yyyy-MM-dd'),
+                container: String(row.Contenedor || 'N/A'),
+                arin: String(row.Arin || 'N/A'),
+                hours: result.totalHours,
+                breakdown: result.breakdown,
+                startTime: result.extraStartTime,
+                endTime: result.extraEndTime
+            });
         }
 
         const start = parse(startTime, 'HH:mm', new Date());
@@ -1113,7 +1204,6 @@ export async function uploadArinOperations(
                 'ARIN DE SALIDA ZFPC (MANUAL)',
                 'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
                 'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
-                'INSPECCIÓN ZFPC'
             ];
             for (const chunk of arinChunks) {
                 const querySnapshot = await firestore.collection('manual_client_operations')

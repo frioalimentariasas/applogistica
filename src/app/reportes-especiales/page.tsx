@@ -1,4 +1,3 @@
-
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -56,7 +55,7 @@ function ReportTable({ title, data }: { title: string; data: SpecialReportResult
 
 async function SpecialReportsContent() {
     const criteriaToFetch = [
-        'CARGUE', 'DESCARGUE', 'EMPAQUE DE CAJAS', 'EMPAQUE DE SACOS',
+        'CARGUE', 'DESCARGUE', 'EMPAQUE DE CAJAS', 'JORNAL ORDINARIO', 'EMPAQUE DE SACOS',
         'REESTIBADO', 'SALIDA PALETAS TUNEL', 'TRANSBORDO CANASTILLA'
     ];
     const results = await getPedidosByCriteria(criteriaToFetch as any);
@@ -66,6 +65,7 @@ async function SpecialReportsContent() {
         { title: 'Pedidos con DESCARGUE por Cuadrilla', data: results.DESCARGUE },
         { title: 'Pedidos con EMPAQUE DE CAJAS por Cuadrilla (Maquila)', data: results['EMPAQUE DE CAJAS'] },
         { title: 'Pedidos con EMPAQUE DE SACOS por Cuadrilla (Maquila)', data: results['EMPAQUE DE SACOS'] },
+        { title: 'Pedidos con JORNAL ORDINARIO por Cuadrilla (Maquila)', data: results['JORNAL ORDINARIO'] },
         { title: 'Pedidos con REESTIBADO por Cuadrilla', data: results.REESTIBADO },
         { title: 'Pedidos con SALIDA PALETAS TUNEL por Cuadrilla', data: results['SALIDA PALETAS TUNEL'] },
         { title: 'Pedidos con TRANSBORDO CANASTILLA por Cuadrilla', data: results['TRANSBORDO CANASTILLA'] },
