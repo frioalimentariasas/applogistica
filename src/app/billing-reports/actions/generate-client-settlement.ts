@@ -1226,6 +1226,20 @@ export async function generateClientSettlement(criteria: {
             // New logic to calculate balance for each container over the full date range
             const containerMovements = allOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
                 if (op.type !== 'form') return acc;
+                
+                // Exclude TUNEL DE CONGELACIÓN reception forms from container balance calculation
+                if (
+                    op.data.formType.includes('recepcion') &&
+                    op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN'
+                ) {
+                    return acc;
+                }
+
+                // Apply tipoPedido filter from concept if it exists
+                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0 && !concept.filterPedidoTypes.includes(op.data.formData?.tipoPedido)) {
+                    return acc;
+                }
+
                 const container = op.data.formData?.contenedor?.trim();
                 if (!container || container.toUpperCase() === 'N/A' || container.toUpperCase() === 'NO APLICA') return acc;
     
@@ -1322,10 +1336,10 @@ export async function generateClientSettlement(criteria: {
         'Servicio de Manipulación', // Child
         'OPERACIÓN DESCARGUE/TONELADAS',
         'OPERACIÓN CARGUE/TONELADAS',
+        'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC) POR CONTENEDOR',
+        'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
         'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
-        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
-        'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
         'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
         'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
@@ -1409,6 +1423,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
