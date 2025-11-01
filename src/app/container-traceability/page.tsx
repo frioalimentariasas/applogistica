@@ -12,13 +12,15 @@ import { useToast } from '@/hooks/use-toast';
 import { getContainerMovements, type ContainerMovement } from './actions';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Loader2, Search, TruckIcon, XCircle, Eye, AlertTriangle } from 'lucide-react';
-import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
+import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 
 export default function ContainerTraceabilityPage() {
     const { permissions } = useAuth();
@@ -55,14 +57,15 @@ export default function ContainerTraceabilityPage() {
                 });
             }
         } catch (error: any) {
-            if (typeof error.message === 'string' && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
-                setIndexErrorMessage(error.message);
+            const errorMessage = error.message || "Ocurrió un error desconocido.";
+            if (typeof errorMessage === 'string' && (errorMessage.includes('requires an index') || errorMessage.includes('needs an index'))) {
+                setIndexErrorMessage(errorMessage);
                 setIsIndexErrorOpen(true);
             } else {
                 toast({
                     variant: 'destructive',
                     title: 'Error de Búsqueda',
-                    description: error.message,
+                    description: errorMessage,
                 });
             }
         } finally {
