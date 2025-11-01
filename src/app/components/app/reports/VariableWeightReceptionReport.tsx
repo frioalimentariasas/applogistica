@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo } from 'react';
@@ -211,6 +212,7 @@ interface VariableWeightReceptionReportProps {
 
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
     const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
+    const isTunelACamara = formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS';
     const operationTerm = 'Descargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
     const hasStandardObservations = (formData.observaciones || []).some((obs: any) => obs.type !== 'OTRAS OBSERVACIONES');
@@ -257,15 +259,19 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
             
             <ReportSection title="Detalle de la Recepción" noPadding>
                 <div style={{overflowX: 'auto'}}>
-                    {formData.recepcionPorPlaca || isTunelCongelacion ? (
-                        (formData.placas || []).map((placa: any, index: number) => (
-                           <div key={`placa-${index}`} style={{marginBottom: '10px'}}>
-                                <div style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: index > 0 ? '1px solid #aaa' : 'none' }}>
-                                    Placa: {placa.numeroPlaca} | Conductor: {placa.conductor} (C.C. {placa.cedulaConductor})
-                                </div>
-                                <ItemsTable items={placa.items || []} tipoPedido={formData.tipoPedido} />
-                           </div>
-                        ))
+                    {formData.recepcionPorPlaca || isTunelCongelacion || isTunelACamara ? (
+                        (formData.placas && formData.placas.length > 0) ? (
+                            (formData.placas || []).map((placa: any, index: number) => (
+                               <div key={`placa-${index}`} style={{marginBottom: '10px'}}>
+                                    <div style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: index > 0 ? '1px solid #aaa' : 'none' }}>
+                                        Placa: {placa.numeroPlaca} | Conductor: {placa.conductor} (C.C. {placa.cedulaConductor})
+                                    </div>
+                                    <ItemsTable items={placa.items || []} tipoPedido={formData.tipoPedido} />
+                               </div>
+                            ))
+                        ) : (
+                             <ItemsTable items={formData.items || []} tipoPedido={formData.tipoPedido} />
+                        )
                     ) : (
                          <ItemsTable items={formData.items || []} tipoPedido={formData.tipoPedido} />
                     )}
@@ -274,7 +280,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 
             {isTunelCongelacion ? (
                 <TunelCongelacionSummary formData={formData} />
-            ) : formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' ? (
+            ) : isTunelACamara ? (
                  <TunelACamaraSummary formData={formData} />
             ) : (
                 <DefaultSummary formData={formData} />
