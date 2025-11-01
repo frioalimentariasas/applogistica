@@ -174,7 +174,8 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
                 // Sum only complete pallets from summary rows for dispatch
                 return allItems.reduce((sum: number, p: any) => sum + (Number(p.paletasCompletas) || 0), 0);
             }
-            // Count unique non-picking pallets for detailed dispatch
+            
+            // CORRECTED LOGIC: Count unique non-picking pallets across all destinations for detailed dispatch
             const uniquePallets = new Set<number>();
             allItems.forEach((item: any) => {
                 if (item && !item.esPicking) {
