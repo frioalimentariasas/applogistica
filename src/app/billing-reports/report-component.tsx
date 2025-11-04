@@ -1953,10 +1953,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             styles: { fontSize: 7, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
-            didDrawPage: (data) => {
-              addHeader(doc, "Detalle Liquidación de Servicios Clientes");
-              data.cursor!.y = lastY; // Reset cursor to after header on new page
-            }
+           // didDrawPage: (data) => {
+           //   addHeader(doc, "Detalle Liquidación de Servicios Clientes");
+           //   data.cursor!.y = lastY; // Reset cursor to after header on new page
+           //}
         });
 
     

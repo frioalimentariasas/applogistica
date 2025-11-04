@@ -18,13 +18,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Loader2, Search, TruckIcon, XCircle, Eye, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Loader2, Search, TruckIcon, XCircle, Eye, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 
+
+const AccessDenied = () => (
+    <div className="flex flex-col items-center justify-center text-center gap-4">
+        <div className="rounded-full bg-destructive/10 p-4">
+            <ShieldAlert className="h-12 w-12 text-destructive" />
+        </div>
+        <h3 className="text-xl font-semibold">Acceso Denegado</h3>
+        <p className="text-muted-foreground">
+            No tiene permisos para acceder a esta página.
+        </p>
+    </div>
+);
+
 export default function PalletMovementReportPage() {
-    const { permissions } = useAuth();
+    const { user, permissions, loading: authLoading } = useAuth();
     const router = useRouter();
     const { toast } = useToast();
 
@@ -39,8 +52,16 @@ export default function PalletMovementReportPage() {
     const [indexErrorMessage, setIndexErrorMessage] = useState('');
 
     useEffect(() => {
-        getClients().then(setClients);
-    }, []);
+        if (!authLoading && !user) {
+            router.push('/login');
+        }
+    }, [user, authLoading, router]);
+
+    useEffect(() => {
+        if (user && permissions.canViewPalletTraceability) {
+            getClients().then(setClients);
+        }
+    }, [user, permissions.canViewPalletTraceability]);
 
     const handleSearch = async () => {
         if (!selectedClient || !palletCode) {
@@ -86,8 +107,26 @@ export default function PalletMovementReportPage() {
         setSearched(false);
     };
 
-    if (!permissions.canConsultForms) {
-        return <p>Acceso denegado.</p>;
+    if (authLoading || (user && permissions.canViewPalletTraceability && clients.length === 0 && !searched)) {
+        return (
+            <div className="flex min-h-screen w-full items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+        );
+    }
+    
+    if (!user || !permissions.canViewPalletTraceability) {
+        return (
+            <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+                <div className="max-w-xl mx-auto text-center">
+                    <AccessDenied />
+                     <Button onClick={() => router.push('/')} className="mt-6">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Volver al Inicio
+                    </Button>
+                </div>
+            </div>
+        );
     }
 
     return (

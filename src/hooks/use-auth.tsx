@@ -24,6 +24,8 @@ export interface AppPermissions {
   canEditForms: boolean;
   canChangeFormType: boolean;
   canDeleteForms: boolean;
+  canViewPalletTraceability: boolean;
+  canViewContainerTraceability: boolean;
 
   // Gestión y Liquidación Clientes
   canManageClientLiquidationConcepts: boolean;
@@ -64,6 +66,8 @@ export const defaultPermissions: AppPermissions = {
   canEditForms: false,
   canChangeFormType: false,
   canDeleteForms: false,
+  canViewPalletTraceability: false,
+  canViewContainerTraceability: false,
 
   canManageClientLiquidationConcepts: false,
   canManageClientManualOperations: false,

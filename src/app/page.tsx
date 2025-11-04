@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -92,8 +93,8 @@ export default function Home() {
     // Operaciones Logísticas
     { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms', group: 'Operaciones Logísticas' },
     { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport', group: 'Operaciones Logísticas' },
-    { label: 'Trazabilidad de Paletas', href: '/pallet-movement-report', icon: TruckIcon, permission: 'canConsultForms', group: 'Operaciones Logísticas'},
-    { label: 'Trazabilidad de Contenedor', href: '/container-traceability', icon: TruckIcon, permission: 'canConsultForms', group: 'Operaciones Logísticas'},
+    { label: 'Trazabilidad de Paletas', href: '/pallet-movement-report', icon: TruckIcon, permission: 'canViewPalletTraceability', group: 'Operaciones Logísticas'},
+    { label: 'Trazabilidad de Contenedor', href: '/container-traceability', icon: TruckIcon, permission: 'canViewContainerTraceability', group: 'Operaciones Logísticas'},
     
     // Gestión y Liquidación Clientes
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-clientes', icon: DollarSign, permission: 'canManageClientLiquidationConcepts', group: 'Gestión y Liquidación Clientes' },
