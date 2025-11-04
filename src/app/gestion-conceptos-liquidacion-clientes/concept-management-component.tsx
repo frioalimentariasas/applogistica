@@ -99,6 +99,7 @@ const conceptSchema = z.object({
   filterProductType: z.enum(['fijo', 'variable', 'ambos']).optional(),
   filterSesion: z.enum(['CO', 'RE', 'SE', 'AMBOS']).optional(),
   filterPedidoTypes: z.array(z.string()).optional(),
+  palletTypeFilter: z.enum(['completas', 'picking', 'ambas']).optional(), // NUEVO CAMPO
   
   // Observation Rule (for OBSERVACION)
   associatedObservation: z.string().optional(),
@@ -188,6 +189,7 @@ const addFormDefaultValues: ConceptFormValues = {
   filterProductType: 'ambos',
   filterSesion: 'AMBOS',
   filterPedidoTypes: [],
+  palletTypeFilter: 'ambas',
   associatedObservation: undefined,
   inventorySource: undefined,
   inventorySesion: undefined,
@@ -585,6 +587,7 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
   const watchedCalculationType = useWatch({ control: form.control, name: 'calculationType' });
   const watchedTariffType = useWatch({ control: form.control, name: 'tariffType' });
   const watchedConceptName = useWatch({ control: form.control, name: 'conceptName' });
+  const watchedCalculationBase = useWatch({ control: form.control, name: "calculationBase" }); // NUEVA LÍNEA
   
   return (
       <div className="space-y-4">
@@ -622,6 +625,38 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
                       <SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem>
                       <SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem>
                   </SelectContent></Select><FormMessage /></FormItem>)}/>
+                  {watchedCalculationBase === 'CANTIDAD_PALETAS' && (
+                    <FormField
+                      control={form.control}
+                      name="palletTypeFilter"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3 rounded-md border p-4">
+                          <FormLabel>Contar Paletas</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              className="flex flex-col space-y-1"
+                            >
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl><RadioGroupItem value="ambas" /></FormControl>
+                                <FormLabel className="font-normal">Ambas (Completas y Picking)</FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl><RadioGroupItem value="completas" /></FormControl>
+                                <FormLabel className="font-normal">Solo Completas</FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl><RadioGroupItem value="picking" /></FormControl>
+                                <FormLabel className="font-normal">Solo Picking</FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <FormField control={form.control} name="filterOperationType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Recepción y Despacho)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                   <FormField control={form.control} name="filterProductType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Peso Fijo y Variable)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                   <FormField control={form.control} name="filterSesion" render={({ field }) => (<FormItem><FormLabel>Filtrar por Sesión (Cámara)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="AMBOS">Ambos (Cualquier Sesión)</SelectItem><SelectItem value="CO">Congelados (CO)</SelectItem><SelectItem value="RE">Refrigerado (RE)</SelectItem><SelectItem value="SE">Seco (SE)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
@@ -1012,3 +1047,4 @@ function PedidoTypeMultiSelect({
     </Dialog>
   );
 }
+

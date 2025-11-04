@@ -5,9 +5,13 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO } from 'date-fns';
-import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, isEqual } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
+import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
+import { processTunelCongelacionData } from '@/lib/report-utils';
+import { getSmylLotAssistantReport, type AssistantReport } from '@/app/smyl-liquidation-assistant/actions';
+import { getDetailedInventoryForExport } from '@/app/actions/inventory-report';
+
 
 export interface TariffRange {
   minTons: number;
@@ -55,6 +59,7 @@ export interface ClientBillingConcept {
   filterProductType?: 'fijo' | 'variable' | 'ambos';
   filterSesion?: 'CO' | 'RE' | 'SE' | 'AMBOS';
   filterPedidoTypes?: string[];
+  palletTypeFilter?: 'completas' | 'picking' | 'ambas'; // NUEVO CAMPO
   
   // For 'OBSERVACION'
   associatedObservation?: string;
@@ -271,6 +276,7 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         filterProductType: data.filterProductType,
         filterSesion: data.filterSesion,
         filterPedidoTypes: data.filterPedidoTypes || [],
+        palletTypeFilter: data.palletTypeFilter || 'ambas', // NUEVO CAMPO
         associatedObservation: data.associatedObservation,
         inventorySource: data.inventorySource,
         inventorySesion: data.inventorySesion,
@@ -386,3 +392,4 @@ export async function deleteMultipleClientBillingConcepts(ids: string[]): Promis
     return { success: false, message: 'Ocurrió un error en el servidor.' };
   }
 }
+
