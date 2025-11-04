@@ -669,7 +669,6 @@ export async function generateClientSettlement(criteria: {
             
         const applicableOperations = allOperations
             .filter(op => op.type === 'form')
-            .filter(op => !(op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN'))
             .map(op => op.data)
             .filter(op => {
                 const opDate = startOfDay(new Date(op.formData.fecha));
@@ -690,9 +689,12 @@ export async function generateClientSettlement(criteria: {
                 if (!prodTypeMatch) return false;
                 
                 const pedidoType = op.formData?.tipoPedido;
-                const pedidoTypeMatch = !concept.filterPedidoTypes || concept.filterPedidoTypes.length === 0 || (pedidoType && concept.filterPedidoTypes.includes(pedidoType));
-                if (!pedidoTypeMatch) return false;
-
+                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0) {
+                    if (!pedidoType || !concept.filterPedidoTypes.includes(pedidoType)) {
+                        return false;
+                    }
+                }
+                
                 const items = getFilteredItems(op, concept.filterSesion, articleSessionMap);
                 if (items.length === 0) return false;
                 
@@ -1061,7 +1063,7 @@ export async function generateClientSettlement(criteria: {
                         tipoVehiculo: 'No Aplica',
                         quantity: quantityForCalc,
                         unitOfMeasure: specificTariffInfo.unit,
-                        unitValue: specificTariffInfo.value || 0,
+                        unitValue: valorUnitario,
                         totalValue: totalValue,
                         horaInicio: opData.details?.startTime || 'N/A',
                         horaFin: opData.details?.endTime || 'N/A',
@@ -1176,13 +1178,20 @@ export async function generateClientSettlement(criteria: {
         if (!concept.value) continue;
     
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
-            const containerMovements = allOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
+
+             const filteredOperations = allOperations.filter(op => {
+                if (op.type !== 'form') return false;
+                const formType = op.data.formType as string;
+                const tipoPedido = op.data.formData?.tipoPedido;
+                if (formType.includes('recepcion') && tipoPedido === 'TUNEL DE CONGELACIÓN') {
+                    return false;
+                }
+                return true;
+            });
+            
+            const containerMovements = filteredOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
                 if (op.type !== 'form') return acc;
                 
-                if (op.data.formType.includes('recepcion') && op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-                    return acc;
-                }
-
                 if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0 && !concept.filterPedidoTypes.includes(op.data.formData?.tipoPedido)) {
                     return acc;
                 }
@@ -1206,7 +1215,11 @@ export async function generateClientSettlement(criteria: {
     
             for (const container in containerMovements) {
                 const movementsForContainer = allSubmissions
-                    .filter(op => (op.formData?.cliente === clientName || op.formData?.nombreCliente === clientName) && op.formData.contenedor === container)
+                    .filter(op => 
+                        (op.formData?.cliente === clientName || op.formData?.nombreCliente === clientName) && 
+                        op.formData.contenedor === container &&
+                        !(op.formType.includes('recepcion') && op.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN')
+                     )
                     .map(op => ({
                         date: startOfDay(new Date(op.formData.fecha)),
                         pallets: calculatePalletsForOperation(op, concept.inventorySesion, articleSessionMap),
@@ -1368,6 +1381,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
