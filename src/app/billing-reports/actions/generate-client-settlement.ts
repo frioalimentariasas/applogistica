@@ -666,57 +666,10 @@ export async function generateClientSettlement(criteria: {
     const ruleConcepts = selectedConcepts.filter(c => c.calculationType === 'REGLAS');
 
     for (const concept of ruleConcepts) {
-        
-        // Special handling for 'TUNEL DE CONGELACIÓN' discharge
-        if (concept.conceptName === 'OPERACIÓN DESCARGUE' && clientName === 'AVICOLA EL MADROÑO S.A.') {
-            const tunelOperations = allOperations
-                .filter(op => op.type === 'form' && op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN' && op.data.formData?.recepcionPorPlaca)
-                .map(op => op.data)
-                .filter(op => {
-                    const opDate = startOfDay(new Date(op.formData.fecha));
-                    return opDate >= serverQueryStartDate && opDate <= serverQueryEndDate;
-                });
             
-            for (const op of tunelOperations) {
-                for (const placa of op.formData.placas || []) {
-                    const weightKg = (placa.items || []).reduce((sum: number, item: any) => sum + ((Number(item.pesoBruto) || 0) - (Number(item.taraEstiba) || 0)), 0);
-                    const totalTons = weightKg / 1000;
-                    
-                    if (totalTons <= 0) continue;
-
-                    const operacionLogistica = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
-                    const matchingTariff = findMatchingTariff(totalTons, concept);
-                    if (!matchingTariff) continue;
-
-                    const unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : operacionLogistica === 'Nocturno' ? matchingTariff.nightTariff : matchingTariff.extraTariff;
-
-                    settlementRows.push({
-                        date: op.formData.fecha,
-                        placa: placa.numeroPlaca,
-                        container: 'N/A', // Not applicable per vehicle
-                        camara: 'CO', // Assumed for this concept
-                        totalPaletas: (placa.items || []).length,
-                        operacionLogistica,
-                        pedidoSislog: op.formData.pedidoSislog,
-                        conceptName: concept.conceptName,
-                        tipoVehiculo: matchingTariff.vehicleType,
-                        quantity: 1, // Liquidate per vehicle
-                        unitOfMeasure: concept.unitOfMeasure,
-                        unitValue: unitValue,
-                        totalValue: unitValue,
-                        horaInicio: op.formData.horaInicio,
-                        horaFin: op.formData.horaFin,
-                    });
-                }
-            }
-            continue; // Continue to next concept after handling this special case
-        }
-            
-        // General processing for all other order types for OPERACIÓN DESCARGUE and other concepts
         const applicableOperations = allOperations
             .filter(op => op.type === 'form')
-            // Exclude TUNEL DE CONGELACIÓN if it was handled above
-            .filter(op => !(concept.conceptName === 'OPERACIÓN DESCARGUE' && op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN'))
+            .filter(op => !(op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN'))
             .map(op => op.data)
             .filter(op => {
                 const opDate = startOfDay(new Date(op.formData.fecha));
@@ -1226,10 +1179,7 @@ export async function generateClientSettlement(criteria: {
             const containerMovements = allOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
                 if (op.type !== 'form') return acc;
                 
-                if (
-                    op.data.formType.includes('recepcion') &&
-                    op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN'
-                ) {
+                if (op.data.formType.includes('recepcion') && op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN') {
                     return acc;
                 }
 
@@ -1331,7 +1281,7 @@ export async function generateClientSettlement(criteria: {
         'Servicio de Manipulación', // Child
         'OPERACIÓN DESCARGUE/TONELADAS',
         'OPERACIÓN CARGUE/TONELADAS',
-        'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC) POR CONTENEDOR',
+        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
         'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
@@ -1418,6 +1368,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 

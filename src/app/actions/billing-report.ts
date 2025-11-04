@@ -114,11 +114,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 ((clientName === 'GRUPO FRUTELLI SAS' || clientName === 'FABRIALIMENTOS SAS') &&
                 (submission.formType === 'variable-weight-recepcion' || submission.formType === 'variable-weight-reception')) ||
               
-                // NUEVA condición para Agregar Clientes a la excepción de que no cuente paletas recibidas en Consolidado Movimientos/Inventario
-                (clientName === 'LOGISTICS & INTERNATIONAL TRADE SAS' && 
+                // NUEVA condición para excluir TUNEL DE CONGELACION del conteo de paletas recibidas en Consolidado Movimientos/Inventario
+                (submission.formType.includes('recepcion') && 
                 submission.formData.tipoPedido === 'TUNEL DE CONGELACIÓN')
               ) {
-                return; // Excluir estas operaciones específicas del cálculo.
+                return; // Excluir estas operaciones específicas del cálculo de paletas recibidas.
               }              
             
             const formIsoDate = submission.formData.fecha;
