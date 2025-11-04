@@ -1,3 +1,4 @@
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -76,10 +77,11 @@ export async function getContainerMovements(
 
     return movements;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error fetching movements for container ${containerNumber}:`, error);
-    if (error instanceof Error && error.message.includes('requires an index')) {
-      throw new Error(`La base de datos requiere un índice compuesto que no existe. Por favor, revise la consola del servidor para ver el enlace de creación.`);
+    if (error.message && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
+      // Re-throw the original error to pass the specific message and link to the client
+      throw new Error(error.message);
     }
     throw new Error('No se pudieron buscar los movimientos del contenedor.');
   }
