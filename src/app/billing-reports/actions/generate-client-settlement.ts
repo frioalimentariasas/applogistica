@@ -1223,11 +1223,9 @@ export async function generateClientSettlement(criteria: {
         if (!concept.value) continue;
     
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
-            // New logic to calculate balance for each container over the full date range
             const containerMovements = allOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
                 if (op.type !== 'form') return acc;
                 
-                // Exclude TUNEL DE CONGELACIÓN reception forms from container balance calculation
                 if (
                     op.data.formType.includes('recepcion') &&
                     op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN'
@@ -1235,7 +1233,6 @@ export async function generateClientSettlement(criteria: {
                     return acc;
                 }
 
-                // Apply tipoPedido filter from concept if it exists
                 if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0 && !concept.filterPedidoTypes.includes(op.data.formData?.tipoPedido)) {
                     return acc;
                 }
@@ -1258,7 +1255,6 @@ export async function generateClientSettlement(criteria: {
             }, {});
     
             for (const container in containerMovements) {
-                // Find all movements for THIS container across ALL time
                 const movementsForContainer = allSubmissions
                     .filter(op => (op.formData?.cliente === clientName || op.formData?.nombreCliente === clientName) && op.formData.contenedor === container)
                     .map(op => ({
@@ -1267,13 +1263,18 @@ export async function generateClientSettlement(criteria: {
                         type: op.formType.includes('recepcion') ? 'entry' : 'exit',
                     }));
     
-                // Calculate balance before the selected start date
                 const initialBalanceMovements = movementsForContainer.filter(m => isBefore(m.date, serverQueryStartDate));
                 let balance = initialBalanceMovements.reduce((acc, mov) => acc + (mov.type === 'entry' ? mov.pallets : -mov.pallets), 0);
     
                 const dateRangeArray = eachDayOfInterval({ start: serverQueryStartDate, end: serverQueryEndDate });
     
                 for (const date of dateRangeArray) {
+                    const movementsForDay = movementsForContainer.filter(m => isEqual(m.date, date));
+                    const entriesToday = movementsForDay.filter(m => m.type === 'entry').reduce((sum, m) => sum + m.pallets, 0);
+                    const exitsToday = movementsForDay.filter(m => m.type === 'exit').reduce((sum, m) => sum + m.pallets, 0);
+                    
+                    balance += entriesToday - exitsToday;
+
                     if (balance > 0) {
                         settlementRows.push({
                             date: format(date, 'yyyy-MM-dd'),
@@ -1291,12 +1292,6 @@ export async function generateClientSettlement(criteria: {
                             totalValue: balance * concept.value,
                         });
                     }
-    
-                    const movementsForDay = movementsForContainer.filter(m => isEqual(m.date, date));
-                    const entriesToday = movementsForDay.filter(m => m.type === 'entry').reduce((sum, m) => sum + m.pallets, 0);
-                    const exitsToday = movementsForDay.filter(m => m.type === 'exit').reduce((sum, m) => sum + m.pallets, 0);
-                    
-                    balance += entriesToday - exitsToday;
                 }
             }
         } else if (concept.inventorySource === 'POSICIONES_ALMACENADAS' && concept.inventorySesion) {
@@ -1423,6 +1418,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
