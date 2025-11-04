@@ -555,7 +555,7 @@ export async function generateClientSettlement(criteria: {
         allOperations.push({ type: 'crew_manual', data });
     });
     
-    const settlementRows: ClientSettlementRow[] = [];
+    let settlementRows: ClientSettlementRow[] = [];
     
     const processCargueAlmacenamiento = async (concept: ClientBillingConcept, weightCondition: (weight: number) => boolean) => {
         const recepciones = allOperations
@@ -826,12 +826,6 @@ export async function generateClientSettlement(criteria: {
             const firstProductCode = filteredItems[0]?.codigo;
             let camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
 
-            // Special logic for AVICOLA EL MADROÑO S.A.
-            if (op.formData.cliente === 'AVICOLA EL MADROÑO S.A.' && concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && op.formData.tipoPedido === 'DESPACHO GENERICO') {
-                camara = 'SE';
-            }
-
-
             settlementRows.push({
                 date: op.formData.fecha,
                 placa: op.formData.placa || 'N/A',
@@ -889,9 +883,7 @@ export async function generateClientSettlement(criteria: {
     }
 
     const conceptsToProcessManually = selectedConcepts.filter(c => 
-        c.calculationType === 'MANUAL' || 
-        c.conceptName === 'MOVIMIENTO ENTRADA PRODUCTOS - PALLET' ||
-        c.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET'
+        c.calculationType === 'MANUAL'
     );
     const manualOpsFiltered = allOperations.filter(op => op.type === 'manual' || op.type === 'crew_manual');
 
@@ -1056,6 +1048,7 @@ export async function generateClientSettlement(criteria: {
                 const specificTariffInfo = concept.specificTariffs?.[0]; // Assuming only one for this concept
                 if (specificTariffInfo) {
                     const totalValue = quantityForCalc * (specificTariffInfo.value || 0) * numPersonas;
+                    const valorUnitario = specificTariffInfo.value || 0;
                      settlementRows.push({
                         date,
                         placa: opData.details?.plate || 'No Aplica',
@@ -1130,10 +1123,7 @@ export async function generateClientSettlement(criteria: {
                     'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
                     'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
                     'ALQUILER IMPRESORA ETIQUETADO',
-                    'CONEXIÓN ELÉCTRICA CONTENEDOR',
-                    'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
-                    'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
-                    'MOVIMIENTO SALIDA PRODUCTOS PALLET'
+                    'CONEXIÓN ELÉCTRICA CONTENEDOR'
             
                 ];
                 
@@ -1291,6 +1281,12 @@ export async function generateClientSettlement(criteria: {
             }
         }
     }
+
+    settlementRows.forEach(row => {
+        if (clientName === 'AVICOLA EL MADROÑO S.A.' && row.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET') {
+            row.camara = 'SE';
+        }
+    });
     
     const conceptOrder = [
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
@@ -1386,6 +1382,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
