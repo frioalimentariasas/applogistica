@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff, TemperatureTariffRange } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, subDays, isEqual } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, isEqual } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
@@ -824,7 +824,13 @@ export async function generateClientSettlement(criteria: {
 
             const filteredItems = getFilteredItems(op, concept.filterSesion, articleSessionMap);
             const firstProductCode = filteredItems[0]?.codigo;
-            const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
+            let camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
+
+            // Special logic for AVICOLA EL MADROÑO S.A.
+            if (op.formData.cliente === 'AVICOLA EL MADROÑO S.A.' && concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && op.formData.tipoPedido === 'DESPACHO GENERICO') {
+                camara = 'SE';
+            }
+
 
             settlementRows.push({
                 date: op.formData.fecha,
@@ -1178,12 +1184,11 @@ export async function generateClientSettlement(criteria: {
         if (!concept.value) continue;
     
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
-
-             const filteredOperations = allOperations.filter(op => {
+            const filteredOperations = allOperations.filter(op => {
                 if (op.type !== 'form') return false;
+                
                 const formType = op.data.formType as string;
-                const tipoPedido = op.data.formData?.tipoPedido;
-                if (formType.includes('recepcion') && tipoPedido === 'TUNEL DE CONGELACIÓN') {
+                if (formType.includes('recepcion') && op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN') {
                     return false;
                 }
                 return true;
@@ -1296,7 +1301,7 @@ export async function generateClientSettlement(criteria: {
         'OPERACIÓN CARGUE/TONELADAS',
         'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
-        'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
         'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
@@ -1381,6 +1386,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
