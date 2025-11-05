@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -106,6 +107,7 @@ export interface ManualClientOperationData {
     bulkRoles?: any[],
     excedentes?: ExcedentEntry[];
     selectedDates?: string[]; // For multi-date selection
+    dailyLocations?: { date: Date, quantity: number }[];
 }
 
 async function isFmmNumberDuplicate(fmmNumber: string, concept: string, currentOperationId?: string): Promise<boolean> {
