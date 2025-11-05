@@ -251,11 +251,14 @@ const calculateWeightForOperation = (
 const calculatePalletsForOperation = (
     op: any,
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
-    articleSessionMap: Map<string, string>
+    articleSessionMap: Map<string, string>,
+    concept?: ClientBillingConcept 
 ): number => {
   const { formType, formData } = op;
-  const items = getFilteredItems(op, sessionFilter, articleSessionMap);
-  if (items.length === 0) return 0;
+  const allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
+  if (allItems.length === 0) return 0;
+  
+  const palletTypeFilter = concept?.palletTypeFilter || 'ambas';
 
   if (formData.tipoPedido === 'TUNEL DE CONGELACIÓN' && formData.recepcionPorPlaca) {
       const { totalGeneralPaletas } = processTunelCongelacionData(formData);
@@ -263,35 +266,51 @@ const calculatePalletsForOperation = (
   }
   
   if (formType?.startsWith('fixed-weight')) {
-      return items.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
+      return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
   }
 
   if (formType?.startsWith('variable-weight')) {
-    const allItemsFromOp = (formData.items || [])
-      .concat((formData.destinos || []).flatMap((d: any) => d.items || []));
-      
-    const isSummary = allItemsFromOp.some((i: any) => Number(i.paleta) === 0);
+    const isSummary = allItems.some((i: any) => Number(i.paleta) === 0);
     
     if (isSummary) {
       if (formType.includes('despacho') && formData.despachoPorDestino) {
         return Number(formData.totalPaletasDespacho) || 0;
       }
-      return items.reduce((sum: number, i: any) => sum + (Number(i.paletasCompletas) || 0) + (Number(i.paletasPicking) || 0) + (Number(i.totalPaletas) || 0), 0);
+      
+      return allItems.reduce((sum: number, i: any) => {
+        if (palletTypeFilter === 'ambas') {
+            return sum + (Number(i.paletasCompletas) || 0) + (Number(i.paletasPicking) || 0);
+        }
+        if (palletTypeFilter === 'completas') {
+            return sum + (Number(i.paletasCompletas) || 0);
+        }
+        if (palletTypeFilter === 'picking') {
+            return sum + (Number(i.paletasPicking) || 0);
+        }
+        return sum + (Number(i.totalPaletas) || 0);
+      }, 0);
     }
     
-    const uniquePallets = new Set();
-    let pallets999Count = 0;
-    items.forEach((item: any) => {
+    // Detailed (non-summary) logic
+    const uniquePallets = new Set<number>();
+    allItems.forEach((item: any) => {
       const paletaNum = Number(item.paleta);
       if (!isNaN(paletaNum) && paletaNum > 0) {
-        if (paletaNum === 999) {
-          pallets999Count++;
-        } else if (!item.esPicking) {
-          uniquePallets.add(paletaNum);
+        let shouldCount = false;
+        if (palletTypeFilter === 'ambas') {
+            shouldCount = true;
+        } else if (palletTypeFilter === 'completas') {
+            shouldCount = !item.esPicking;
+        } else if (palletTypeFilter === 'picking') {
+            shouldCount = item.esPicking === true;
+        }
+        
+        if (shouldCount) {
+            uniquePallets.add(paletaNum);
         }
       }
     });
-    return uniquePallets.size + pallets999Count;
+    return uniquePallets.size;
   }
   
   return 0;
@@ -736,7 +755,7 @@ export async function generateClientSettlement(criteria: {
             switch (concept.calculationBase) {
                 case 'TONELADAS': quantity = finalWeightKg / 1000; break;
                 case 'KILOGRAMOS': quantity = finalWeightKg; break;
-                case 'CANTIDAD_PALETAS': quantity = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap); break;
+                case 'CANTIDAD_PALETAS': quantity = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap, concept); break;
                 case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
                 case 'NUMERO_OPERACIONES': quantity = 1; break;
                 case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
@@ -819,7 +838,7 @@ export async function generateClientSettlement(criteria: {
             // --- FIN DE LA LÓGICA DE CÁLCULO ---
             
             if (concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_CONGELADOS' && concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_SECO') {
-                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
+                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap, concept);
             }
 
             const filteredItems = getFilteredItems(op, concept.filterSesion, articleSessionMap);
@@ -1174,53 +1193,41 @@ export async function generateClientSettlement(criteria: {
         if (!concept.value) continue;
     
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
-            const filteredOperations = allOperations.filter(op => {
-                if (op.type !== 'form') return false;
+             const filteredOperations = allSubmissions.filter(op => {
+                if (op.formData?.cliente !== clientName && op.formData?.nombreCliente !== clientName) return false;
                 
-                const formType = op.data.formType as string;
-                if (formType.includes('recepcion') && op.data.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN') {
+                const formType = op.formType as string;
+                if (formType.includes('recepcion') && op.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN') {
                     return false;
                 }
                 return true;
             });
             
             const containerMovements = filteredOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
-                if (op.type !== 'form') return acc;
-                
-                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0 && !concept.filterPedidoTypes.includes(op.data.formData?.tipoPedido)) {
+                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0 && !concept.filterPedidoTypes.includes(op.formData?.tipoPedido)) {
                     return acc;
                 }
 
-                const container = op.data.formData?.contenedor?.trim();
+                const container = op.formData?.contenedor?.trim();
                 if (!container || container.toUpperCase() === 'N/A' || container.toUpperCase() === 'NO APLICA') return acc;
     
-                const pallets = calculatePalletsForOperation(op.data, concept.inventorySesion, articleSessionMap);
+                const pallets = calculatePalletsForOperation(op, concept.inventorySesion, articleSessionMap, concept);
                 if (pallets === 0) return acc;
     
                 if (!acc[container]) {
                     acc[container] = [];
                 }
                 acc[container].push({
-                    date: startOfDay(new Date(op.data.formData.fecha)),
-                    type: op.data.formType.includes('recepcion') ? 'entry' : 'exit',
+                    date: startOfDay(new Date(op.formData.fecha)),
+                    type: op.formType.includes('recepcion') ? 'entry' : 'exit',
                     pallets: pallets,
                 });
                 return acc;
             }, {});
     
             for (const container in containerMovements) {
-                const movementsForContainer = allSubmissions
-                    .filter(op => 
-                        (op.formData?.cliente === clientName || op.formData?.nombreCliente === clientName) && 
-                        op.formData.contenedor === container &&
-                        !(op.formType.includes('recepcion') && op.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN')
-                     )
-                    .map(op => ({
-                        date: startOfDay(new Date(op.formData.fecha)),
-                        pallets: calculatePalletsForOperation(op, concept.inventorySesion, articleSessionMap),
-                        type: op.formType.includes('recepcion') ? 'entry' : 'exit',
-                    }));
-    
+                const movementsForContainer = containerMovements[container];
+                
                 const initialBalanceMovements = movementsForContainer.filter(m => isBefore(m.date, serverQueryStartDate));
                 let balance = initialBalanceMovements.reduce((acc, mov) => acc + (mov.type === 'entry' ? mov.pallets : -mov.pallets), 0);
     
@@ -1283,7 +1290,7 @@ export async function generateClientSettlement(criteria: {
     }
 
     settlementRows.forEach(row => {
-        if (clientName === 'AVICOLA EL MADROÑO S.A.' && row.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET') {
+        if (clientName === 'AVICOLA EL MADROÑO S.A.' && row.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && op.formData.tipoPedido === 'DESPACHO GENERICO') {
             row.camara = 'SE';
         }
     });
@@ -1382,6 +1389,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
