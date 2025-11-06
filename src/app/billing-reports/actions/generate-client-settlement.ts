@@ -525,8 +525,8 @@ export async function generateClientSettlement(criteria: {
   }
 
   try {
-    const serverQueryStartDate = startOfDay(parseISO(startDate));
-    const serverQueryEndDate = endOfDay(parseISO(endDate));
+    const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
+    const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
     // Fetch ALL submissions up to the end date to calculate initial balances correctly
     const allSubmissionsSnapshot = await firestore.collection('submissions').where('formData.fecha', '<=', serverQueryEndDate).get();

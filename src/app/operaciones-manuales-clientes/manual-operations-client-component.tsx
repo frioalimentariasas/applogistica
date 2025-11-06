@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -442,6 +443,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     ...op.details,
                     fechaArribo: op.details?.fechaArribo ? parseISO(op.details.fechaArribo) : undefined,
                     fechaSalida: op.details?.fechaSalida ? parseISO(op.details.fechaSalida) : undefined,
+                    opLogistica: op.details?.opLogistica || undefined,
                 },
                 comentarios: op.comentarios || '',
             });
@@ -455,19 +457,21 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 numeroPersonas: 1,
                 comentarios: "",
                 details: { 
-                startTime: '', 
-                endTime: '', 
-                plate: '', 
-                container: '', 
-                totalPallets: null, 
-                arin: '', 
-                opLogistica: undefined, 
-                fmmNumber: '', 
-                pedidoSislog: '', 
-                noDocumento: '' },
+                    startTime: '', 
+                    endTime: '', 
+                    plate: '', 
+                    container: '', 
+                    totalPallets: null, 
+                    arin: '', 
+                    opLogistica: undefined, 
+                    fmmNumber: '', 
+                    pedidoSislog: '', 
+                    noDocumento: '' 
+                },
                 bulkRoles: [],
                 excedentes: [],
                 selectedDates: [],
+                dailyLocations: [],
             });
         }
         setIsDialogOpen(true);
@@ -601,7 +605,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         const result = await deleteManualClientOperation(opToDelete.id);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            // Actualiza el estado local para reflejar el cambio instantáneamente
             setAllOperations(prev => prev.filter(op => op.id !== opToDelete.id));
             setFilteredOperations(prev => prev.filter(op => op.id !== opToDelete.id));
         } else {
@@ -1436,8 +1439,6 @@ function ConceptFormBody(props: any) {
                   placeholder="Ej: 1 o 1.5"
                   {...field}
                   disabled={dialogMode === 'view'}
-                 // onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                 //value={field.value ?? ''}
                 />
               </FormControl>
               <FormMessage />

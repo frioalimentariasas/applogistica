@@ -1,10 +1,11 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { getDaysInMonth, startOfDay, addDays, format, isBefore, isEqual, parseISO, getDay, isSaturday, isSunday, eachDayOfInterval, differenceInMinutes, parse } from 'date-fns';
+import { getDaysInMonth, startOfDay, addDays, format, isBefore, isEqual, parseISO, getDay, isSaturday, isSunday, eachDayOfInterval, differenceInMinutes, parse, differenceInHours } from 'date-fns';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import * as ExcelJS from 'exceljs';
 
@@ -213,7 +214,12 @@ export async function addManualClientOperation(data: ManualClientOperationData):
         
         const operationWithTimestamp: any = {
             ...restOfData,
-            details: details || {},
+            clientName: data.clientName || 'No Aplica',
+            comentarios: data.comentarios || '',
+            details: {
+              ...(details || {}),
+              opLogistica: details?.opLogistica || undefined,
+            },
             operationDate: operationDateToSave,
             createdAt: new Date().toISOString(),
         };
@@ -605,8 +611,13 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
        
         const operationWithTimestamp = {
             ...restOfData,
+            clientName: data.clientName || 'No Aplica',
+            comentarios: data.comentarios || '',
             specificTariffs: finalSpecificTariffs,
-            details: details || {},
+            details: {
+                ...(details || {}),
+                opLogistica: details?.opLogistica || '',
+            },
             operationDate: operationDateToSave,
         };
         

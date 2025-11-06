@@ -131,8 +131,8 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     const allConcepts = await getClientBillingConcepts();
     const applicableConcepts = new Map<string, ClientBillingConcept>();
 
-    const serverQueryStartDate = startOfDay(parseISO(startDate));
-    const serverQueryEndDate = endOfDay(parseISO(endDate));
+    const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
+    const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
     // Fetch all submissions in the date range
     const submissionsSnapshot = await firestore.collection('submissions')
