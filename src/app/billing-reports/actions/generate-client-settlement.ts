@@ -429,8 +429,8 @@ async function generateSmylLiquidation(
   
           const { initialReception, dailyBalances } = report;
           const receptionDate = startOfDay(initialReception.date);
-          const queryStart = startOfDay(parseISO(startDate));
-          const queryEnd = endOfDay(parseISO(endDate));
+          const queryStart = new Date(`${startDate}T00:00:00-05:00`);
+          const queryEnd = new Date(`${endDate}T23:59:59.999-05:00`);
           
           if (receptionDate >= queryStart && receptionDate <= queryEnd) {
               const freezingTotal = initialReception.pallets * dailyPalletRate * 4;
@@ -693,8 +693,8 @@ export async function generateClientSettlement(criteria: {
             .filter(op => op.type === 'form')
             .map(op => op.data)
             .filter(op => {
-                const opDate = startOfDay(new Date(op.formData.fecha));
-                if (isBefore(opDate, serverQueryStartDate) || isBefore(serverQueryEndDate, opDate)) return false;
+                const opDate = new Date(op.formData.fecha);
+                if (opDate < serverQueryStartDate || opDate > serverQueryEndDate) return false;
 
                 const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
                 const isDespacho = op.formType.includes('despacho');
@@ -870,7 +870,7 @@ export async function generateClientSettlement(criteria: {
     
     const observationConcepts = selectedConcepts.filter(c => c.calculationType === 'OBSERVACION');
     if (observationConcepts.length > 0) {
-        const opsWithObservations = allOperations.filter(op => op.type === 'form' && Array.isArray(op.data.formData.observaciones) && op.data.formData.observaciones.length > 0 && isWithinInterval(startOfDay(new Date(op.data.formData.fecha)), { start: serverQueryStartDate, end: serverQueryEndDate }));
+        const opsWithObservations = allOperations.filter(op => op.type === 'form' && Array.isArray(op.data.formData.observaciones) && op.data.formData.observaciones.length > 0 && isWithinInterval(new Date(op.data.formData.fecha), { start: serverQueryStartDate, end: serverQueryEndDate }));
         
         for (const concept of observationConcepts) {
             const relevantOps = opsWithObservations.filter(op =>
@@ -1221,7 +1221,7 @@ export async function generateClientSettlement(criteria: {
                     acc[container] = [];
                 }
                 acc[container].push({
-                    date: startOfDay(new Date(op.formData.fecha)),
+                    date: new Date(op.formData.fecha),
                     type: op.formType.includes('recepcion') ? 'entry' : 'exit',
                     pallets: pallets,
                 });
@@ -1237,7 +1237,7 @@ export async function generateClientSettlement(criteria: {
                 const dateRangeArray = eachDayOfInterval({ start: serverQueryStartDate, end: serverQueryEndDate });
     
                 for (const date of dateRangeArray) {
-                    const movementsForDay = movementsForContainer.filter(m => isEqual(m.date, date));
+                    const movementsForDay = movementsForContainer.filter(m => isEqual(startOfDay(m.date), date));
                     const entriesToday = movementsForDay.filter(m => m.type === 'entry').reduce((sum, m) => sum + m.pallets, 0);
                     const exitsToday = movementsForDay.filter(m => m.type === 'exit').reduce((sum, m) => sum + m.pallets, 0);
                     
@@ -1312,6 +1312,7 @@ export async function generateClientSettlement(criteria: {
         'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
         'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+        'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
         'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
         'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
         'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1322,7 +1323,7 @@ export async function generateClientSettlement(criteria: {
         'HORA EXTRA NOCTURNA',//child (TIEMPO EXTRA ZFPC)
         'HORA EXTRA DIURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
         'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
-        'ALIMENTACION',//child (TIEMPO EXTRA ZFPC)
+        'ALIMENTACIÓN',//child (TIEMPO EXTRA ZFPC)
         'TRANSPORTE EXTRAORDINARIO',//child (TIEMPO EXTRA ZFPC)
         'TRANSPORTE DOMINICAL Y FESTIVO',//child (TIEMPO EXTRA ZFPC)
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
@@ -1392,6 +1393,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 
