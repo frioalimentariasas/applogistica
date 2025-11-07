@@ -80,7 +80,8 @@ const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
     paleta: z.coerce.number().int().min(0).nullable().optional(),
     descripcion: z.string().min(1, "La descripción es requerida."),
-    lote: z.string().max(15).optional(),
+    lote: z.string().regex(/^[A-Z]{4}[0-9]{4}$/, "Formato de lote inválido. Deben ser 4 letras y 4 números (ej: ABCD1234).").optional(),
+    //lote: z.string().max(15).optional(),
     presentacion: z.string().optional(),
     cantidadPorPaleta: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().int().min(0).nullable().optional()),
     pesoBruto: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(0).nullable().optional()),
@@ -314,7 +315,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                     )} />
                 )}
                 <FormField control={control} name={`${basePath}.${itemIndex}.lote`} render={({ field }) => (
-                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Formato ABCD1234" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={control} name={`${basePath}.${itemIndex}.presentacion`} render={({ field }) => (
                     <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>

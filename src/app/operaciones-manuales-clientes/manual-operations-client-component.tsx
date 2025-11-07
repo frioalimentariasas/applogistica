@@ -316,6 +316,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 { role: "MONTACARGUISTA TRILATERAL", diurna: "DIURNA", nocturna: "NOCTURNA" },
                 { role: "MONTACARGUISTA NORMAL", diurna: "DIURNA", nocturna: "NOCTURNA" },
                 { role: "OPERARIO", diurna: "DIURNA", nocturna: "NOCTURNA" },
+                { role: "ASISTENTE", diurna: "DIURNA", nocturna: "NOCTURNA" },
             ];
             
             const conceptTariffs = selectedConceptInfo?.specificTariffs || [];
@@ -443,7 +444,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     ...op.details,
                     fechaArribo: op.details?.fechaArribo ? parseISO(op.details.fechaArribo) : undefined,
                     fechaSalida: op.details?.fechaSalida ? parseISO(op.details.fechaSalida) : undefined,
-                    opLogistica: op.details?.opLogistica || undefined,
+                    opLogistica: op.details?.opLogistica,
                 },
                 comentarios: op.comentarios || '',
             });

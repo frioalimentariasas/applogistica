@@ -529,7 +529,10 @@ export async function generateClientSettlement(criteria: {
     const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
     // Fetch ALL submissions up to the end date to calculate initial balances correctly
-    const allSubmissionsSnapshot = await firestore.collection('submissions').where('formData.fecha', '<=', serverQueryEndDate).get();
+    const allSubmissionsSnapshot = await firestore.collection('submissions')
+        .where('formData.fecha', '>=', serverQueryStartDate)
+        .where('formData.fecha', '<=', serverQueryEndDate)
+        .get();
     
     const [manualOpsSnapshot, crewManualOpsSnapshot, clientArticlesSnapshot] = await Promise.all([
         firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get(),
@@ -1389,6 +1392,7 @@ const minutesToTime = (minutes: number): string => {
     
 
   
+
 
 
 

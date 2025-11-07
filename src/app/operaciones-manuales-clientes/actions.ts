@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -218,7 +217,7 @@ export async function addManualClientOperation(data: ManualClientOperationData):
             comentarios: data.comentarios || '',
             details: {
               ...(details || {}),
-              opLogistica: details?.opLogistica || undefined,
+              opLogistica: details?.opLogistica || '',
             },
             operationDate: operationDateToSave,
             createdAt: new Date().toISOString(),
