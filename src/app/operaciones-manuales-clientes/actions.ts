@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -217,7 +218,7 @@ export async function addManualClientOperation(data: ManualClientOperationData):
             comentarios: data.comentarios || '',
             details: {
               ...(details || {}),
-              opLogistica: details?.opLogistica || '',
+              opLogistica: details?.opLogistica || null,
             },
             operationDate: operationDateToSave,
             createdAt: new Date().toISOString(),
@@ -615,7 +616,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
             specificTariffs: finalSpecificTariffs,
             details: {
                 ...(details || {}),
-                opLogistica: details?.opLogistica || '',
+                opLogistica: details?.opLogistica || null,
             },
             operationDate: operationDateToSave,
         };
@@ -623,7 +624,9 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         if (data.concept !== 'TIEMPO EXTRA FRIOAL (FIJO)' && data.concept !== 'TIEMPO EXTRA FRIOAL') {
              delete (operationWithTimestamp as any).bulkRoles;
         }
-
+        delete (operationWithTimestamp as any).excedentes;
+        delete (operationWithTimestamp as any).dailyLocations; // Delete new field for other concepts
+        
         await docRef.update(operationWithTimestamp);
         
         revalidatePath('/billing-reports');
