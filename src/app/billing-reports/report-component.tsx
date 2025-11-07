@@ -1796,6 +1796,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             head: summaryHead,
             body: summaryBodyWithTotal,
             startY: lastY,
+            margin: { left: 30 },
             pageBreak: 'auto',
             theme: 'grid',
             headStyles: { fillColor: [26, 144, 200], fontSize: 10 },
@@ -1947,7 +1948,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
-            margin: { left: margin },
+            margin: { left: 10 },
             pageBreak: 'auto',
             headStyles: { fillColor: [26, 144, 200], fontSize: 7, cellPadding: 1 },
             styles: { fontSize: 7, cellPadding: 1 },

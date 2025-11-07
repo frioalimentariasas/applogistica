@@ -859,17 +859,180 @@ export async function uploadFmmOperations(
     }
 }
 
+interface ArinRow {
+    Fecha: Date | string | number;
+    Cliente: string;
+    Concepto: 'ARIN DE INGRESO ZFPC (MANUAL)' | 'ARIN DE SALIDA ZFPC (MANUAL)';
+    Cantidad: number;
+    Contenedor: string;
+    'Op. Logística': 'CARGUE' | 'DESCARGUE';
+    '# ARIN': string;
+    '# FMM': string;
+    Placa: string;
+}
+
+export async function uploadArinOperations(
+  formData: FormData
+): Promise<{ success: boolean; message: string; createdCount: number, duplicateCount: number, errorCount: number, errors: string[] }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado.', createdCount: 0, duplicateCount: 0, errorCount: 0, errors: [] };
+    }
+
+    const file = formData.get('file') as File;
+    if (!file) {
+        return { success: false, message: 'No se encontró el archivo.', createdCount: 0, duplicateCount: 0, errorCount: 0, errors: [] };
+    }
+
+    let rows: Partial<ArinRow>[] = [];
+
+    try {
+        const buffer = await file.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.worksheets[0];
+
+        const headers = (worksheet.getRow(1).values as string[]).map(h => h ? String(h).trim() : '');
+        
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                const rowData: any = {};
+                row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                    const header = headers[colNumber];
+                    if (header) rowData[header] = cell.value;
+                });
+                rows.push(rowData);
+            }
+        });
+
+        if (rows.length === 0) throw new Error("El archivo está vacío.");
+        
+        let createdCount = 0;
+        let duplicateCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
+        const arinNumbersFromFile = rows.map(r => String(r['# ARIN'] || '').trim()).filter(Boolean);
+        const existingArins = new Set<string>();
+        if (arinNumbersFromFile.length > 0) {
+            const arinChunks = [];
+            for (let i = 0; i < arinNumbersFromFile.length; i += 10) { // Reduced chunk size
+                arinChunks.push(arinNumbersFromFile.slice(i, i + 10));
+            }
+            const arinConcepts = [
+                'ARIN DE INGRESO ZFPC (MANUAL)',
+                'ARIN DE SALIDA ZFPC (MANUAL)',
+                'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
+                'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
+                'INSPECCIÓN ZFPC'
+            ];
+            for (const chunk of arinChunks) {
+                for (const concept of arinConcepts) {
+                     const querySnapshot = await firestore.collection('manual_client_operations')
+                        .where('details.arin', 'in', chunk)
+                        .where('concept', '==', concept)
+                        .get();
+                    querySnapshot.forEach(doc => {
+                        existingArins.add(String(doc.data().details.arin));
+                    });
+                }
+            }
+        }
+        const createdBy = {
+            uid: formData.get('userId') as string,
+            displayName: formData.get('userDisplayName') as string,
+        };
+
+        const batch = firestore.batch();
+
+        for (const [index, row] of rows.entries()) {
+            const rowIndex = index + 2;
+            const arinNumber = String(row['# ARIN'] || '').trim();
+            const concepto = String(row.Concepto || '').trim().toUpperCase();
+            const opLogistica = String(row['Op. Logística'] || '').trim().toUpperCase() as 'CARGUE' | 'DESCARGUE';
+
+            // Validation Checks
+            if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
+            if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
+            if (!concepto || !['ARIN DE INGRESO ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC (NACIONALIZADO)', 'ARIN DE SALIDA ZFPC (NACIONALIZADO)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido.`); errorCount++; continue; }
+            if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
+            if (!opLogistica || !['CARGUE', 'DESCARGUE'].includes(opLogistica)) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida.`); errorCount++; continue; }
+            if (!arinNumber) { errors.push(`Fila ${rowIndex}: Falta el # ARIN.`); errorCount++; continue; }
+
+            if (existingArins.has(arinNumber)) {
+                duplicateCount++;
+                continue;
+            }
+
+            let operationDate: Date;
+            if (row.Fecha instanceof Date) {
+                operationDate = row.Fecha;
+            } else if (typeof row.Fecha === 'number') {
+                const excelDate = new Date(Math.round((row.Fecha - 25569) * 86400 * 1000));
+                excelDate.setMinutes(excelDate.getMinutes() + excelDate.getTimezoneOffset());
+                operationDate = excelDate;
+            } else if (typeof row.Fecha === 'string') {
+                operationDate = parse(row.Fecha, 'dd-MM-yyyy', new Date());
+                 if (isNaN(operationDate.getTime())) {
+                    operationDate = parse(row.Fecha, 'd/M/yyyy', new Date());
+                }
+            } else {
+                errors.push(`Fila ${rowIndex}: Formato de fecha no reconocido.`);
+                errorCount++;
+                continue;
+            }
+
+            operationDate.setUTCHours(operationDate.getUTCHours() + 5);
+
+            const docRef = firestore.collection('manual_client_operations').doc();
+            batch.set(docRef, {
+                clientName: row.Cliente,
+                concept: concepto,
+                operationDate: admin.firestore.Timestamp.fromDate(operationDate),
+                quantity: Number(row.Cantidad),
+                details: {
+                    container: row.Contenedor || '',
+                    opLogistica: opLogistica,
+                    arin: arinNumber,
+                    fmmNumber: String(row['# FMM'] || ''),
+                    plate: row.Placa || ''
+                },
+                createdAt: new Date().toISOString(),
+                createdBy: createdBy,
+            });
+            createdCount++;
+            existingArins.add(arinNumber);
+        }
+
+        if (createdCount > 0) {
+            await batch.commit();
+        }
+        
+        revalidatePath('/operaciones-manuales-clientes');
+        revalidatePath('/billing-reports');
+
+        let message = `Se crearon ${createdCount} registros ARIN.`;
+        if (duplicateCount > 0) message += ` Se omitieron ${duplicateCount} por ser duplicados.`;
+        if (errorCount > 0) message += ` ${errorCount} filas tuvieron errores y no se cargaron.`;
+
+        return { success: errorCount === 0, message, createdCount, duplicateCount, errorCount, errors };
+    } catch (error) {
+        console.error('Error al cargar operaciones ARIN:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido.';
+        return { success: false, message: errorMessage, createdCount: 0, duplicateCount: 0, errorCount: rows.length, errors: [errorMessage] };
+    }
+}
+
 interface InspeccionRow {
-  Fecha: Date | string | number;
-  Cliente: string;
-  Concepto: 'INSPECCIÓN ZFPC';
-  Contenedor: string;
-  Arin: string;
-  '# FMM': string;
-  Placa: string;
-  'Hora Inicio': string | number | Date;
-  'Hora Final': string | number | Date;
-  '# Personas': number;
+    Fecha: Date | string | number;
+    Cliente: string;
+    Concepto: 'INSPECCIÓN ZFPC';
+    Contenedor: string;
+    Arin: string;
+    '# FMM': string;
+    Placa: string;
+    'Hora Inicio': string | number | Date;
+    'Hora Final': string | number | Date;
+    '# Personas': number;
 }
 
 const excelTimeToHHMM = (excelTime: any): string => {
@@ -1063,163 +1226,3 @@ export async function uploadInspeccionOperations(
   }
 }
 
-interface ArinRow {
-    Fecha: Date | string | number;
-    Cliente: string;
-    Concepto: 'ARIN DE INGRESO ZFPC (MANUAL)' | 'ARIN DE SALIDA ZFPC (MANUAL)';
-    Cantidad: number;
-    Contenedor: string;
-    'Op. Logística': 'CARGUE' | 'DESCARGUE';
-    '# ARIN': string;
-    '# FMM': string;
-    Placa: string;
-}
-
-export async function uploadArinOperations(
-  formData: FormData
-): Promise<{ success: boolean; message: string; createdCount: number, duplicateCount: number, errorCount: number, errors: string[] }> {
-    if (!firestore) {
-        return { success: false, message: 'El servidor no está configurado.', createdCount: 0, duplicateCount: 0, errorCount: 0, errors: [] };
-    }
-
-    const file = formData.get('file') as File;
-    if (!file) {
-        return { success: false, message: 'No se encontró el archivo.', createdCount: 0, duplicateCount: 0, errorCount: 0, errors: [] };
-    }
-
-    let rows: Partial<ArinRow>[] = [];
-
-    try {
-        const buffer = await file.arrayBuffer();
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(buffer);
-        const worksheet = workbook.worksheets[0];
-
-        const headers = (worksheet.getRow(1).values as string[]).map(h => h ? String(h).trim() : '');
-        
-        worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) {
-                const rowData: any = {};
-                row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-                    const header = headers[colNumber];
-                    if (header) rowData[header] = cell.value;
-                });
-                rows.push(rowData);
-            }
-        });
-
-        if (rows.length === 0) throw new Error("El archivo está vacío.");
-        
-        let createdCount = 0;
-        let duplicateCount = 0;
-        let errorCount = 0;
-        const errors: string[] = [];
-
-        const arinNumbersFromFile = rows.map(r => String(r['# ARIN'] || '').trim()).filter(Boolean);
-        const existingArins = new Set<string>();
-        if (arinNumbersFromFile.length > 0) {
-            const arinChunks = [];
-            for (let i = 0; i < arinNumbersFromFile.length; i += 30) {
-                arinChunks.push(arinNumbersFromFile.slice(i, i + 30));
-            }
-            const arinConcepts = [
-                'ARIN DE INGRESO ZFPC (MANUAL)',
-                'ARIN DE SALIDA ZFPC (MANUAL)',
-                'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
-                'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
-                'INSPECCIÓN ZFPC'
-            ];
-            for (const chunk of arinChunks) {
-                const querySnapshot = await firestore.collection('manual_client_operations')
-                    .where('details.arin', 'in', chunk)
-                    .where('concept', 'in', arinConcepts)
-                    .get();
-                querySnapshot.forEach(doc => {
-                    existingArins.add(String(doc.data().details.arin));
-                });
-            }
-        }
-        const createdBy = {
-            uid: formData.get('userId') as string,
-            displayName: formData.get('userDisplayName') as string,
-        };
-
-        const batch = firestore.batch();
-
-        for (const [index, row] of rows.entries()) {
-            const rowIndex = index + 2;
-            const arinNumber = String(row['# ARIN'] || '').trim();
-            const concepto = String(row.Concepto || '').trim().toUpperCase();
-            const opLogistica = String(row['Op. Logística'] || '').trim().toUpperCase() as 'CARGUE' | 'DESCARGUE';
-
-            // Validation Checks
-            if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
-            if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
-            if (!concepto || !['ARIN DE INGRESO ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC (NACIONALIZADO)', 'ARIN DE SALIDA ZFPC (NACIONALIZADO)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido.`); errorCount++; continue; }
-            if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
-            if (!opLogistica || !['CARGUE', 'DESCARGUE'].includes(opLogistica)) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida.`); errorCount++; continue; }
-            if (!arinNumber) { errors.push(`Fila ${rowIndex}: Falta el # ARIN.`); errorCount++; continue; }
-
-            if (existingArins.has(arinNumber)) {
-                duplicateCount++;
-                continue;
-            }
-
-            let operationDate: Date;
-            if (row.Fecha instanceof Date) {
-                operationDate = row.Fecha;
-            } else if (typeof row.Fecha === 'number') {
-                const excelDate = new Date(Math.round((row.Fecha - 25569) * 86400 * 1000));
-                excelDate.setMinutes(excelDate.getMinutes() + excelDate.getTimezoneOffset());
-                operationDate = excelDate;
-            } else if (typeof row.Fecha === 'string') {
-                operationDate = parse(row.Fecha, 'dd-MM-yyyy', new Date());
-                 if (isNaN(operationDate.getTime())) {
-                    operationDate = parse(row.Fecha, 'd/M/yyyy', new Date());
-                }
-            } else {
-                errors.push(`Fila ${rowIndex}: Formato de fecha no reconocido.`);
-                errorCount++;
-                continue;
-            }
-
-            operationDate.setUTCHours(operationDate.getUTCHours() + 5);
-
-            const docRef = firestore.collection('manual_client_operations').doc();
-            batch.set(docRef, {
-                clientName: row.Cliente,
-                concept: concepto,
-                operationDate: admin.firestore.Timestamp.fromDate(operationDate),
-                quantity: Number(row.Cantidad),
-                details: {
-                    container: row.Contenedor || '',
-                    opLogistica: opLogistica,
-                    arin: arinNumber,
-                    fmmNumber: String(row['# FMM'] || ''),
-                    plate: row.Placa || ''
-                },
-                createdAt: new Date().toISOString(),
-                createdBy: createdBy,
-            });
-            createdCount++;
-            existingArins.add(arinNumber);
-        }
-
-        if (createdCount > 0) {
-            await batch.commit();
-        }
-        
-        revalidatePath('/operaciones-manuales-clientes');
-        revalidatePath('/billing-reports');
-
-        let message = `Se crearon ${createdCount} registros ARIN.`;
-        if (duplicateCount > 0) message += ` Se omitieron ${duplicateCount} por ser duplicados.`;
-        if (errorCount > 0) message += ` ${errorCount} filas tuvieron errores y no se cargaron.`;
-
-        return { success: errorCount === 0, message, createdCount, duplicateCount, errorCount, errors };
-    } catch (error) {
-        console.error('Error al cargar operaciones ARIN:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido.';
-        return { success: false, message: errorMessage, createdCount: 0, duplicateCount: 0, errorCount: rows.length, errors: [errorMessage] };
-    }
-}
