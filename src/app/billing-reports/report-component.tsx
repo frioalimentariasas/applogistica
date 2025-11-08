@@ -729,23 +729,27 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     const processedInventoryData = useMemo(() => {
         if (!inventoryReportData) return null;
-        
+    
         let clientTotals: Record<string, number> = {};
         inventoryReportData.clientHeaders.forEach(client => {
             clientTotals[client] = 0;
         });
-
-        if (inventoryGroupType === 'daily') {
-            const dailyData = inventoryReportData.rows.map(row => {
+    
+        const processData = (data: typeof inventoryReportData.rows) => {
+            return data.map(row => {
                 const rowTotals = { ...row.clientData };
                 inventoryReportData.clientHeaders.forEach(client => {
                     clientTotals[client] += row.clientData[client] || 0;
                 });
                 return { date: row.date, clientData: rowTotals };
             });
+        };
+    
+        if (inventoryGroupType === 'daily') {
+            const dailyData = processData(inventoryReportData.rows);
             return { data: dailyData, totals: clientTotals, grandTotal: Object.values(clientTotals).reduce((a, b) => a + b, 0) };
         }
-
+    
         if (inventoryGroupType === 'monthly') {
             const monthlyData: Record<string, any> = {};
             inventoryReportData.rows.forEach(row => {
@@ -757,39 +761,40 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     });
                 }
                 inventoryReportData.clientHeaders.forEach(client => {
-                    monthlyData[month].clientData[client] += row.clientData[client] || 0;
+                    // Use max instead of sum for monthly consolidation
+                    monthlyData[month].clientData[client] = Math.max(monthlyData[month].clientData[client], (row.clientData[client] || 0));
                 });
             });
-             inventoryReportData.clientHeaders.forEach(client => {
+    
+            // Recalculate totals based on the max values for each month
+            inventoryReportData.clientHeaders.forEach(client => {
                 clientTotals[client] = Object.values(monthlyData).reduce((sum, month) => sum + month.clientData[client], 0);
             });
+    
             return { data: Object.values(monthlyData), totals: clientTotals, grandTotal: Object.values(clientTotals).reduce((a, b) => a + b, 0) };
         }
-
+    
         if (inventoryGroupType === 'consolidated') {
-            const consolidatedData = { date: 'Total Período', clientData: { ...clientTotals } };
-             inventoryReportData.rows.forEach(row => {
-                inventoryReportData.clientHeaders.forEach(client => {
-                    consolidatedData.clientData[client] += row.clientData[client] || 0;
-                });
-            });
+            const consolidatedData = { date: 'Total Período', clientData: { ...clientTotals } }; // Start with fresh totals
             inventoryReportData.clientHeaders.forEach(client => {
-                clientTotals[client] = consolidatedData.clientData[client];
+                const sumForClient = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client] || 0), 0);
+                consolidatedData.clientData[client] = sumForClient;
             });
+             clientTotals = { ...consolidatedData.clientData };
             return { data: [consolidatedData], totals: clientTotals, grandTotal: Object.values(clientTotals).reduce((a, b) => a + b, 0) };
         }
-
+    
         return null;
-
+    
     }, [inventoryReportData, inventoryGroupType]);
     
     const handleInventoryExportExcel = async () => {
-        if (!processedInventoryData) return;
-
+        if (!processedInventoryData || !inventoryReportData) return;
+    
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Reporte Inventario');
-
-        const { clientHeaders } = inventoryReportData!;
+    
+        const { clientHeaders } = inventoryReportData;
         const { data, totals, grandTotal } = processedInventoryData;
     
         const sessionMap: { [key: string]: string } = { 'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas' };
@@ -801,6 +806,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         const headerRow = worksheet.addRow(['Fecha', ...clientHeaders, 'Total Día']);
         headerRow.font = { bold: true };
+        headerRow.eachCell((cell) => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
+            cell.font = { color: { argb: 'FFFFFFFF' } };
+            cell.alignment = { horizontal: 'center' };
+        });
         
         data.forEach(row => {
             const rowData: (string | number)[] = [
@@ -817,8 +827,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             rowData.push(rowTotal);
             worksheet.addRow(rowData);
         });
-
-        // Add Totals Row
+    
         const totalRowData = ['TOTALES'];
         clientHeaders.forEach(client => {
             totalRowData.push(totals[client]);
@@ -829,7 +838,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         totalRow.eachCell(cell => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         });
-
+    
+        worksheet.columns.forEach((column, i) => {
+            if (i > 0) { // All columns except date
+                column.numFmt = '#,##0';
+            }
+            column.width = 20;
+        });
+        worksheet.getColumn(1).width = 25;
+    
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
@@ -840,30 +857,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleInventoryExportPDF = () => {
-        if (!processedInventoryData || !logoBase64 || !logoDimensions) return;
+        if (!processedInventoryData || !inventoryReportData || !logoBase64 || !logoDimensions) return;
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
-
-        // --- HEADER ---
+    
         const logoWidth = 70;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
         const logoX = (pageWidth - logoWidth) / 2;
         const headerY = 15;
         doc.addImage(logoBase64, 'PNG', logoX, headerY, logoWidth, logoHeight);
-
+    
         const titleY = headerY + logoHeight + 8;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, titleY, { align: 'center' });
-
+    
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
         doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
-
-        // --- SUB-HEADER ---
+    
         const contentStartY = titleY + 22;
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
@@ -885,12 +900,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         const sessionY = contentStartY + clientTextBlockHeight;
         doc.text(sessionText, margin, sessionY);
-
+    
         const tableStartY = sessionY + lineHeight + 4;
     
-        const { clientHeaders } = inventoryReportData!;
+        const { clientHeaders } = inventoryReportData;
         const { data, totals, grandTotal } = processedInventoryData;
-
+    
         const head = [['Fecha', ...clientHeaders, 'Total Día']];
         const body = data.map(row => {
             const rowData: (string | number)[] = [
@@ -911,7 +926,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const foot = [
             ['TOTALES', ...clientHeaders.map(client => totals[client] || 0), grandTotal]
         ];
-
+    
         autoTable(doc, {
             startY: tableStartY,
             head: head,
@@ -2054,10 +2069,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             styles: { fontSize: 7, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
-           // didDrawPage: (data) => {
-           //   addHeader(doc, "Detalle Liquidación de Servicios Clientes");
-           //   data.cursor!.y = lastY; // Reset cursor to after header on new page
-           //}
         });
 
     
@@ -3437,4 +3448,3 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-
