@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -9,7 +8,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
-import { format, addDays, differenceInDays, subDays, parseISO, isEqual } from 'date-fns';
+import { format, addDays, differenceInDays, subDays, parseISO, isEqual, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -47,6 +46,8 @@ import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
 
 const ResultsSkeleton = () => (
   <>
@@ -161,7 +162,8 @@ const formatObservaciones = (observaciones: any): string => {
     }).join(', ');
 };
 
-const MAX_DATE_RANGE_DAYS = 62;
+const MAX_DATE_RANGE_DAYS = 365;
+type InventoryGroupType = 'daily' | 'monthly' | 'consolidated';
 
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
@@ -169,7 +171,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const uploadFormRef = useRef<HTMLFormElement>(null);
     const today = new Date();
     const tomorrow = addDays(today, 1);
-    const sixtyTwoDaysAgo = subDays(today, 62);
+    const oneYearAgo = subDays(today, 365);
     
     
     // State for detailed operation report
@@ -202,6 +204,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [inventoryClientSearch, setInventoryClientSearch] = useState('');
     const [availableInventoryClients, setAvailableInventoryClients] = useState<string[]>([]);
     const [isLoadingInventoryClients, setIsLoadingInventoryClients] = useState(false);
+    const [inventoryGroupType, setInventoryGroupType] = useState<InventoryGroupType>('daily');
+
 
     // State for consolidated report
     const [consolidatedReportData, setConsolidatedReportData] = useState<ConsolidatedReportRow[]>([]);
@@ -723,35 +727,107 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
-    const handleInventoryExportExcel = async () => {
-        if (!inventoryReportData || inventoryReportData.rows.length === 0) return;
+    const processedInventoryData = useMemo(() => {
+        if (!inventoryReportData) return null;
         
+        let clientTotals: Record<string, number> = {};
+        inventoryReportData.clientHeaders.forEach(client => {
+            clientTotals[client] = 0;
+        });
+
+        if (inventoryGroupType === 'daily') {
+            const dailyData = inventoryReportData.rows.map(row => {
+                const rowTotals = { ...row.clientData };
+                inventoryReportData.clientHeaders.forEach(client => {
+                    clientTotals[client] += row.clientData[client] || 0;
+                });
+                return { date: row.date, clientData: rowTotals };
+            });
+            return { data: dailyData, totals: clientTotals, grandTotal: Object.values(clientTotals).reduce((a, b) => a + b, 0) };
+        }
+
+        if (inventoryGroupType === 'monthly') {
+            const monthlyData: Record<string, any> = {};
+            inventoryReportData.rows.forEach(row => {
+                const month = format(parseISO(row.date), 'yyyy-MM');
+                if (!monthlyData[month]) {
+                    monthlyData[month] = { date: month, clientData: {} };
+                    inventoryReportData.clientHeaders.forEach(client => {
+                        monthlyData[month].clientData[client] = 0;
+                    });
+                }
+                inventoryReportData.clientHeaders.forEach(client => {
+                    monthlyData[month].clientData[client] += row.clientData[client] || 0;
+                });
+            });
+             inventoryReportData.clientHeaders.forEach(client => {
+                clientTotals[client] = Object.values(monthlyData).reduce((sum, month) => sum + month.clientData[client], 0);
+            });
+            return { data: Object.values(monthlyData), totals: clientTotals, grandTotal: Object.values(clientTotals).reduce((a, b) => a + b, 0) };
+        }
+
+        if (inventoryGroupType === 'consolidated') {
+            const consolidatedData = { date: 'Total Período', clientData: { ...clientTotals } };
+             inventoryReportData.rows.forEach(row => {
+                inventoryReportData.clientHeaders.forEach(client => {
+                    consolidatedData.clientData[client] += row.clientData[client] || 0;
+                });
+            });
+            inventoryReportData.clientHeaders.forEach(client => {
+                clientTotals[client] = consolidatedData.clientData[client];
+            });
+            return { data: [consolidatedData], totals: clientTotals, grandTotal: Object.values(clientTotals).reduce((a, b) => a + b, 0) };
+        }
+
+        return null;
+
+    }, [inventoryReportData, inventoryGroupType]);
+    
+    const handleInventoryExportExcel = async () => {
+        if (!processedInventoryData) return;
+
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Reporte Inventario');
 
-        const { clientHeaders, rows } = inventoryReportData;
+        const { clientHeaders } = inventoryReportData!;
+        const { data, totals, grandTotal } = processedInventoryData;
     
-        const sessionMap: { [key: string]: string } = {
-            'CO': 'Congelados',
-            'RE': 'Refrigerado',
-            'SE': 'Seco',
-            'TODAS': 'Todas'
-        };
+        const sessionMap: { [key: string]: string } = { 'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas' };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
     
         worksheet.addRow([sessionText]);
         worksheet.mergeCells('A1:B1');
-        worksheet.addRow([]); // Empty row
+        worksheet.addRow([]);
         
-        const headerRow = worksheet.addRow(['Fecha', ...clientHeaders]);
+        const headerRow = worksheet.addRow(['Fecha', ...clientHeaders, 'Total Día']);
         headerRow.font = { bold: true };
         
-        rows.forEach(row => {
-            const rowData: (string | number)[] = [format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')];
+        data.forEach(row => {
+            const rowData: (string | number)[] = [
+                inventoryGroupType === 'monthly' ? format(parseISO(row.date), 'MMMM yyyy', {locale: es}) : 
+                inventoryGroupType === 'consolidated' ? row.date :
+                format(parseISO(row.date), 'dd/MM/yyyy')
+            ];
+            let rowTotal = 0;
             clientHeaders.forEach(client => {
-                rowData.push(row.clientData[client] || 0);
+                const val = row.clientData[client] || 0;
+                rowData.push(val);
+                rowTotal += val;
             });
+            rowData.push(rowTotal);
             worksheet.addRow(rowData);
+        });
+
+        // Add Totals Row
+        const totalRowData = ['TOTALES'];
+        clientHeaders.forEach(client => {
+            totalRowData.push(totals[client]);
+        });
+        totalRowData.push(grandTotal);
+        const totalRow = worksheet.addRow(totalRowData);
+        totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        totalRow.eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         });
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -764,7 +840,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleInventoryExportPDF = () => {
-        if (!inventoryReportData || inventoryReportData.rows.length === 0 || !logoBase64 || !logoDimensions) return;
+        if (!processedInventoryData || !logoBase64 || !logoDimensions) return;
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -781,7 +857,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const titleY = headerY + logoHeight + 8;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Inventario Acumulado por Día`, pageWidth / 2, titleY, { align: 'center' });
+        doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, titleY, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
@@ -789,17 +865,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         // --- SUB-HEADER ---
         const contentStartY = titleY + 22;
-        const currentFontSize = 10;
-        doc.setFontSize(currentFontSize);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
         const clientText = `Cliente(s): ${inventoryClients.join(', ')}`;
         const periodText = (inventoryDateRange?.from && inventoryDateRange?.to) 
             ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
             : '';
-        const sessionMap: { [key: string]: string } = {
-            'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas'
-        };
+        const sessionMap: { [key: string]: string } = { 'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas' };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
         
         doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
@@ -815,23 +888,38 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const tableStartY = sessionY + lineHeight + 4;
     
-        const { clientHeaders, rows } = inventoryReportData;
-        const head = [['Fecha', ...clientHeaders]];
-        const body = rows.map(row => {
-            const rowData: (string | number)[] = [format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')];
+        const { clientHeaders } = inventoryReportData!;
+        const { data, totals, grandTotal } = processedInventoryData;
+
+        const head = [['Fecha', ...clientHeaders, 'Total Día']];
+        const body = data.map(row => {
+            const rowData: (string | number)[] = [
+                inventoryGroupType === 'monthly' ? format(parseISO(row.date), 'MMMM yyyy', {locale: es}) :
+                inventoryGroupType === 'consolidated' ? row.date :
+                format(parseISO(row.date), 'dd/MM/yyyy')
+            ];
+            let rowTotal = 0;
             clientHeaders.forEach(client => {
-                rowData.push(row.clientData[client] ?? 0);
+                const val = row.clientData[client] ?? 0;
+                rowData.push(val);
+                rowTotal += val;
             });
+            rowData.push(rowTotal);
             return rowData;
         });
+        
+        const foot = [
+            ['TOTALES', ...clientHeaders.map(client => totals[client] || 0), grandTotal]
+        ];
 
         autoTable(doc, {
             startY: tableStartY,
             head: head,
             body: body,
+            foot: foot,
             theme: 'grid',
             styles: {
-                fontSize: 9,
+                fontSize: 8,
                 cellPadding: 2,
                 overflow: 'linebreak',
             },
@@ -839,11 +927,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 fillColor: [33, 150, 243],
                 textColor: 255,
                 fontStyle: 'bold',
-                fontSize: 9,
                 halign: 'center',
-                cellPadding: 2,
             },
-            tableWidth: 'auto', 
+            footStyles: {
+                fillColor: [33, 150, 243],
+                textColor: 255,
+                fontStyle: 'bold',
+            },
+            tableWidth: 'auto',
+            didParseCell: function (data) {
+                if (data.row.section === 'foot') {
+                    data.cell.styles.halign = 'right';
+                }
+                 if (data.column.index > 0 && (data.row.section === 'body' || data.row.section === 'foot')) {
+                    data.cell.styles.halign = 'right';
+                }
+            }
         });
     
         const fileName = `Reporte_Inventario_Acumulado_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
@@ -1914,6 +2013,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
                     if (dateComparison !== 0) return dateComparison;
 
+                    // Custom sort logic for TIEMPO EXTRA ZFPC
                     if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
                         const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
                         const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
@@ -2150,7 +2250,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             } else {
                                                                 setDetailedReportDateRange(range);
                                                             }
-                                                        }} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
+                                                        }} numberOfMonths={2} locale={es} disabled={{ after: today, before: oneYearAgo }} />
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
@@ -2395,7 +2495,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             selected={dateRangeToDelete}
                                                             onSelect={setDateRangeToDelete}
                                                             locale={es}
-                                                            disabled={{ after: today, before: sixtyTwoDaysAgo }}
+                                                            disabled={{ after: today, before: oneYearAgo }}
                                                         />
                                                     </div>
                                                     <DialogFooter>
@@ -2418,10 +2518,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 </div>
 
                                 <div>
-                                    <Label className="font-semibold text-base">Consultar inventario Acumulado por Día</Label>
+                                    <Label className="font-semibold text-base">Consultar inventario Acumulado (Informe de ocupación)</Label>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-2">
                                         <div className="space-y-2">
-                                            <Label>Rango de Fechas (Máx. 62 días)</Label>
+                                            <Label>Rango de Fechas (Máx. 1 año)</Label>
                                             <Popover>
                                                 <PopoverTrigger asChild>
                                                     <Button
@@ -2453,7 +2553,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         defaultMonth={inventoryDateRange?.from}
                                                         numberOfMonths={2}
                                                         locale={es}
-                                                        disabled={{ after: today, before: sixtyTwoDaysAgo }}
+                                                        disabled={{ after: today, before: oneYearAgo }}
                                                     />
                                                 </PopoverContent>
                                             </Popover>
@@ -2584,18 +2684,36 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 {inventorySearched && (
                                     <div className="mt-6">
                                         <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
-                                            <h3 className="text-lg font-semibold">Resultados del Inventario</h3>
+                                            <div>
+                                              <h3 className="text-lg font-semibold">Resultados del Inventario</h3>
+                                              <div className="mt-2">
+                                                <RadioGroup value={inventoryGroupType} onValueChange={(value) => setInventoryGroupType(value as InventoryGroupType)} className="flex items-center space-x-4">
+                                                  <div className="flex items-center space-x-2">
+                                                    <RadioGroupItem value="daily" id="daily" />
+                                                    <Label htmlFor="daily">Diario</Label>
+                                                  </div>
+                                                  <div className="flex items-center space-x-2">
+                                                    <RadioGroupItem value="monthly" id="monthly" />
+                                                    <Label htmlFor="monthly">Mensual</Label>
+                                                  </div>
+                                                  <div className="flex items-center space-x-2">
+                                                    <RadioGroupItem value="consolidated" id="consolidated" />
+                                                    <Label htmlFor="consolidated">Consolidado</Label>
+                                                  </div>
+                                                </RadioGroup>
+                                              </div>
+                                            </div>
                                             <div className="flex gap-2">
                                                 <Button 
                                                     onClick={handleInventoryExportExcel} 
-                                                    disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0} 
+                                                    disabled={isQuerying || !processedInventoryData || processedInventoryData.data.length === 0} 
                                                     variant="outline"
                                                 >
                                                     <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                                 </Button>
                                                 <Button 
                                                     onClick={handleInventoryExportPDF} 
-                                                    disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0 || isLogoLoading} 
+                                                    disabled={isQuerying || !processedInventoryData || processedInventoryData.data.length === 0 || isLogoLoading} 
                                                     variant="outline"
                                                 >
                                                     {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
@@ -2611,23 +2729,44 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         {inventoryReportData?.clientHeaders.map(client => (
                                                             <TableHead key={client} className="text-right px-2 py-2 font-medium text-xs">{client}</TableHead>
                                                         ))}
+                                                        <TableHead className="sticky right-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-right font-bold text-primary text-xs">Total Día</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
                                                     {isQuerying ? (
-                                                        <TableRow><TableCell colSpan={(inventoryReportData?.clientHeaders.length || 1) + 1}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
-                                                    ) : inventoryReportData && inventoryReportData.rows.length > 0 ? (
-                                                        inventoryReportData.rows.map((row) => (
+                                                        <TableRow><TableCell colSpan={(inventoryReportData?.clientHeaders.length || 0) + 2}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                    ) : processedInventoryData && processedInventoryData.data.length > 0 ? (
+                                                      <>
+                                                        {processedInventoryData.data.map((row) => {
+                                                            let rowTotal = 0;
+                                                            return (
                                                             <TableRow key={row.date}>
-                                                                <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-xs">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
-                                                                {inventoryReportData.clientHeaders.map(client => (
-                                                                    <TableCell key={client} className="text-right font-mono px-2 py-2 text-xs">{row.clientData[client] ?? 0}</TableCell>
-                                                                ))}
+                                                                <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-xs capitalize">
+                                                                    {inventoryGroupType === 'monthly' ? format(parseISO(row.date), 'MMMM yyyy', {locale: es}) :
+                                                                    inventoryGroupType === 'consolidated' ? row.date :
+                                                                    format(parseISO(row.date), 'dd/MM/yyyy')}
+                                                                </TableCell>
+                                                                {inventoryReportData?.clientHeaders.map(client => {
+                                                                    const val = row.clientData[client] ?? 0;
+                                                                    rowTotal += val;
+                                                                    return (
+                                                                        <TableCell key={client} className="text-right font-mono px-2 py-2 text-xs">{val}</TableCell>
+                                                                    );
+                                                                })}
+                                                                <TableCell className="sticky right-0 z-10 bg-background/95 backdrop-blur-sm text-right font-bold text-primary text-xs">{rowTotal}</TableCell>
                                                             </TableRow>
-                                                        ))
+                                                        )})}
+                                                         <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
+                                                            <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
+                                                            {inventoryReportData?.clientHeaders.map(client => (
+                                                                <TableCell key={`total-${client}`} className="text-right font-mono text-xs">{processedInventoryData.totals[client]}</TableCell>
+                                                            ))}
+                                                            <TableCell className="sticky right-0 z-10 bg-primary/90 text-right font-mono text-xs">{processedInventoryData.grandTotal}</TableCell>
+                                                        </TableRow>
+                                                      </>
                                                     ) : (
                                                         <TableRow>
-                                                            <TableCell colSpan={(inventoryReportData?.clientHeaders.length || 1) + 1} className="py-10 text-center text-muted-foreground">
+                                                            <TableCell colSpan={(inventoryReportData?.clientHeaders.length || 0) + 2} className="py-10 text-center text-muted-foreground">
                                                                 No se encontraron registros de inventario para su selección.
                                                             </TableCell>
                                                         </TableRow>
@@ -2711,7 +2850,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         </Button>
                                                     </PopoverTrigger>
                                                     <PopoverContent className="w-auto p-0" align="start">
-                                                        <Calendar initialFocus mode="range" defaultMonth={exportDateRange?.from} selected={exportDateRange} onSelect={setExportDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
+                                                        <Calendar initialFocus mode="range" defaultMonth={exportDateRange?.from} selected={exportDateRange} onSelect={setExportDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: oneYearAgo }} />
                                                     </PopoverContent>
                                                 </Popover>
                                             </div>
@@ -2774,7 +2913,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             } else {
                                                                 setConsolidatedDateRange(range);
                                                             }
-                                                        }} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
+                                                        }} numberOfMonths={2} locale={es} disabled={{ after: today, before: oneYearAgo }} />
                                             </PopoverContent>
                                         </Popover>
                                     </div>
@@ -2915,7 +3054,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     } else {
                                                         setSettlementDateRange(range);
                                                     }
-                                                }} numberOfMonths={2} locale={es} disabled={{ after: tomorrow, before: sixtyTwoDaysAgo }} /></PopoverContent>
+                                                }} numberOfMonths={2} locale={es} disabled={{ after: tomorrow, before: oneYearAgo }} /></PopoverContent>
                                             </Popover>
                                         </div>
                                         <div className="space-y-2">
@@ -3298,3 +3437,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
