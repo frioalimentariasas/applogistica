@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -896,8 +897,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.text(clientTextLines, margin, contentStartY);
         
         const lineHeight = doc.getLineHeight() / doc.getFont().scaleFactor;
-        const clientTextBlockHeight = clientTextLines.length * lineHeight;
-        
+        const clientTextBlockHeight = clientTextLines.length > 0 ? clientTextLines.length * lineHeight : 0;
+
         const sessionY = contentStartY + clientTextBlockHeight;
         doc.text(sessionText, margin, sessionY);
     
@@ -2199,7 +2200,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const isConceptSelectorDisabled = useMemo(() => {
         return showSmylLotInput && settlementLotIds.trim() !== '';
     }, [showSmylLotInput, settlementLotIds]);
-
+    
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-screen-2xl mx-auto">
@@ -2231,7 +2232,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 <Tabs defaultValue="detailed-operation" className="w-full">
                     <TabsList className="grid w-full grid-cols-4 mb-6">
                         <TabsTrigger value="detailed-operation">Operaciones Detalladas</TabsTrigger>
-                        <TabsTrigger value="inventory">Inventario Acumulado</TabsTrigger>
+                        <TabsTrigger value="inventory">Inventario Acumulado/Informe Ocupación</TabsTrigger>
                         <TabsTrigger value="consolidated-report">Consolidado Movimientos/Inventario</TabsTrigger>
                         <TabsTrigger value="client-settlement">Liquidación de Servicios Clientes</TabsTrigger>
                     </TabsList>
@@ -2532,7 +2533,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <Label className="font-semibold text-base">Consultar inventario Acumulado (Informe de ocupación)</Label>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-2">
                                         <div className="space-y-2">
-                                            <Label>Rango de Fechas (Máx. 1 año)</Label>
+                                            <Label>Rango de Fechas (Máx. 365 días)</Label>
                                             <Popover>
                                                 <PopoverTrigger asChild>
                                                     <Button
