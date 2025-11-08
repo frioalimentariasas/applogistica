@@ -41,7 +41,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench, Edit, FileCog, Briefcase, HardHat } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench, Edit, FileCog, Briefcase, HardHat, TruckIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -89,6 +89,8 @@ const permissionGroups: {
       { key: 'canChangeFormType', label: 'Cambiar Tipo de Operación' },
       { key: 'canDeleteForms', label: 'Eliminar Formatos' },
       { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
+      { key: 'canViewPalletTraceability', label: 'Trazabilidad de Paletas' },
+      { key: 'canViewContainerTraceability', label: 'Trazabilidad de Contenedor' },
     ],
   },
   {

@@ -255,21 +255,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                         </tr>
                     </tbody>
                 </table>
-            </ReportSection>
-
-            <ReportSection title="Información del Vehículo">
-                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <tbody>
-                         <tr>
-                            <td style={fieldCellStyle}><ReportField label="Cond. Higiene" value={formData.condicionesHigiene} /></td>
-                            <td style={fieldCellStyle}><ReportField label="Termoregistrador" value={formData.termoregistrador} /></td>
-                            <td style={fieldCellStyle}><ReportField label="Cliente Requiere Termoregistro" value={formData.clienteRequiereTermoregistro} /></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </ReportSection>
-            //FIN REPORT SESION INFORMACIÓN DE VEHICULO
-            
+            </ReportSection>         
             <ReportSection title="Detalle de la Recepción" noPadding>
                 <div style={{overflowX: 'auto'}}>
                     {formData.recepcionPorPlaca || isTunelCongelacion || isTunelACamara ? (
