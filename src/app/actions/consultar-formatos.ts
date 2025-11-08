@@ -168,13 +168,15 @@ export async function getSubmissionById(id: string): Promise<SubmissionResult | 
 
         const data = doc.data();
         if (!data) return null;
-
+        
+        // This ensures ALL fields from formData are included, resolving the issue.
         const serializedData = serializeTimestamps(data);
 
         return {
             id: doc.id,
             ...serializedData,
         } as SubmissionResult;
+        
     } catch (error) {
         console.error(`Error fetching submission with ID ${id}:`, error);
         return null;

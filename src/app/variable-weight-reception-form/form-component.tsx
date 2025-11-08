@@ -80,8 +80,8 @@ const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
     paleta: z.coerce.number().int().min(0).nullable().optional(),
     descripcion: z.string().min(1, "La descripción es requerida."),
-    lote: z.string().regex(/^[A-Z]{4}[0-9]{4}$/, "Formato de lote inválido. Deben ser 4 letras y 4 números (ej: ABCD1234).").optional(),
-    //lote: z.string().max(15).optional(),
+   // lote: z.string().regex(/^[A-Z]{4}[0-9]{4}$/, "Formato de lote inválido. Deben ser 4 letras y 4 números (ej: ABCD1234).").optional(),
+    lote: z.string().max(15).optional(),
     presentacion: z.string().optional(),
     cantidadPorPaleta: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().int().min(0).nullable().optional()),
     pesoBruto: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(0).nullable().optional()),
@@ -177,6 +177,9 @@ const formSchema = z.object({
     salidaPaletasMaquilaRE: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
     salidaPaletasMaquilaSE: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
     numeroOperariosCuadrilla: z.coerce.number().min(0.1, "Debe ser mayor a 0.").optional(),
+    condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
+    termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
+    clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
       const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || data.tipoPedido === 'MAQUILA' || data.tipoPedido === 'TUNEL DE CONGELACIÓN';
@@ -432,6 +435,9 @@ const originalDefaultValues: FormValues = {
   salidaPaletasMaquilaSE: 0,
   numeroOperariosCuadrilla: undefined,
   unidadDeMedidaPrincipal: "PALETA",
+  condicionesHigiene: undefined,
+  termoregistrador: undefined,
+  clienteRequiereTermoregistro: undefined,
 };
 
 
@@ -1885,7 +1891,23 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                           </CardContent>
                       </Card>
                   )}
-                
+
+        <Card>
+        <CardHeader><CardTitle>Información del Vehículo</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
+
+		<FormField control={form.control} name="condicionesHigiene" render={({ field }) => (
+                          <FormItem className="space-y-3"><FormLabel>Condiciones de Higiene <span className="text-destructive">*</span></FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="limpio" id="limpio" /><Label htmlFor="limpio">Limpio</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="sucio" id="sucio" /><Label htmlFor="sucio">Sucio</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                      )}/>
+                      <FormField control={form.control} name="termoregistrador" render={({ field }) => (
+                          <FormItem className="space-y-3"><FormLabel>Termoregistrador <span className="text-destructive">*</span></FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="termo-si" /><Label htmlFor="termo-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="termo-no" /><Label htmlFor="termo-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                      )}/>
+                      <FormField control={form.control} name="clienteRequiereTermoregistro" render={({ field }) => (
+                          <FormItem className="space-y-3"><FormLabel>Cliente Requiere Termoregistro <span className="text-destructive">*</span></FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="req-termo-si" /><Label htmlFor="req-termo-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="req-termo-no" /><Label htmlFor="req-termo-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                      )}/>
+		 </CardContent>
+         </Card> 
+
                   <Card>
                     <CardHeader><CardTitle>Tiempo y Observaciones de la Operación</CardTitle></CardHeader>
                     <CardContent className="space-y-6">
