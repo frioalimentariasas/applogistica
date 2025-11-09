@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -864,9 +863,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
     
-        const logoWidth = 70;
+        const originalLogoWidth = 70;
+        const logoWidth = originalLogoWidth * 0.3; // 70% smaller
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
+        
         const logoX = (pageWidth - logoWidth) / 2;
         const headerY = 15;
         doc.addImage(logoBase64, 'PNG', logoX, headerY, logoWidth, logoHeight);
@@ -880,11 +881,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.setFont('helvetica', 'bold');
         doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
     
-        const contentStartY = titleY + 22;
+        const contentStartY = titleY + 16;
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
-        const clientText = `Cliente(s): ${inventoryClients.join(', ')}`;
         const periodText = (inventoryDateRange?.from && inventoryDateRange?.to) 
             ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
             : '';
@@ -892,17 +892,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
         
         doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
-        
-        const clientTextLines = doc.splitTextToSize(clientText, pageWidth * 0.6);
-        doc.text(clientTextLines, margin, contentStartY);
-        
-        const lineHeight = Number(doc.getLineHeight() / doc.getFontSize()) || 10;
-        const clientTextBlockHeight = clientTextLines.length > 0 ? clientTextLines.length * lineHeight : 0;
-
-        const sessionY = contentStartY + clientTextBlockHeight;
-        doc.text(sessionText, margin, sessionY);
+        doc.text(sessionText, margin, contentStartY);
     
-        const tableStartY = sessionY + lineHeight + 4;
+        const tableStartY = contentStartY + 10;
     
         const { clientHeaders } = inventoryReportData;
         const { data, totals, grandTotal } = processedInventoryData;
@@ -1986,7 +1978,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -2006,13 +1998,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const containerGroups = group.rows.reduce((acc, row) => {
                     const containerKey = row.container || 'SIN_CONTENEDOR';
                     if (!acc[containerKey]) acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
-                    acc[containerKey].rows.push(row);
+                    acc[containerKey].push(row);
                     acc[containerKey].subtotalCantidad += row.quantity;
                     acc[containerKey].subtotalValor += row.totalValue;
                     return acc;
-                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
+                }, {} as Record<string, ClientSettlementRow[]>);
 
-                Object.entries(containerGroups).forEach(([containerKey, containerData]) => {
+                Object.entries(containerGroups).forEach(([containerKey, rows]) => {
                      detailBody.push([{ content: `Contenedor: ${containerKey}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
                      containerData.rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
                         detailBody.push(generateDetailRow(row));
