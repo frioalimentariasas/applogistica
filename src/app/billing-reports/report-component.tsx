@@ -8,7 +8,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
-import { format, addDays, differenceInDays, subDays, parseISO, isEqual, startOfMonth, endOfMonth, eachMonthOfInterval, getYear, startOfYear, endOfYear } from 'date-fns';
+import { format, addDays, differenceInDays, subDays, parseISO, isEqual, startOfMonth, endOfMonth, eachMonthOfInterval, getYear, startOfYear, endOfYear, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -852,7 +852,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 worksheet.addRow(rowData);
             });
         
-            const totals = pivotedInventoryData.type === 'daily' ? inventoryTotals.daily : inventoryTotals.consolidated;
+            const totals = inventoryTotals[pivotedInventoryData.type];
             const totalRowData = ['TOTALES', ...totals.columnTotals];
             const totalRow = worksheet.addRow(totalRowData);
             totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -914,7 +914,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
     
-        const logoWidth = 21;
+        const logoWidth = 21; // 70% smaller
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
         
@@ -941,16 +941,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const sessionMap: { [key: string]: string } = { 'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas' };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
         
-        const lineHeight = doc.getTextDimensions(periodText).h;
+        const lineHeight = doc.getTextDimensions('A').h;
+        const clientTextBlockHeight = 0; // Removed client text
         doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
-        const sessionY = contentStartY + lineHeight - 5;
+        const sessionY = contentStartY;
         doc.text(sessionText, margin, sessionY);
     
-        let tableStartY = sessionY + 4;
+        let tableStartY = sessionY + lineHeight + 4;
         
         if (pivotedInventoryData.type === 'daily' || pivotedInventoryData.type === 'consolidated') {
             const { headers, clientRows } = pivotedInventoryData;
-            const totals = pivotedInventoryData.type === 'daily' ? inventoryTotals.daily : inventoryTotals.consolidated;
+            const totals = inventoryTotals[pivotedInventoryData.type];
             const head = [['Cliente', ...headers]];
             const body = clientRows.map(row => [
                 row.clientName, 
@@ -3580,6 +3581,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
 
 
 
