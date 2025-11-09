@@ -896,7 +896,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const clientTextLines = doc.splitTextToSize(clientText, pageWidth * 0.6);
         doc.text(clientTextLines, margin, contentStartY);
         
-        const lineHeight = doc.getLineHeight() / doc.getFont().scaleFactor;
+        const lineHeight = Number(doc.getLineHeight() / doc.getFontSize()) || 10;
         const clientTextBlockHeight = clientTextLines.length > 0 ? clientTextLines.length * lineHeight : 0;
 
         const sessionY = contentStartY + clientTextBlockHeight;
@@ -3449,3 +3449,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
+    
