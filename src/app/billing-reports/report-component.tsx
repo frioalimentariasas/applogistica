@@ -8,7 +8,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
-import { format, addDays, differenceInDays, subDays, parseISO, isEqual, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
+import { format, addDays, differenceInDays, subDays, parseISO, isEqual, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -727,75 +727,41 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
-    const processedInventoryData = useMemo(() => {
-        if (!inventoryReportData) return null;
+    const pivotedInventoryData = useMemo(() => {
+        if (!inventoryReportData || inventoryReportData.rows.length === 0) return null;
     
-        let clientTotals: Record<string, number> = {};
-        inventoryReportData.clientHeaders.forEach(client => {
-            clientTotals[client] = 0;
+        const dateHeaders = inventoryDateRange?.from && inventoryDateRange?.to
+            ? eachDayOfInterval({ start: inventoryDateRange.from, end: inventoryDateRange.to }).map(d => format(d, 'yyyy-MM-dd'))
+            : [];
+            
+        const clientRows = inventoryReportData.clientHeaders.map(client => {
+            const dateData: Record<string, number> = {};
+            dateHeaders.forEach(date => {
+                const rowForDate = inventoryReportData.rows.find(r => r.date === date);
+                dateData[date] = rowForDate?.clientData[client] || 0;
+            });
+            const clientTotal = Object.values(dateData).reduce((sum, val) => sum + val, 0);
+            return { clientName: client, dateData, clientTotal };
         });
     
-        const processData = (data: typeof inventoryReportData.rows) => {
-            return data.map(row => {
-                const rowTotals = { ...row.clientData };
-                inventoryReportData.clientHeaders.forEach(client => {
-                    clientTotals[client] += row.clientData[client] || 0;
-                });
-                return { date: row.date, clientData: rowTotals };
-            });
-        };
+        const dateTotals: Record<string, number> = {};
+        dateHeaders.forEach(date => {
+            dateTotals[date] = clientRows.reduce((sum, clientRow) => sum + (clientRow.dateData[date] || 0), 0);
+        });
+        
+        const grandTotal = Object.values(dateTotals).reduce((sum, val) => sum + val, 0);
     
-        if (inventoryGroupType === 'daily') {
-            const dailyData = processData(inventoryReportData.rows);
-            return { data: dailyData, totals: clientTotals, grandTotal: Object.values(clientTotals).reduce((a, b) => a + b, 0) };
-        }
+        return { dateHeaders, clientRows, dateTotals, grandTotal };
+    }, [inventoryReportData, inventoryDateRange]);
     
-        if (inventoryGroupType === 'monthly') {
-            const monthlyData: Record<string, any> = {};
-            inventoryReportData.rows.forEach(row => {
-                const month = format(parseISO(row.date), 'yyyy-MM');
-                if (!monthlyData[month]) {
-                    monthlyData[month] = { date: month, clientData: {} };
-                    inventoryReportData.clientHeaders.forEach(client => {
-                        monthlyData[month].clientData[client] = 0;
-                    });
-                }
-                inventoryReportData.clientHeaders.forEach(client => {
-                    // Use max instead of sum for monthly consolidation
-                    monthlyData[month].clientData[client] = Math.max(monthlyData[month].clientData[client], (row.clientData[client] || 0));
-                });
-            });
-    
-            // Recalculate totals based on the max values for each month
-            inventoryReportData.clientHeaders.forEach(client => {
-                clientTotals[client] = Object.values(monthlyData).reduce((sum, month) => sum + month.clientData[client], 0);
-            });
-    
-            return { data: Object.values(monthlyData), totals: clientTotals, grandTotal: Object.values(clientTotals).reduce((a, b) => a + b, 0) };
-        }
-    
-        if (inventoryGroupType === 'consolidated') {
-            const consolidatedData = { date: 'Total Período', clientData: { ...clientTotals } }; // Start with fresh totals
-            inventoryReportData.clientHeaders.forEach(client => {
-                const sumForClient = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client] || 0), 0);
-                consolidatedData.clientData[client] = sumForClient;
-            });
-             clientTotals = { ...consolidatedData.clientData };
-            return { data: [consolidatedData], totals: clientTotals, grandTotal: Object.values(clientTotals).reduce((a, b) => a + b, 0) };
-        }
-    
-        return null;
-    
-    }, [inventoryReportData, inventoryGroupType]);
     
     const handleInventoryExportExcel = async () => {
-        if (!processedInventoryData || !inventoryReportData) return;
+        if (!pivotedInventoryData) return;
     
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Reporte Inventario');
     
-        const { clientHeaders } = inventoryReportData;
-        const { data, totals, grandTotal } = processedInventoryData;
+        const { dateHeaders, clientRows, dateTotals, grandTotal } = pivotedInventoryData;
     
         const sessionMap: { [key: string]: string } = { 'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas' };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
@@ -804,7 +770,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         worksheet.mergeCells('A1:B1');
         worksheet.addRow([]);
         
-        const headerRow = worksheet.addRow(['Fecha', ...clientHeaders, 'Total Día']);
+        const headerRow = worksheet.addRow(['Cliente', ...dateHeaders.map(d => format(parseISO(d), 'dd/MM')), 'Total Cliente']);
         headerRow.font = { bold: true };
         headerRow.eachCell((cell) => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
@@ -812,25 +778,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.alignment = { horizontal: 'center' };
         });
         
-        data.forEach(row => {
-            const rowData: (string | number)[] = [
-                inventoryGroupType === 'monthly' ? format(parseISO(row.date), 'MMMM yyyy', {locale: es}) : 
-                inventoryGroupType === 'consolidated' ? row.date :
-                format(parseISO(row.date), 'dd/MM/yyyy')
-            ];
-            let rowTotal = 0;
-            clientHeaders.forEach(client => {
-                const val = row.clientData[client] || 0;
-                rowData.push(val);
-                rowTotal += val;
+        clientRows.forEach(row => {
+            const rowData = [row.clientName];
+            dateHeaders.forEach(date => {
+                rowData.push(row.dateData[date]);
             });
-            rowData.push(rowTotal);
+            rowData.push(row.clientTotal);
             worksheet.addRow(rowData);
         });
     
-        const totalRowData = ['TOTALES'];
-        clientHeaders.forEach(client => {
-            totalRowData.push(totals[client]);
+        const totalRowData = ['TOTAL DÍA'];
+        dateHeaders.forEach(date => {
+            totalRowData.push(dateTotals[date]);
         });
         totalRowData.push(grandTotal);
         const totalRow = worksheet.addRow(totalRowData);
@@ -840,12 +799,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
     
         worksheet.columns.forEach((column, i) => {
-            if (i > 0) { // All columns except date
+            if (i > 0) { // All columns except client name
                 column.numFmt = '#,##0';
+                column.width = 12;
             }
-            column.width = 20;
         });
-        worksheet.getColumn(1).width = 25;
+        worksheet.getColumn(1).width = 35;
     
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -857,14 +816,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleInventoryExportPDF = () => {
-        if (!processedInventoryData || !inventoryReportData || !logoBase64 || !logoDimensions) return;
+        if (!pivotedInventoryData || !logoBase64 || !logoDimensions) return;
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
     
+        const { dateHeaders, clientRows, dateTotals, grandTotal } = pivotedInventoryData;
+    
         const originalLogoWidth = 70;
-        const logoWidth = originalLogoWidth * 0.3; // 70% smaller
+        const logoWidth = originalLogoWidth * 0.3;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
         
@@ -896,28 +857,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const tableStartY = contentStartY + 10;
     
-        const { clientHeaders } = inventoryReportData;
-        const { data, totals, grandTotal } = processedInventoryData;
-    
-        const head = [['Fecha', ...clientHeaders, 'Total Día']];
-        const body = data.map(row => {
-            const rowData: (string | number)[] = [
-                inventoryGroupType === 'monthly' ? format(parseISO(row.date), 'MMMM yyyy', {locale: es}) :
-                inventoryGroupType === 'consolidated' ? row.date :
-                format(parseISO(row.date), 'dd/MM/yyyy')
-            ];
-            let rowTotal = 0;
-            clientHeaders.forEach(client => {
-                const val = row.clientData[client] ?? 0;
-                rowData.push(val);
-                rowTotal += val;
+        const head = [['Cliente', ...dateHeaders.map(d => format(parseISO(d), 'dd/MM')), 'Total']];
+        const body = clientRows.map(row => {
+            const rowData = [row.clientName];
+            dateHeaders.forEach(date => {
+                rowData.push(String(row.dateData[date] || 0));
             });
-            rowData.push(rowTotal);
+            rowData.push(String(row.clientTotal));
             return rowData;
         });
         
         const foot = [
-            ['TOTALES', ...clientHeaders.map(client => totals[client] || 0), grandTotal]
+            ['TOTAL DÍA', ...dateHeaders.map(date => String(dateTotals[date] || 0)), String(grandTotal)]
         ];
     
         autoTable(doc, {
@@ -927,8 +878,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             foot: foot,
             theme: 'grid',
             styles: {
-                fontSize: 8,
-                cellPadding: 2,
+                fontSize: 6,
+                cellPadding: 1,
                 overflow: 'linebreak',
             },
             headStyles: {
@@ -941,14 +892,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 fillColor: [33, 150, 243],
                 textColor: 255,
                 fontStyle: 'bold',
+                halign: 'right',
             },
-            tableWidth: 'auto',
+            columnStyles: {
+                0: { cellWidth: 50, halign: 'left' }
+            },
             didParseCell: function (data) {
-                if (data.row.section === 'foot') {
-                    data.cell.styles.halign = 'right';
-                }
-                 if (data.column.index > 0 && (data.row.section === 'body' || data.row.section === 'foot')) {
-                    data.cell.styles.halign = 'right';
+                if (data.column.index > 0) {
+                   data.cell.styles.halign = 'right';
                 }
             }
         });
@@ -1788,7 +1739,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const addHeader = (docInstance: jsPDF, pageTitle: string) => {
             addInfoBox(docInstance);
-            const logoWidth = 30;
+            const logoWidth = 21;
             const aspectRatio = logoDimensions!.width / logoDimensions!.height;
             const logoHeight = logoWidth / aspectRatio;
             docInstance.addImage(logoBase64!, 'PNG', (pageWidth - logoWidth) / 2, 10, logoWidth, logoHeight);
@@ -1978,7 +1929,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -1997,14 +1948,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
              if (isContainerConcept) {
                 const containerGroups = group.rows.reduce((acc, row) => {
                     const containerKey = row.container || 'SIN_CONTENEDOR';
-                    if (!acc[containerKey]) acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
-                    acc[containerKey].push(row);
+                    if (!acc[containerKey]) {
+                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
+                    }
+                    acc[containerKey].rows.push(row);
                     acc[containerKey].subtotalCantidad += row.quantity;
                     acc[containerKey].subtotalValor += row.totalValue;
                     return acc;
-                }, {} as Record<string, ClientSettlementRow[]>);
+                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
 
-                Object.entries(containerGroups).forEach(([containerKey, rows]) => {
+                Object.entries(containerGroups).forEach(([containerKey, containerData]) => {
                      detailBody.push([{ content: `Contenedor: ${containerKey}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
                      containerData.rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
                         detailBody.push(generateDetailRow(row));
@@ -2690,34 +2643,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
                                             <div>
                                               <h3 className="text-lg font-semibold">Resultados del Inventario</h3>
-                                              <div className="mt-2">
-                                                <RadioGroup value={inventoryGroupType} onValueChange={(value) => setInventoryGroupType(value as InventoryGroupType)} className="flex items-center space-x-4">
-                                                  <div className="flex items-center space-x-2">
-                                                    <RadioGroupItem value="daily" id="daily" />
-                                                    <Label htmlFor="daily">Diario</Label>
-                                                  </div>
-                                                  <div className="flex items-center space-x-2">
-                                                    <RadioGroupItem value="monthly" id="monthly" />
-                                                    <Label htmlFor="monthly">Mensual</Label>
-                                                  </div>
-                                                  <div className="flex items-center space-x-2">
-                                                    <RadioGroupItem value="consolidated" id="consolidated" />
-                                                    <Label htmlFor="consolidated">Consolidado</Label>
-                                                  </div>
-                                                </RadioGroup>
-                                              </div>
                                             </div>
                                             <div className="flex gap-2">
                                                 <Button 
                                                     onClick={handleInventoryExportExcel} 
-                                                    disabled={isQuerying || !processedInventoryData || processedInventoryData.data.length === 0} 
+                                                    disabled={isQuerying || !pivotedInventoryData || pivotedInventoryData.clientRows.length === 0} 
                                                     variant="outline"
                                                 >
                                                     <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                                 </Button>
                                                 <Button 
                                                     onClick={handleInventoryExportPDF} 
-                                                    disabled={isQuerying || !processedInventoryData || processedInventoryData.data.length === 0 || isLogoLoading} 
+                                                    disabled={isQuerying || !pivotedInventoryData || pivotedInventoryData.clientRows.length === 0 || isLogoLoading} 
                                                     variant="outline"
                                                 >
                                                     {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
@@ -2729,48 +2666,48 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-medium text-xs">Fecha</TableHead>
-                                                        {inventoryReportData?.clientHeaders.map(client => (
-                                                            <TableHead key={client} className="text-right px-2 py-2 font-medium text-xs">{client}</TableHead>
+                                                        <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-medium text-xs min-w-[200px]">Cliente</TableHead>
+                                                        {pivotedInventoryData?.dateHeaders.map(date => (
+                                                            <TableHead key={date} className="text-right px-2 py-2 font-medium text-xs min-w-[80px]">
+                                                                {format(parseISO(date), 'dd/MM')}
+                                                            </TableHead>
                                                         ))}
-                                                        <TableHead className="sticky right-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-right font-bold text-primary text-xs">Total Día</TableHead>
+                                                        <TableHead className="sticky right-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-right font-bold text-primary text-xs min-w-[100px]">Total Cliente</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
                                                     {isQuerying ? (
-                                                        <TableRow><TableCell colSpan={(inventoryReportData?.clientHeaders.length || 0) + 2}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
-                                                    ) : processedInventoryData && processedInventoryData.data.length > 0 ? (
+                                                        <TableRow><TableCell colSpan={(pivotedInventoryData?.dateHeaders.length || 0) + 2}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                    ) : pivotedInventoryData && pivotedInventoryData.clientRows.length > 0 ? (
                                                       <>
-                                                        {processedInventoryData.data.map((row) => {
-                                                            let rowTotal = 0;
-                                                            return (
-                                                            <TableRow key={row.date}>
-                                                                <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-xs capitalize">
-                                                                    {inventoryGroupType === 'monthly' ? format(parseISO(row.date), 'MMMM yyyy', {locale: es}) :
-                                                                    inventoryGroupType === 'consolidated' ? row.date :
-                                                                    format(parseISO(row.date), 'dd/MM/yyyy')}
+                                                        {pivotedInventoryData.clientRows.map((row) => (
+                                                            <TableRow key={row.clientName}>
+                                                                <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-xs">
+                                                                    {row.clientName}
                                                                 </TableCell>
-                                                                {inventoryReportData?.clientHeaders.map(client => {
-                                                                    const val = row.clientData[client] ?? 0;
-                                                                    rowTotal += val;
-                                                                    return (
-                                                                        <TableCell key={client} className="text-right font-mono px-2 py-2 text-xs">{val}</TableCell>
-                                                                    );
-                                                                })}
-                                                                <TableCell className="sticky right-0 z-10 bg-background/95 backdrop-blur-sm text-right font-bold text-primary text-xs">{rowTotal}</TableCell>
+                                                                {pivotedInventoryData.dateHeaders.map(date => (
+                                                                    <TableCell key={date} className="text-right font-mono px-2 py-2 text-xs">
+                                                                        {row.dateData[date] || 0}
+                                                                    </TableCell>
+                                                                ))}
+                                                                <TableCell className="sticky right-0 z-10 bg-background/95 backdrop-blur-sm text-right font-bold text-primary text-xs">
+                                                                    {row.clientTotal}
+                                                                </TableCell>
                                                             </TableRow>
-                                                        )})}
+                                                        ))}
                                                          <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
-                                                            <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
-                                                            {inventoryReportData?.clientHeaders.map(client => (
-                                                                <TableCell key={`total-${client}`} className="text-right font-mono text-xs">{processedInventoryData.totals[client]}</TableCell>
+                                                            <TableCell className="sticky left-0 z-10 bg-primary/90">TOTAL DÍA</TableCell>
+                                                            {pivotedInventoryData.dateHeaders.map(date => (
+                                                                <TableCell key={`total-${date}`} className="text-right font-mono text-xs">
+                                                                    {pivotedInventoryData.dateTotals[date] || 0}
+                                                                </TableCell>
                                                             ))}
-                                                            <TableCell className="sticky right-0 z-10 bg-primary/90 text-right font-mono text-xs">{processedInventoryData.grandTotal}</TableCell>
+                                                            <TableCell className="sticky right-0 z-10 bg-primary/90 text-right font-mono text-xs">{pivotedInventoryData.grandTotal}</TableCell>
                                                         </TableRow>
                                                       </>
                                                     ) : (
                                                         <TableRow>
-                                                            <TableCell colSpan={(inventoryReportData?.clientHeaders.length || 0) + 2} className="py-10 text-center text-muted-foreground">
+                                                            <TableCell colSpan={(pivotedInventoryData?.dateHeaders.length || 0) + 2} className="py-10 text-center text-muted-foreground">
                                                                 No se encontraron registros de inventario para su selección.
                                                             </TableCell>
                                                         </TableRow>
@@ -3255,7 +3192,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             if (isContainerConcept) {
                                                                 const containerGroups = group.rows.reduce((acc, row) => {
                                                                     const containerKey = row.container || 'SIN_CONTENEDOR';
-                                                                    if (!acc[containerKey]) acc[containerKey] = [];
+                                                                    if (!acc[containerKey]) {
+                                                                        acc[containerKey] = [];
+                                                                    }
                                                                     acc[containerKey].push(row);
                                                                     return acc;
                                                                 }, {} as Record<string, ClientSettlementRow[]>);
@@ -3264,7 +3203,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     <React.Fragment key={conceptName}>
                                                                         {Object.entries(containerGroups).map(([containerKey, rows]) => {
                                                                             const containerSubtotalLabel = `Subtotal Contenedor ${containerKey}:`;
-                                                                            return renderGroup(rows, `Contenedor: ${containerKey}`, containerSubtotalLabel);
+                                                                            return renderGroup(rows, `${conceptName} - Contenedor: ${containerKey}`, containerSubtotalLabel);
                                                                         })}
                                                                     </React.Fragment>
                                                                 );
@@ -3345,7 +3284,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     }, [row]);
 
     const handleSave = () => {
-        const numPersonas = editedRow.numeroPersonas || 1;
+        const numPersonas = Number(editedRow.numeroPersonas) || 1;
         const newTotal = (editedRow.quantity || 0) * (editedRow.unitValue || 0) * numPersonas;
         onSave({ ...editedRow, totalValue: newTotal });
     };
@@ -3443,3 +3382,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
