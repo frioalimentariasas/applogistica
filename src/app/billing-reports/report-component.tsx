@@ -8,7 +8,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
-import { format, addDays, differenceInDays, subDays, parseISO, isEqual, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval, getYear, startOfYear, endOfYear } from 'date-fns';
+import { format, addDays, differenceInDays, subDays, parseISO, isEqual, startOfMonth, endOfMonth, eachMonthOfInterval, getYear, startOfYear, endOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -798,13 +798,29 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     
     const inventoryTotals = useMemo(() => {
-        if (!pivotedInventoryData || !pivotedInventoryData.type || pivotedInventoryData.type !== 'daily') return { columnTotals: [], grandTotal: 0 };
-        const { headers, clientRows } = pivotedInventoryData;
-        const columnTotals = headers.map((_, colIndex) => 
-            clientRows.reduce((sum, row) => sum + (row.values[colIndex] || 0), 0)
-        );
-        const grandTotal = columnTotals.reduce((sum, total) => sum + total, 0);
-        return { columnTotals, grandTotal };
+        if (!pivotedInventoryData || !pivotedInventoryData.type) return { daily: { columnTotals: [], grandTotal: 0 }, monthly: [], consolidated: { columnTotals: [], grandTotal: 0 } };
+
+        const daily = { columnTotals: [] as number[], grandTotal: 0 };
+        if (pivotedInventoryData.type === 'daily' || pivotedInventoryData.type === 'consolidated') {
+            const { headers, clientRows } = pivotedInventoryData;
+            daily.columnTotals = headers.map((_, colIndex) => 
+                clientRows.reduce((sum, row) => sum + (row.values[colIndex] || 0), 0)
+            );
+            daily.grandTotal = daily.columnTotals.reduce((sum, total) => sum + total, 0);
+        }
+
+        const monthly = (pivotedInventoryData.type === 'monthly' && pivotedInventoryData.yearlyData) 
+            ? pivotedInventoryData.yearlyData.map(yearData => {
+                const columnTotals = yearData.headers.map((_, colIndex) => 
+                    yearData.clientRows.reduce((sum, row) => sum + (row.values[colIndex] || 0), 0)
+                );
+                const grandTotal = columnTotals.reduce((sum, total) => sum + total, 0);
+                return { year: yearData.year, columnTotals, grandTotal };
+            }) 
+            : [];
+            
+        return { daily, monthly, consolidated: daily };
+
     }, [pivotedInventoryData]);
 
     
@@ -836,14 +852,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 worksheet.addRow(rowData);
             });
         
-            if (pivotedInventoryData.type === 'daily') {
-                const totalRowData = ['TOTALES', ...inventoryTotals.columnTotals];
-                const totalRow = worksheet.addRow(totalRowData);
-                totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-                totalRow.eachCell(cell => {
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
-                });
-            }
+            const totals = pivotedInventoryData.type === 'daily' ? inventoryTotals.daily : inventoryTotals.consolidated;
+            const totalRowData = ['TOTALES', ...totals.columnTotals];
+            const totalRow = worksheet.addRow(totalRowData);
+            totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalRow.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
+            });
+
         } else if (pivotedInventoryData.type === 'monthly' && pivotedInventoryData.yearlyData) {
             pivotedInventoryData.yearlyData.forEach(({ year, headers, clientRows }, index) => {
                 if (index > 0) worksheet.addRow([]); // Spacer
@@ -862,6 +878,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 clientRows.forEach(row => {
                     worksheet.addRow([row.clientName, ...row.values]);
                 });
+
+                const yearTotals = inventoryTotals.monthly.find(t => t.year === year);
+                if (yearTotals) {
+                    const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals]);
+                    totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    totalRow.eachCell(cell => {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
+                    });
+                }
             });
         }
     
@@ -889,7 +914,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
     
-        const originalLogoWidth = 70;
         const logoWidth = 21;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
@@ -917,24 +941,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const sessionMap: { [key: string]: string } = { 'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas' };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
         
-        const lineHeight = 0; // Removed client text
+        const lineHeight = doc.getTextDimensions(periodText).h;
         doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
-        const sessionY = contentStartY + lineHeight;
+        const sessionY = contentStartY + lineHeight - 5;
         doc.text(sessionText, margin, sessionY);
     
         let tableStartY = sessionY + 4;
         
         if (pivotedInventoryData.type === 'daily' || pivotedInventoryData.type === 'consolidated') {
             const { headers, clientRows } = pivotedInventoryData;
+            const totals = pivotedInventoryData.type === 'daily' ? inventoryTotals.daily : inventoryTotals.consolidated;
             const head = [['Cliente', ...headers]];
             const body = clientRows.map(row => [
                 row.clientName, 
                 ...row.values.map(v => v.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
             ]);
             
-            const foot = pivotedInventoryData.type === 'daily' ? [
-                ['TOTALES', ...inventoryTotals.columnTotals.map(t => t.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))]
-            ] : undefined;
+            const foot = [
+                ['TOTALES', ...totals.columnTotals.map(t => t.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))]
+            ];
 
             autoTable(doc, {
                 startY: tableStartY,
@@ -962,14 +987,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     row.clientName, 
                     ...row.values.map(v => v.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
                  ]);
+                 const yearTotals = inventoryTotals.monthly.find(t => t.year === year);
+                 const foot = yearTotals ? [
+                    ['TOTALES', ...yearTotals.columnTotals.map(t => t.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))]
+                 ] : undefined;
 
                  autoTable(doc, {
                     startY: tableStartY,
                     head,
                     body,
+                    foot,
                     theme: 'grid',
                     styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
                     headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                    footStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'right' },
                     columnStyles: { 0: { cellWidth: 50, halign: 'left' } },
                     didParseCell: function (data) {
                         if (data.column.index > 0) { data.cell.styles.halign = 'right'; }
@@ -1163,7 +1194,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         
-        const originalLogoWidth = 70;
         const logoWidth = 21; // 70% smaller
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
@@ -2824,16 +2854,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 ))}
                                                             </TableRow>
                                                         ))}
-                                                        {pivotedInventoryData.type === 'daily' && (
-                                                            <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
-                                                                <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
-                                                                {inventoryTotals.columnTotals.map((total, index) => (
-                                                                    <TableCell key={`total-${index}`} className="text-right font-mono text-xs">
-                                                                        {total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                    </TableCell>
-                                                                ))}
-                                                            </TableRow>
-                                                        )}
+                                                        <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
+                                                            <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
+                                                            {inventoryTotals[pivotedInventoryData.type].columnTotals.map((total, index) => (
+                                                                <TableCell key={`total-${index}`} className="text-right font-mono text-xs">
+                                                                    {total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
                                                       </>
                                                     ) : (
                                                         <TableRow>
@@ -2844,7 +2872,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     )}
                                                 </TableBody>
                                                 </>
-                                                ) : pivotedInventoryData?.type === 'monthly' && pivotedInventoryData.yearlyData?.map(yearData => (
+                                                ) : pivotedInventoryData?.type === 'monthly' && pivotedInventoryData.yearlyData?.map((yearData, yearIdx) => (
                                                     <React.Fragment key={yearData.year}>
                                                         <TableHeader>
                                                             <TableRow>
@@ -2872,6 +2900,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     ))}
                                                                 </TableRow>
                                                             ))}
+                                                            <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
+                                                                <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES {yearData.year}</TableCell>
+                                                                {(inventoryTotals.monthly.find(t => t.year === yearData.year)?.columnTotals || []).map((total, index) => (
+                                                                    <TableCell key={`total-${yearData.year}-${index}`} className="text-right font-mono text-xs">
+                                                                        {total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
                                                         </TableBody>
                                                     </React.Fragment>
                                                 ))}
@@ -3544,6 +3580,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
 
 
 
