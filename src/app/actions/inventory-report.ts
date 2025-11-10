@@ -171,9 +171,16 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
 }
 
 
+export interface ClientInventoryDetail {
+    total: number;
+    CO: number;
+    RE: number;
+    SE: number;
+}
+
 export interface InventoryPivotRow {
   date: string;
-  clientData: Record<string, number>; // e.g., { "CLIENT_A": 123, "CLIENT_B": 456 }
+  clientData: Record<string, ClientInventoryDetail>;
 }
 
 export interface InventoryPivotReport {
@@ -202,8 +209,9 @@ export async function getInventoryReport(
             return { clientHeaders: [], rows: [] };
         }
 
-        // Use a Map to store client pallet sets for each date
-        const resultsByDate = new Map<string, Map<string, Set<string>>>();
+        const resultsByDate = new Map<string, Map<string, {
+            CO: Set<string>, RE: Set<string>, SE: Set<string>
+        }>>();
         const allClientsFound = new Set<string>();
 
         snapshot.docs.forEach(doc => {
@@ -214,21 +222,10 @@ export async function getInventoryReport(
                     return;
                 }
 
-                let dailyData = inventoryDay.data as InventoryRow[];
-                
-                // Filter by session if provided
-                if (criteria.sesion && criteria.sesion.trim()) {
-                    dailyData = dailyData.filter(row => 
-                        row && row.SE !== undefined && row.SE !== null &&
-                        String(row.SE).trim().toLowerCase() === criteria.sesion!.trim().toLowerCase()
-                    );
-                }
-                
-                dailyData.forEach(row => {
+                inventoryDay.data.forEach((row: InventoryRow) => {
                     const clientName = row?.PROPIETARIO?.trim();
                     if (!clientName) return;
 
-                    // Filter by client names if provided and not empty
                     if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(clientName)) {
                         return;
                     }
@@ -236,17 +233,22 @@ export async function getInventoryReport(
                     allClientsFound.add(clientName);
 
                     if (!resultsByDate.has(inventoryDay.date)) {
-                        resultsByDate.set(inventoryDay.date, new Map<string, Set<string>>());
+                        resultsByDate.set(inventoryDay.date, new Map());
                     }
                     const dateData = resultsByDate.get(inventoryDay.date)!;
 
                     if (!dateData.has(clientName)) {
-                        dateData.set(clientName, new Set<string>());
+                        dateData.set(clientName, { CO: new Set(), RE: new Set(), SE: new Set() });
                     }
                     const clientPallets = dateData.get(clientName)!;
                     
-                    if (row.PALETA !== undefined && row.PALETA !== null) {
-                        clientPallets.add(String(row.PALETA).trim());
+                    const sesion = String(row.SE).trim().toUpperCase();
+                    const palletId = String(row.PALETA).trim();
+
+                    if (palletId) {
+                        if (sesion === 'CO') clientPallets.CO.add(palletId);
+                        else if (sesion === 'RE') clientPallets.RE.add(palletId);
+                        else if (sesion === 'SE') clientPallets.SE.add(palletId);
                     }
                 });
 
@@ -262,10 +264,24 @@ export async function getInventoryReport(
 
         for (const date of sortedDates) {
             const clientPalletSets = resultsByDate.get(date)!;
-            const clientData: Record<string, number> = {};
+            const clientData: Record<string, ClientInventoryDetail> = {};
 
             for (const clientName of sortedClientHeaders) {
-                clientData[clientName] = clientPalletSets.get(clientName)?.size || 0;
+                const sets = clientPalletSets.get(clientName) || { CO: new Set(), RE: new Set(), SE: new Set() };
+                const countCO = sets.CO.size;
+                const countRE = sets.RE.size;
+                const countSE = sets.SE.size;
+
+                 if (criteria.sesion) {
+                    let total = 0;
+                    if (criteria.sesion === 'CO') total = countCO;
+                    if (criteria.sesion === 'RE') total = countRE;
+                    if (criteria.sesion === 'SE') total = countSE;
+                     clientData[clientName] = { total: total, CO: countCO, RE: countRE, SE: countSE };
+                } else {
+                    const uniquePallets = new Set([...sets.CO, ...sets.RE, ...sets.SE]);
+                    clientData[clientName] = { total: uniquePallets.size, CO: countCO, RE: countRE, SE: countSE };
+                }
             }
             
             pivotRows.push({ date, clientData });
@@ -434,6 +450,7 @@ export async function getDetailedInventoryForExport(
     
 
     
+
 
 
 
