@@ -47,6 +47,7 @@ import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Form } from '@/components/ui/form';
 
 
 const ResultsSkeleton = () => (
@@ -925,7 +926,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const totalRowData: (string|number)[] = ['TOTALES'];
                 totals.columnTotals.forEach(total => {
                     totalRowData.push(Math.round(total.total));
-                    if(isAllSessions) {
+                     if(isAllSessions) {
                          totalRowData.push(Math.round(total.CO));
                          totalRowData.push(Math.round(total.RE));
                          totalRowData.push(Math.round(total.SE));
@@ -961,7 +962,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleInventoryExportPDF = () => {
-        if (!pivotedInventoryData || !logoBase64 || !logoDimensions) return;
+        if (!pivotedInventoryData || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -2103,15 +2104,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const containerGroups = group.rows.reduce((acc, row) => {
                     const containerKey = row.container || 'SIN_CONTENEDOR';
                     if (!acc[containerKey]) {
-                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
+                        acc[containerKey] = [];
                     }
-                    acc[containerKey].rows.push(row);
-                    acc[containerKey].subtotalCantidad += row.quantity;
-                    acc[containerKey].subtotalValor += row.totalValue;
+                    acc[containerKey].push(row);
                     return acc;
-                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
+                }, {} as Record<string, ClientSettlementRow[]>);
 
-                Object.entries(containerGroups).forEach(([containerKey, containerData]) => {
+                Object.entries(containerGroups).forEach(([containerKey, rows]) => {
                      detailBody.push([{ content: `Contenedor: ${containerKey}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
                      containerData.rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
                         detailBody.push(generateDetailRow(row));
@@ -3640,14 +3639,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-
-    
-
-
-
-
-
-
-
 
     
