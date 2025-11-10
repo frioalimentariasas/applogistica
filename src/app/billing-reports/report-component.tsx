@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -163,7 +162,7 @@ const formatObservaciones = (observaciones: any): string => {
     }).join(', ');
 };
 
-const MAX_DATE_RANGE_DAYS = 365 * 3; // Approx 3 years
+const MAX_DATE_RANGE_DAYS = 365 * 3;
 type InventoryGroupType = 'daily' | 'monthly' | 'consolidated';
 
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
@@ -741,12 +740,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     const rowForDate = inventoryReportData.rows.find(r => r.date === date);
                     dateData[date] = rowForDate?.clientData[client] || 0;
                 });
-                return { clientName: client, data: dateData };
+                 const total = Object.values(dateData).reduce((sum, value) => sum + value, 0);
+                return { clientName: client, data: dateData, total };
             });
     
             return {
                 headers: dateHeaders.map(d => format(parseISO(d), 'dd/MM')),
-                clientRows: clientRows.map(row => ({ clientName: row.clientName, values: Object.values(row.data) })),
+                clientRows: clientRows.map(row => ({ clientName: row.clientName, values: Object.values(row.data), total: row.total })),
                 type: 'daily'
             };
     
@@ -771,24 +771,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             monthData[mHeader] = 0;
                         }
                     });
-                    return { clientName: client, data: monthData };
+                    const total = Object.values(monthData).reduce((sum, value) => sum + value, 0);
+                    return { clientName: client, data: monthData, total };
                 });
                 return {
                     year,
                     headers: monthHeaders,
-                    clientRows: clientRows.map(row => ({ clientName: row.clientName, values: Object.values(row.data) })),
+                    clientRows: clientRows.map(row => ({ clientName: row.clientName, values: Object.values(row.data), total: row.total })),
                 };
             });
     
             return { yearlyData, type: 'monthly' };
         } else if (inventoryGroupType === 'consolidated') {
-            const clientRows = allClients.map(client => {
+             const clientRows = allClients.map(client => {
                 const totalPallets = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client] || 0), 0);
-                return { clientName: client, data: { 'Total': totalPallets } };
+                return { clientName: client, data: { 'Total': totalPallets }, total: totalPallets };
             });
             return {
                 headers: ['Total Período'],
-                clientRows: clientRows.map(row => ({ clientName: row.clientName, values: Object.values(row.data) })),
+                clientRows: clientRows.map(row => ({ clientName: row.clientName, values: Object.values(row.data), total: row.total })),
                 type: 'consolidated'
             };
         }
@@ -839,7 +840,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         if (pivotedInventoryData.type === 'daily' || pivotedInventoryData.type === 'consolidated') {
             const { headers, clientRows } = pivotedInventoryData;
-            const headerRow = worksheet.addRow(['Cliente', ...headers]);
+            const headerRow = worksheet.addRow(['Cliente', ...headers, 'TOTAL CLIENTE']);
             headerRow.font = { bold: true };
             headerRow.eachCell((cell) => {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
@@ -848,12 +849,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
             
             clientRows.forEach(row => {
-                const rowData = [row.clientName, ...row.values];
+                const rowData = [row.clientName, ...row.values, row.total];
                 worksheet.addRow(rowData);
             });
         
             const totals = inventoryTotals[pivotedInventoryData.type];
-            const totalRowData = ['TOTALES', ...totals.columnTotals];
+            const totalRowData = ['TOTALES', ...totals.columnTotals, totals.grandTotal];
             const totalRow = worksheet.addRow(totalRowData);
             totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
             totalRow.eachCell(cell => {
@@ -865,9 +866,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 if (index > 0) worksheet.addRow([]); // Spacer
                 const yearRow = worksheet.addRow([`AÑO: ${year}`]);
                 yearRow.font = { bold: true, size: 14 };
-                worksheet.mergeCells(yearRow.number, 1, yearRow.number, headers.length + 1);
+                worksheet.mergeCells(yearRow.number, 1, yearRow.number, headers.length + 2);
 
-                const headerRow = worksheet.addRow(['Cliente', ...headers]);
+                const headerRow = worksheet.addRow(['Cliente', ...headers, 'TOTAL CLIENTE']);
                 headerRow.font = { bold: true };
                 headerRow.eachCell((cell) => {
                     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
@@ -876,12 +877,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 });
                 
                 clientRows.forEach(row => {
-                    worksheet.addRow([row.clientName, ...row.values]);
+                    worksheet.addRow([row.clientName, ...row.values, row.total]);
                 });
 
                 const yearTotals = inventoryTotals.monthly.find(t => t.year === year);
                 if (yearTotals) {
-                    const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals]);
+                    const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal]);
                     totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
                     totalRow.eachCell(cell => {
                         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
@@ -951,14 +952,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (pivotedInventoryData.type === 'daily' || pivotedInventoryData.type === 'consolidated') {
             const { headers, clientRows } = pivotedInventoryData;
             const totals = inventoryTotals[pivotedInventoryData.type];
-            const head = [['Cliente', ...headers]];
+            const head = [['Cliente', ...headers, 'TOTAL']];
             const body = clientRows.map(row => [
                 row.clientName, 
-                ...row.values.map(v => v.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }))
+                ...row.values.map(v => v.toLocaleString('es-CO')),
+                row.total.toLocaleString('es-CO')
             ]);
             
             const foot = [
-                ['TOTALES', ...totals.columnTotals.map(t => t.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }))]
+                ['TOTALES', ...totals.columnTotals.map(t => t.toLocaleString('es-CO')), totals.grandTotal.toLocaleString('es-CO')]
             ];
 
             autoTable(doc, {
@@ -982,14 +984,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                  doc.text(`AÑO: ${year}`, margin, tableStartY + 5);
                  tableStartY += 10;
                  
-                 const head = [['Cliente', ...headers]];
+                 const head = [['Cliente', ...headers, 'TOTAL']];
                  const body = clientRows.map(row => [
                     row.clientName, 
-                    ...row.values.map(v => v.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }))
+                    ...row.values.map(v => v.toLocaleString('es-CO')),
+                    row.total.toLocaleString('es-CO')
                  ]);
                  const yearTotals = inventoryTotals.monthly.find(t => t.year === year);
                  const foot = yearTotals ? [
-                    ['TOTALES', ...yearTotals.columnTotals.map(t => t.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }))]
+                    ['TOTALES', ...yearTotals.columnTotals.map(t => t.toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO')]
                  ] : undefined;
 
                  autoTable(doc, {
@@ -2835,11 +2838,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     {header}
                                                                 </TableHead>
                                                             ))}
+                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right px-2 py-2 font-bold text-xs min-w-[100px]">TOTAL CLIENTE</TableHead>
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
                                                     {isQuerying ? (
-                                                        <TableRow><TableCell colSpan={(pivotedInventoryData.headers.length || 0) + 1}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                        <TableRow><TableCell colSpan={(pivotedInventoryData.headers.length || 0) + 2}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                                     ) : pivotedInventoryData.clientRows.length > 0 ? (
                                                       <>
                                                         {pivotedInventoryData.clientRows.map((row) => (
@@ -2849,23 +2853,29 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 </TableCell>
                                                                 {row.values.map((value, index) => (
                                                                     <TableCell key={index} className="text-right font-mono px-2 py-2 text-xs">
-                                                                        {value.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                                                        {Math.round(value).toLocaleString('es-CO')}
                                                                     </TableCell>
                                                                 ))}
+                                                                 <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold px-2 py-2 text-xs">
+                                                                    {Math.round(row.total).toLocaleString('es-CO')}
+                                                                </TableCell>
                                                             </TableRow>
                                                         ))}
                                                         <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
                                                             <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
                                                             {inventoryTotals[pivotedInventoryData.type].columnTotals.map((total, index) => (
                                                                 <TableCell key={`total-${index}`} className="text-right font-mono text-xs">
-                                                                    {total.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                                                    {Math.round(total).toLocaleString('es-CO')}
                                                                 </TableCell>
                                                             ))}
+                                                             <TableCell className="sticky right-0 bg-primary/90 text-right font-bold text-xs">
+                                                                {Math.round(inventoryTotals[pivotedInventoryData.type].grandTotal).toLocaleString('es-CO')}
+                                                            </TableCell>
                                                         </TableRow>
                                                       </>
                                                     ) : (
                                                         <TableRow>
-                                                            <TableCell colSpan={(pivotedInventoryData.headers.length || 0) + 1} className="py-10 text-center text-muted-foreground">
+                                                            <TableCell colSpan={(pivotedInventoryData.headers.length || 0) + 2} className="py-10 text-center text-muted-foreground">
                                                                 No se encontraron registros de inventario para su selección.
                                                             </TableCell>
                                                         </TableRow>
@@ -2876,7 +2886,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <React.Fragment key={yearData.year}>
                                                         <TableHeader>
                                                             <TableRow>
-                                                                <TableHead colSpan={yearData.headers.length + 1} className="text-lg font-semibold p-4 bg-muted">{`AÑO: ${yearData.year}`}</TableHead>
+                                                                <TableHead colSpan={yearData.headers.length + 2} className="text-lg font-semibold p-4 bg-muted">{`AÑO: ${yearData.year}`}</TableHead>
                                                             </TableRow>
                                                             <TableRow>
                                                                 <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-medium text-xs min-w-[200px]">Cliente</TableHead>
@@ -2885,6 +2895,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         {header}
                                                                     </TableHead>
                                                                 ))}
+                                                                 <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right px-2 py-2 font-bold text-xs min-w-[100px]">TOTAL CLIENTE</TableHead>
                                                             </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
@@ -2895,18 +2906,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     </TableCell>
                                                                     {row.values.map((value, index) => (
                                                                         <TableCell key={index} className="text-right font-mono px-2 py-2 text-xs">
-                                                                            {value.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                                                            {Math.round(value).toLocaleString('es-CO')}
                                                                         </TableCell>
                                                                     ))}
+                                                                    <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold px-2 py-2 text-xs">
+                                                                        {Math.round(row.total).toLocaleString('es-CO')}
+                                                                    </TableCell>
                                                                 </TableRow>
                                                             ))}
                                                             <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
                                                                 <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES {yearData.year}</TableCell>
                                                                 {(inventoryTotals.monthly.find(t => t.year === yearData.year)?.columnTotals || []).map((total, index) => (
                                                                     <TableCell key={`total-${yearData.year}-${index}`} className="text-right font-mono text-xs">
-                                                                        {total.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                                                        {Math.round(total).toLocaleString('es-CO')}
                                                                     </TableCell>
                                                                 ))}
+                                                                 <TableCell className="sticky right-0 bg-primary/90 text-right font-bold text-xs">
+                                                                    {Math.round(inventoryTotals.monthly.find(t => t.year === yearData.year)?.grandTotal || 0).toLocaleString('es-CO')}
+                                                                </TableCell>
                                                             </TableRow>
                                                         </TableBody>
                                                     </React.Fragment>
@@ -3586,3 +3603,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+
+    
