@@ -166,6 +166,17 @@ const formatObservaciones = (observaciones: any): string => {
 const MAX_DATE_RANGE_DAYS = 365 * 3;
 type InventoryGroupType = 'daily' | 'monthly' | 'consolidated';
 
+const sessionMapping: { [key: string]: string } = {
+    CO: 'CONGELADO',
+    RE: 'REFRIGERADO',
+    SE: 'SECO',
+    'No Aplica': 'No Aplica'
+};
+
+const getSessionName = (sesionCode: string) => {
+    return sessionMapping[sesionCode] || 'No Aplica';
+}
+
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
     const { toast } = useToast();
@@ -695,11 +706,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return;
         }
     
-        if (!inventorySesion) {
-            toast({ variant: 'destructive', title: 'Sesión no seleccionada', description: 'Por favor, seleccione una sesión para la consulta.' });
-            return;
-        }
-
         if (inventoryClients.length === 0) {
             toast({ variant: 'destructive', title: 'Clientes no seleccionados', description: 'Por favor, seleccione al menos un cliente para la consulta.' });
             return;
@@ -741,12 +747,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 if (groupType === 'daily') {
                     const dateHeaders = eachDayOfInterval({ start: inventoryDateRange.from!, end: inventoryDateRange.to! }).map(d => format(d, 'yyyy-MM-dd'));
                     const clientRows = allClients.map(client => {
-                        const dateData = dateHeaders.reduce((acc, date) => {
+                        const dateData: Record<string, number> = {};
+                         let total = 0;
+                        dateHeaders.forEach(date => {
                             const rowForDate = inventoryReportData.rows.find(r => r.date === date);
-                            acc[date] = Math.round(rowForDate?.clientData[client]?.[session] || 0);
-                            return acc;
-                        }, {} as Record<string, number>);
-                        const total = Object.values(dateData).reduce((sum, value) => sum + value, 0);
+                            const value = Math.round(rowForDate?.clientData[client]?.[session] || 0);
+                            dateData[date] = value;
+                            total += value;
+                        });
                         return { clientName: client, data: dateData, total };
                     });
                     return { headers: dateHeaders.map(d => format(parseISO(d), 'dd/MM')), clientRows };
@@ -810,26 +818,26 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
             if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
                  return table.data.map(yearData => {
-                    const columnTotals = yearData.headers.map((_, colIndex) => {
+                    const columnTotals = yearData.headers.map((_:any, colIndex:number) => {
                         return yearData.clientRows.reduce((sum:number, row:any) => {
                             const value = Object.values(row.data)[colIndex];
                             return sum + (Number(value) || 0);
                         }, 0);
                     });
-                    const grandTotal = columnTotals.reduce((sum:number, total:number) => sum + total, 0);
+                    const grandTotal = yearData.clientRows.reduce((sum, row) => sum + row.total, 0);
                     return { year: yearData.year, columnTotals, grandTotal };
                 });
             }
             
             const clientRows = table.data.clientRows;
             const headers = table.data.headers;
-            const columnTotals = headers.map((_, colIndex) => {
+            const columnTotals = headers.map((_:any, colIndex:number) => {
                  return clientRows.reduce((sum:number, row:any) => {
                     const value = Object.values(row.data)[colIndex];
                     return sum + (Number(value) || 0);
                 }, 0);
             });
-            const grandTotal = columnTotals.reduce((sum:number, total:number) => sum + total, 0);
+            const grandTotal = clientRows.reduce((sum, row) => sum + row.total, 0);
             
             return { columnTotals, grandTotal };
         });
@@ -880,10 +888,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
         });
 
-        worksheet.columns.forEach((column) => {
-            column.width = 15;
-        });
-        worksheet.getColumn(1).width = 35;
+        const worksheet = workbook.getWorksheet(1); // Get the first worksheet to adjust columns
+        if (worksheet) {
+            worksheet.columns.forEach((column) => {
+                column.width = 15;
+            });
+            worksheet.getColumn(1).width = 35;
+        }
     
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -895,16 +906,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleInventoryExportPDF = () => {
-         if (!pivotedInventoryData || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
+        if (!pivotedInventoryData || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
     
         const doc = new jsPDF({ orientation: 'landscape' });
         let isFirstPage = true;
     
-        const addHeaderAndTitle = (title: string, sessionText: string) => {
+        const addHeaderAndTitle = (title: string, sessionText: string, clientText: string) => {
             const pageWidth = doc.internal.pageSize.getWidth();
             const margin = 14;
     
-            const logoWidth = 21;
+            const logoWidth = 21; // 70% reduction from 70
             const aspectRatio = logoDimensions!.width / logoDimensions!.height;
             const logoHeight = logoWidth / aspectRatio;
     
@@ -926,20 +937,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
                 : '';
     
-            const lineHeight = doc.getTextDimensions('A').h;
+            const lineHeight = doc.getTextDimensions('A').h || 10;
             doc.setFontSize(9);
             doc.setFont('helvetica', 'normal');
             doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
             doc.text(sessionText, margin, contentStartY);
+
+            const clientTextBlockHeight = 0; // Removed client text block
     
-            return contentStartY + lineHeight + 4;
+            const sessionY = contentStartY + clientTextBlockHeight;
+    
+            return sessionY + lineHeight + 4;
         };
 
         pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
             if (!isFirstPage) {
                 doc.addPage();
             }
-            const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${tableData.title}`);
+            const clientText = inventoryClients.join(', ');
+            const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${tableData.title}`, clientText);
 
             if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
                  tableData.data.forEach((yearData: any, yearIdx: number) => {
@@ -953,8 +969,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     });
                     
                     const head = [['Cliente', ...yearData.headers, 'TOTAL']];
-                    const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data), row.total]);
-                    const foot = [['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal]];
+                    const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO')]);
+                    const foot = [['TOTALES', ...yearTotals.columnTotals.map((t: number) => Math.round(t).toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO')]];
                     
                     autoTable(doc, {
                         startY: (doc as any).lastAutoTable.finalY,
@@ -968,9 +984,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const { headers, clientRows } = tableData.data;
                 const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number };
 
-                const head = [['Cliente', ...headers, 'TOTAL']];
-                const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data), row.total]);
-                const foot = [['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal]];
+                const head = [['Cliente', ...headers, 'TOTAL CLIENTE']];
+                const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO')]);
+                const foot = [['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO')]];
 
                 autoTable(doc, {
                     startY: tableStartY,
@@ -1590,7 +1606,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'HORA EXTRA NOCTURNA',
             'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
             'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-            'ALIMENTACION',
+            'ALIMENTACIÓN',
             'TRANSPORTE EXTRAORDINARIO',
             'TRANSPORTE DOMINICAL Y FESTIVO',
         ];
@@ -2116,17 +2132,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (exportClients.length === 1) return exportClients[0];
         return `${exportClients.length} clientes seleccionados`;
     };
-
-    const sessionMapping: { [key: string]: string } = {
-        CO: 'CONGELADO',
-        RE: 'REFRIGERADO',
-        SE: 'SECO',
-        'No Aplica': 'No Aplica'
-    };
-
-    const getSessionName = (sesionCode: string) => {
-        return sessionMapping[sesionCode] || 'No Aplica';
-    }
     
     const visibleSettlementData = useMemo(() => {
         return settlementReportData.filter(row => !hiddenRowIds.has(row.uniqueId!));
@@ -2819,7 +2824,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 <TableRow>
                                                                                     <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
                                                                                     {yearData.headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
-                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL</TableHead>
+                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL CLIENTE</TableHead>
                                                                                 </TableRow>
                                                                             </TableHeader>
                                                                             <TableBody>
@@ -2845,7 +2850,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableRow>
                                                                             <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
                                                                             {table.data.headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
-                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL</TableHead>
+                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL CLIENTE</TableHead>
                                                                         </TableRow>
                                                                     </TableHeader>
                                                                     <TableBody>
