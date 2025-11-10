@@ -728,162 +728,111 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
-    const pivotedInventoryData = useMemo(() => {
+   const pivotedInventoryData = useMemo(() => {
         if (!inventoryReportData || inventoryReportData.rows.length === 0 || !inventoryDateRange?.from) return null;
     
         const allClients = inventoryReportData.clientHeaders;
-    
-        if (inventoryGroupType === 'daily') {
-            const dateHeaders = eachDayOfInterval({ start: inventoryDateRange.from, end: inventoryDateRange.to! }).map(d => format(d, 'yyyy-MM-dd'));
-            
-            const clientRows = allClients.map(client => {
-                const dateData: Record<string, ClientInventoryDetail> = {};
-                dateHeaders.forEach(date => {
-                    const rowForDate = inventoryReportData.rows.find(r => r.date === date);
-                    dateData[date] = rowForDate?.clientData[client] || { total: 0, CO: 0, RE: 0, SE: 0 };
-                });
-                const total = Object.values(dateData).reduce((sum, value) => sum + value.total, 0);
-                const totalCO = Object.values(dateData).reduce((sum, value) => sum + value.CO, 0);
-                const totalRE = Object.values(dateData).reduce((sum, value) => sum + value.RE, 0);
-                const totalSE = Object.values(dateData).reduce((sum, value) => sum + value.SE, 0);
-                return { clientName: client, data: dateData, total, totalCO, totalRE, totalSE };
-            });
-    
-            return {
-                headers: dateHeaders.map(d => format(parseISO(d), 'dd/MM')),
-                clientRows: clientRows.map(row => ({ 
-                    clientName: row.clientName, 
-                    values: Object.values(row.data),
-                    total: row.total,
-                    totalCO: row.totalCO,
-                    totalRE: row.totalRE,
-                    totalSE: row.totalSE,
-                })),
-                type: 'daily'
-            };
-    
-        } else if (inventoryGroupType === 'monthly') {
-            const yearGroups = inventoryReportData.rows.reduce((acc, row) => {
-                const year = getYear(parseISO(row.date));
-                if (!acc[year]) acc[year] = [];
-                acc[year].push(row);
-                return acc;
-            }, {} as Record<number, InventoryPivotReport['rows']>);
-    
-            const yearlyData = Object.entries(yearGroups).map(([year, yearRows]) => {
-                const monthHeaders = eachMonthOfInterval({ start: new Date(Number(year), 0, 1), end: new Date(Number(year), 11, 31) }).map(m => format(m, 'MMM', { locale: es }));
-                const clientRows = allClients.map(client => {
-                    const monthData: Record<string, ClientInventoryDetail> = {};
-                    monthHeaders.forEach((mHeader, index) => {
-                        const monthRows = yearRows.filter(r => getYear(parseISO(r.date)) === Number(year) && parseISO(r.date).getMonth() === index);
-                        if (monthRows.length > 0) {
-                            const sumOfDailyTotals = monthRows.reduce((sum, row) => sum + (row.clientData[client]?.total || 0), 0);
-                            monthData[mHeader] = {
-                                total: sumOfDailyTotals,
-                                CO: monthRows.reduce((s, r) => s + (r.clientData[client]?.CO || 0), 0),
-                                RE: monthRows.reduce((s, r) => s + (r.clientData[client]?.RE || 0), 0),
-                                SE: monthRows.reduce((s, r) => s + (r.clientData[client]?.SE || 0), 0),
-                            };
-                        } else {
-                            monthData[mHeader] = { total: 0, CO: 0, RE: 0, SE: 0 };
-                        }
+        const sessions: (keyof Omit<ClientInventoryDetail, 'total'>)[] = inventorySesion === 'TODAS'
+            ? ['CO', 'RE', 'SE']
+            : [inventorySesion as 'CO' | 'RE' | 'SE'];
+        
+        const tables = sessions.map(session => {
+            const getGroupedData = (groupType: InventoryGroupType) => {
+                if (groupType === 'daily') {
+                    const dateHeaders = eachDayOfInterval({ start: inventoryDateRange.from!, end: inventoryDateRange.to! }).map(d => format(d, 'yyyy-MM-dd'));
+                    const clientRows = allClients.map(client => {
+                        const dateData = dateHeaders.reduce((acc, date) => {
+                            const rowForDate = inventoryReportData.rows.find(r => r.date === date);
+                            acc[date] = Math.round(rowForDate?.clientData[client]?.[session] || 0);
+                            return acc;
+                        }, {} as Record<string, number>);
+                        const total = Object.values(dateData).reduce((sum, value) => sum + value, 0);
+                        return { clientName: client, data: dateData, total };
                     });
-                    const total = Object.values(monthData).reduce((sum, value) => sum + value.total, 0);
-                    const totalCO = Object.values(monthData).reduce((sum, value) => sum + value.CO, 0);
-                    const totalRE = Object.values(monthData).reduce((sum, value) => sum + value.RE, 0);
-                    const totalSE = Object.values(monthData).reduce((sum, value) => sum + value.SE, 0);
-                    return { clientName: client, data: monthData, total, totalCO, totalRE, totalSE };
-                });
-                return {
-                    year,
-                    headers: monthHeaders,
-                    clientRows: clientRows.map(row => ({ 
-                        clientName: row.clientName, 
-                        values: Object.values(row.data),
-                        total: row.total,
-                        totalCO: row.totalCO,
-                        totalRE: row.totalRE,
-                        totalSE: row.totalSE,
-                    })),
-                };
-            });
+                    return { headers: dateHeaders.map(d => format(parseISO(d), 'dd/MM')), clientRows };
+                }
+                if (groupType === 'monthly') {
+                    const yearGroups = inventoryReportData.rows.reduce((acc, row) => {
+                        const year = getYear(parseISO(row.date));
+                        if (!acc[year]) acc[year] = [];
+                        acc[year].push(row);
+                        return acc;
+                    }, {} as Record<number, any[]>);
     
-            return { yearlyData, type: 'monthly' };
-        } else if (inventoryGroupType === 'consolidated') {
-             const clientRows = allClients.map(client => {
-                const totalPallets = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client]?.total || 0), 0);
-                const totalCO = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client]?.CO || 0), 0);
-                const totalRE = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client]?.RE || 0), 0);
-                const totalSE = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client]?.SE || 0), 0);
-                return { 
-                    clientName: client, 
-                    data: { 'Total': { total: totalPallets, CO: totalCO, RE: totalRE, SE: totalSE } },
-                    total: totalPallets,
-                    totalCO: totalCO,
-                    totalRE: totalRE,
-                    totalSE: totalSE,
-                };
-            });
-            return {
-                headers: ['Total Período'],
-                clientRows: clientRows.map(row => ({ 
-                    clientName: row.clientName, 
-                    values: Object.values(row.data),
-                    total: row.total,
-                    totalCO: row.totalCO,
-                    totalRE: row.totalRE,
-                    totalSE: row.totalSE,
-                })),
-                type: 'consolidated'
+                    return Object.entries(yearGroups).map(([year, yearRows]) => {
+                        const monthHeaders = eachMonthOfInterval({ start: new Date(Number(year), 0, 1), end: new Date(Number(year), 11, 31) }).map(m => format(m, 'MMM', { locale: es }));
+                        const clientRows = allClients.map(client => {
+                            const monthData: Record<string, number> = {};
+                            monthHeaders.forEach((mHeader, index) => {
+                                const monthRows = yearRows.filter(r => getYear(parseISO(r.date)) === Number(year) && parseISO(r.date).getMonth() === index);
+                                if (monthRows.length > 0) {
+                                    const sumOfDailyTotals = monthRows.reduce((sum, row) => sum + (row.clientData[client]?.[session] || 0), 0);
+                                    monthData[mHeader] = Math.round(sumOfDailyTotals);
+                                } else {
+                                    monthData[mHeader] = 0;
+                                }
+                            });
+                            const total = Object.values(monthData).reduce((sum, value) => sum + value, 0);
+                            return { clientName: client, data: monthData, total };
+                        });
+                        return { year, headers: monthHeaders, clientRows };
+                    });
+                }
+                if (groupType === 'consolidated') {
+                    const clientRows = allClients.map(client => {
+                        const totalPallets = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client]?.[session] || 0), 0);
+                        return { clientName: client, data: { 'Total': totalPallets }, total: totalPallets };
+                    });
+                    return { headers: ['Total Período'], clientRows };
+                }
+                return null;
             };
-        }
     
-        return null;
-    }, [inventoryReportData, inventoryDateRange, inventoryGroupType]);
+            return {
+                title: getSessionName(session),
+                sessionKey: session,
+                data: getGroupedData(inventoryGroupType)
+            };
+        });
+        
+        return { type: inventoryGroupType, tables };
+    
+    }, [inventoryReportData, inventoryDateRange, inventoryGroupType, inventorySesion]);
     
     
     const inventoryTotals = useMemo(() => {
-        if (!pivotedInventoryData || !pivotedInventoryData.type) {
-            return { daily: null, monthly: [], consolidated: null };
+        if (!pivotedInventoryData || !pivotedInventoryData.tables) {
+            return [];
         }
     
-        const calculateTotals = (clientRows: any[], headers: any[]) => {
-            const columnTotals: ClientInventoryDetail[] = headers.map((_, colIndex) => {
-                return clientRows.reduce((sum, row) => {
-                    const value = row.values[colIndex] || { total: 0, CO: 0, RE: 0, SE: 0 };
-                    sum.total += value.total;
-                    sum.CO += value.CO;
-                    sum.RE += value.RE;
-                    sum.SE += value.SE;
-                    return sum;
-                }, { total: 0, CO: 0, RE: 0, SE: 0 });
+        return pivotedInventoryData.tables.map(table => {
+            if (!table.data) return { columnTotals: [], grandTotal: 0 };
+    
+            if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
+                 return table.data.map(yearData => {
+                    const columnTotals = yearData.headers.map((_, colIndex) => {
+                        return yearData.clientRows.reduce((sum:number, row:any) => {
+                            const value = Object.values(row.data)[colIndex];
+                            return sum + (Number(value) || 0);
+                        }, 0);
+                    });
+                    const grandTotal = columnTotals.reduce((sum:number, total:number) => sum + total, 0);
+                    return { year: yearData.year, columnTotals, grandTotal };
+                });
+            }
+            
+            const clientRows = table.data.clientRows;
+            const headers = table.data.headers;
+            const columnTotals = headers.map((_, colIndex) => {
+                 return clientRows.reduce((sum:number, row:any) => {
+                    const value = Object.values(row.data)[colIndex];
+                    return sum + (Number(value) || 0);
+                }, 0);
             });
-    
-            const grandTotal = columnTotals.reduce((sum, total) => {
-                sum.total += total.total;
-                sum.CO += total.CO;
-                sum.RE += total.RE;
-                sum.SE += total.SE;
-                return sum;
-            }, { total: 0, CO: 0, RE: 0, SE: 0 });
-    
+            const grandTotal = columnTotals.reduce((sum:number, total:number) => sum + total, 0);
+            
             return { columnTotals, grandTotal };
-        };
-    
-        if (pivotedInventoryData.type === 'daily' || pivotedInventoryData.type === 'consolidated') {
-            const totals = calculateTotals(pivotedInventoryData.clientRows, pivotedInventoryData.headers);
-            return { daily: totals, monthly: [], consolidated: totals };
-        }
-    
-        if (pivotedInventoryData.type === 'monthly' && pivotedInventoryData.yearlyData) {
-            const monthlyTotals = pivotedInventoryData.yearlyData.map(yearData => {
-                const totals = calculateTotals(yearData.clientRows, yearData.headers);
-                return { year: yearData.year, ...totals };
-            });
-            return { daily: null, monthly: monthlyTotals, consolidated: null };
-        }
-    
-        return { daily: null, monthly: [], consolidated: null };
+        });
     }, [pivotedInventoryData]);
     
     
@@ -891,62 +840,46 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!pivotedInventoryData) return;
     
         const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Reporte Inventario');
-    
-        const sessionMap: { [key: string]: string } = { 'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas' };
-        const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
-    
-        worksheet.addRow([sessionText]);
-        worksheet.mergeCells('A1:B1');
-        worksheet.addRow([]);
         
-        if (pivotedInventoryData.type === 'daily' || pivotedInventoryData.type === 'consolidated') {
-            const { headers, clientRows } = pivotedInventoryData;
+        pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
+            const worksheet = workbook.addWorksheet(tableData.title);
+            worksheet.addRow([tableData.title]);
+            worksheet.mergeCells('A1:B1');
+            worksheet.addRow([]);
             
-            const isAllSessions = inventorySesion === 'TODAS';
-            const subHeaders = isAllSessions ? ['Total', 'CO', 'RE', 'SE'] : ['Total'];
-            const mainHeaderRow = worksheet.addRow(['Cliente', ...headers.flatMap(h => subHeaders.map(sh => `${h}${subHeaders.length > 1 ? ` (${sh})` : ''}`))]);
-            mainHeaderRow.font = { bold: true };
-
-            clientRows.forEach(row => {
-                const rowData: (string|number)[] = [row.clientName];
-                row.values.forEach((value: ClientInventoryDetail) => {
-                    rowData.push(Math.round(value.total));
-                    if (isAllSessions) {
-                        rowData.push(Math.round(value.CO));
-                        rowData.push(Math.round(value.RE));
-                        rowData.push(Math.round(value.SE));
-                    }
-                });
-                worksheet.addRow(rowData);
-            });
-        
-            const totals = inventoryTotals[pivotedInventoryData.type];
-            if (totals) {
-                const totalRowData: (string|number)[] = ['TOTALES'];
-                totals.columnTotals.forEach(total => {
-                    totalRowData.push(Math.round(total.total));
-                     if(isAllSessions) {
-                         totalRowData.push(Math.round(total.CO));
-                         totalRowData.push(Math.round(total.RE));
-                         totalRowData.push(Math.round(total.SE));
-                    }
-                });
-                const totalRow = worksheet.addRow(totalRowData);
-                totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-                 totalRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } }; });
-            }
-
-        } else if (pivotedInventoryData.type === 'monthly' && pivotedInventoryData.yearlyData) {
-            // Logic for monthly export would be more complex and might require adjustments
-            // For now, let's keep it simple and just export the first year's data or a summary
-            toast({
-                title: 'Exportación Mensual no Implementada',
-                description: 'La exportación para la vista mensual agrupada por año no está completamente implementada aún.'
-            });
-            return;
-        }
+            if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
+                tableData.data.forEach((yearData, yearIdx) => {
+                    if (yearIdx > 0) worksheet.addRow([]);
+                    const yearRow = worksheet.addRow([`AÑO: ${yearData.year}`]);
+                    yearRow.font = { bold: true, size: 14 };
+                    worksheet.mergeCells(yearRow.number, 1, yearRow.number, yearData.headers.length + 2);
     
+                    const headerRow = worksheet.addRow(['Cliente', ...yearData.headers, 'TOTAL CLIENTE']);
+                    headerRow.font = { bold: true };
+    
+                    yearData.clientRows.forEach((row: any) => {
+                        worksheet.addRow([row.clientName, ...Object.values(row.data), row.total]);
+                    });
+                    
+                    const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
+                    const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal]);
+                    totalRow.font = { bold: true };
+                });
+            } else if (tableData.data) {
+                const { headers, clientRows } = tableData.data;
+                const headerRow = worksheet.addRow(['Cliente', ...headers, 'TOTAL CLIENTE']);
+                headerRow.font = { bold: true };
+    
+                clientRows.forEach((row: any) => {
+                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total]);
+                });
+                
+                const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number };
+                const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal]);
+                totalRow.font = { bold: true };
+            }
+        });
+
         worksheet.columns.forEach((column) => {
             column.width = 15;
         });
@@ -962,103 +895,96 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleInventoryExportPDF = () => {
-        if (!pivotedInventoryData || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
-        
+         if (!pivotedInventoryData || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
+    
         const doc = new jsPDF({ orientation: 'landscape' });
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 14;
+        let isFirstPage = true;
     
-        const logoWidth = 21;
-        const aspectRatio = logoDimensions.width / logoDimensions.height;
-        const logoHeight = logoWidth / aspectRatio;
-        
-        const logoX = (pageWidth - logoWidth) / 2;
-        const headerY = 10;
-        doc.addImage(logoBase64, 'PNG', logoX, headerY, logoWidth, logoHeight);
+        const addHeaderAndTitle = (title: string, sessionText: string) => {
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 14;
     
-        const titleY = headerY + logoHeight + 8;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, titleY, { align: 'center' });
+            const logoWidth = 21;
+            const aspectRatio = logoDimensions!.width / logoDimensions!.height;
+            const logoHeight = logoWidth / aspectRatio;
     
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 6, { align: 'center' });
+            const logoX = (pageWidth - logoWidth) / 2;
+            const headerY = 10;
+            doc.addImage(logoBase64!, 'PNG', logoX, headerY, logoWidth, logoHeight);
     
-        let contentStartY = titleY + 14;
-        
-        const periodText = (inventoryDateRange?.from && inventoryDateRange?.to) 
-            ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
-            : '';
-        const sessionMap: { [key: string]: string } = { 'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas' };
-        const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
-        
-        const lineHeight = doc.getTextDimensions('A').h;
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
-        doc.text(sessionText, margin, contentStartY);
-    
-        let tableStartY = contentStartY + lineHeight + 4;
-        
-        if (pivotedInventoryData.type === 'daily' || pivotedInventoryData.type === 'consolidated') {
-            const { headers, clientRows } = pivotedInventoryData;
-            const totals = inventoryTotals[pivotedInventoryData.type];
-            const isAllSessions = inventorySesion === 'TODAS';
-
-            let head: any[] = [['Cliente']];
-            if (isAllSessions) {
-                headers.forEach(h => head[0].push({ content: h, colSpan: 4, styles: { halign: 'center' } }));
-                head.push(['', ...headers.flatMap(() => ['Total', 'CO', 'RE', 'SE'])]);
-            } else {
-                 head = [['Cliente', ...headers, 'TOTAL']];
-            }
+            const titleY = headerY + logoHeight + 8;
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, titleY, { align: 'center' });
             
-            const body = clientRows.map(row => {
-                const rowData: (string|number)[] = [row.clientName];
-                 row.values.forEach((value: ClientInventoryDetail) => {
-                    rowData.push(Math.round(value.total));
-                    if (isAllSessions) {
-                        rowData.push(Math.round(value.CO));
-                        rowData.push(Math.round(value.RE));
-                        rowData.push(Math.round(value.SE));
-                    }
-                });
-                if (!isAllSessions) rowData.push(Math.round(row.total));
-                return rowData;
-            });
-            
-            const foot: any[] = [];
-            if (totals) {
-                const totalRowData: (string|number)[] = ['TOTALES'];
-                totals.columnTotals.forEach(total => {
-                    totalRowData.push(Math.round(total.total));
-                     if(isAllSessions) {
-                         totalRowData.push(Math.round(total.CO));
-                         totalRowData.push(Math.round(total.RE));
-                         totalRowData.push(Math.round(total.SE));
-                    }
-                });
-                if (!isAllSessions) totalRowData.push(Math.round(totals.grandTotal.total));
-                foot.push(totalRowData);
-            }
-
-            autoTable(doc, {
-                startY: tableStartY,
-                head,
-                body,
-                foot,
-                theme: 'grid',
-                styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
-                headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
-                footStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'right' },
-                columnStyles: { 0: { cellWidth: 40, halign: 'left' } },
-                didParseCell: function (data) {
-                    if (data.column.index > 0) { data.cell.styles.halign = 'right'; }
-                }
-            });
-        }
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text(title, pageWidth / 2, titleY + 6, { align: 'center' });
     
+            let contentStartY = titleY + 14;
+            const periodText = (inventoryDateRange?.from && inventoryDateRange?.to)
+                ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
+                : '';
+    
+            const lineHeight = doc.getTextDimensions('A').h;
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
+            doc.text(sessionText, margin, contentStartY);
+    
+            return contentStartY + lineHeight + 4;
+        };
+
+        pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
+            if (!isFirstPage) {
+                doc.addPage();
+            }
+            const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${tableData.title}`);
+
+            if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
+                 tableData.data.forEach((yearData: any, yearIdx: number) => {
+                    const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
+                    autoTable(doc, {
+                        startY: yearIdx === 0 ? tableStartY : (doc as any).lastAutoTable.finalY + 10,
+                        head: [[{content: `AÑO: ${yearData.year}`, colSpan: yearData.headers.length + 2}]],
+                        body: [],
+                        theme: 'plain',
+                        headStyles: { fontStyle: 'bold', fontSize: 10 }
+                    });
+                    
+                    const head = [['Cliente', ...yearData.headers, 'TOTAL']];
+                    const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data), row.total]);
+                    const foot = [['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal]];
+                    
+                    autoTable(doc, {
+                        startY: (doc as any).lastAutoTable.finalY,
+                        head, body, foot, theme: 'grid',
+                        styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
+                        headStyles: { fillColor: [33, 150, 243], textColor: 255 },
+                        footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' }
+                    });
+                });
+            } else if (tableData.data) {
+                const { headers, clientRows } = tableData.data;
+                const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number };
+
+                const head = [['Cliente', ...headers, 'TOTAL']];
+                const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data), row.total]);
+                const foot = [['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal]];
+
+                autoTable(doc, {
+                    startY: tableStartY,
+                    head, body, foot, theme: 'grid',
+                    styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
+                    headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                    footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
+                    columnStyles: { 0: { cellWidth: 40, halign: 'left' } },
+                    didParseCell: (data: any) => { if (data.column.index > 0) data.cell.styles.halign = 'right'; }
+                });
+            }
+            isFirstPage = false;
+        });
+
         const fileName = `Reporte_Inventario_Acumulado_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
@@ -2104,15 +2030,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const containerGroups = group.rows.reduce((acc, row) => {
                     const containerKey = row.container || 'SIN_CONTENEDOR';
                     if (!acc[containerKey]) {
-                        acc[containerKey] = [];
+                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
                     }
-                    acc[containerKey].push(row);
+                    acc[containerKey].rows.push(row);
+                    acc[containerKey].subtotalCantidad += row.quantity;
+                    acc[containerKey].subtotalValor += row.totalValue;
                     return acc;
-                }, {} as Record<string, ClientSettlementRow[]>);
+                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
 
-                Object.entries(containerGroups).forEach(([containerKey, rows]) => {
+                Object.entries(containerGroups).forEach(([containerKey, containerData]: [string, any]) => {
                      detailBody.push([{ content: `Contenedor: ${containerKey}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
-                     containerData.rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
+                     containerData.rows.sort((a: ClientSettlementRow, b: ClientSettlementRow) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach((row: ClientSettlementRow) => {
                         detailBody.push(generateDetailRow(row));
                      });
                      detailBody.push([
@@ -2855,14 +2783,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <div className="flex gap-2">
                                                 <Button 
                                                     onClick={handleInventoryExportExcel} 
-                                                    disabled={isQuerying || !pivotedInventoryData || (pivotedInventoryData.type === 'daily' && pivotedInventoryData.clientRows.length === 0)} 
+                                                    disabled={isQuerying || !pivotedInventoryData || pivotedInventoryData.tables.length === 0}
                                                     variant="outline"
                                                 >
                                                     <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                                 </Button>
                                                 <Button 
                                                     onClick={handleInventoryExportPDF} 
-                                                    disabled={isQuerying || !pivotedInventoryData || (pivotedInventoryData.type === 'daily' && pivotedInventoryData.clientRows.length === 0) || isLogoLoading} 
+                                                    disabled={isQuerying || !pivotedInventoryData || pivotedInventoryData.tables.length === 0 || isLogoLoading}
                                                     variant="outline"
                                                 >
                                                     {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
@@ -2870,111 +2798,81 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </Button>
                                             </div>
                                         </div>
-                                        <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-                                            <Table>
-                                                {pivotedInventoryData?.type === 'daily' || pivotedInventoryData?.type === 'consolidated' ? (
-                                                    <>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-medium text-xs min-w-[200px]">Cliente</TableHead>
-                                                            {pivotedInventoryData.headers.map(header => (
-                                                                <TableHead key={header} className="text-right px-2 py-2 font-medium text-xs min-w-[80px]">
-                                                                    {header}
-                                                                </TableHead>
-                                                            ))}
-                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right px-2 py-2 font-bold text-xs min-w-[100px]">TOTAL CLIENTE</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                    {isQuerying ? (
-                                                        <TableRow><TableCell colSpan={(pivotedInventoryData.headers.length || 0) + 2}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
-                                                    ) : pivotedInventoryData.clientRows.length > 0 ? (
-                                                      <>
-                                                        {pivotedInventoryData.clientRows.map((row) => (
-                                                            <TableRow key={row.clientName}>
-                                                                <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-xs">
-                                                                    {row.clientName}
-                                                                </TableCell>
-                                                                {row.values.map((value, index) => (
-                                                                    <TableCell key={index} className="text-right font-mono px-2 py-2 text-xs">
-                                                                        {Math.round(value.total).toLocaleString('es-CO')}
-                                                                    </TableCell>
-                                                                ))}
-                                                                 <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold px-2 py-2 text-xs">
-                                                                    {Math.round(row.total).toLocaleString('es-CO')}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                        <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
-                                                            <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
-                                                            {inventoryTotals[pivotedInventoryData.type]?.columnTotals.map((total, index) => (
-                                                                <TableCell key={`total-${index}`} className="text-right font-mono text-xs">
-                                                                    {Math.round(total.total).toLocaleString('es-CO')}
-                                                                </TableCell>
-                                                            ))}
-                                                             <TableCell className="sticky right-0 bg-primary/90 text-right font-bold text-xs">
-                                                                {Math.round(inventoryTotals[pivotedInventoryData.type]?.grandTotal.total || 0).toLocaleString('es-CO')}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                      </>
-                                                    ) : (
-                                                        <TableRow>
-                                                            <TableCell colSpan={(pivotedInventoryData.headers.length || 0) + 2} className="py-10 text-center text-muted-foreground">
-                                                                No se encontraron registros de inventario para su selección.
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )}
-                                                </TableBody>
-                                                </>
-                                                ) : pivotedInventoryData?.type === 'monthly' && pivotedInventoryData.yearlyData?.map((yearData, yearIdx) => (
-                                                    <React.Fragment key={yearData.year}>
-                                                        <TableHeader>
-                                                            <TableRow>
-                                                                <TableHead colSpan={yearData.headers.length + 2} className="text-lg font-semibold p-4 bg-muted">{`AÑO: ${yearData.year}`}</TableHead>
-                                                            </TableRow>
-                                                            <TableRow>
-                                                                <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-medium text-xs min-w-[200px]">Cliente</TableHead>
-                                                                {yearData.headers.map(header => (
-                                                                    <TableHead key={header} className="text-right px-2 py-2 font-medium text-xs min-w-[80px]">
-                                                                        {header}
-                                                                    </TableHead>
-                                                                ))}
-                                                                 <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right px-2 py-2 font-bold text-xs min-w-[100px]">TOTAL CLIENTE</TableHead>
-                                                            </TableRow>
-                                                        </TableHeader>
-                                                        <TableBody>
-                                                            {yearData.clientRows.map((row) => (
-                                                                <TableRow key={row.clientName}>
-                                                                    <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-xs">
-                                                                        {row.clientName}
-                                                                    </TableCell>
-                                                                    {row.values.map((value, index) => (
-                                                                        <TableCell key={index} className="text-right font-mono px-2 py-2 text-xs">
-                                                                            {Math.round(value.total).toLocaleString('es-CO')}
-                                                                        </TableCell>
-                                                                    ))}
-                                                                    <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold px-2 py-2 text-xs">
-                                                                        {Math.round(row.total).toLocaleString('es-CO')}
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            ))}
-                                                            <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
-                                                                <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES {yearData.year}</TableCell>
-                                                                {(inventoryTotals.monthly.find(t => t.year === yearData.year)?.columnTotals || []).map((total, index) => (
-                                                                    <TableCell key={`total-${yearData.year}-${index}`} className="text-right font-mono text-xs">
-                                                                        {Math.round(total.total).toLocaleString('es-CO')}
-                                                                    </TableCell>
-                                                                ))}
-                                                                 <TableCell className="sticky right-0 bg-primary/90 text-right font-bold text-xs">
-                                                                    {Math.round(inventoryTotals.monthly.find(t => t.year === yearData.year)?.grandTotal.total || 0).toLocaleString('es-CO')}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        </TableBody>
-                                                    </React.Fragment>
-                                                ))}
-                                            </Table>
-                                            <ScrollBar orientation="horizontal" />
-                                        </ScrollArea>
+                                        
+                                        <div className="space-y-8">
+                                            {isQuerying ? (
+                                                <div className="flex justify-center items-center h-48"><Skeleton className="h-20 w-full" /></div>
+                                            ) : pivotedInventoryData && pivotedInventoryData.tables.length > 0 ? (
+                                                pivotedInventoryData.tables.map((table, tableIndex) => (
+                                                    <Card key={table.title}>
+                                                        <CardHeader>
+                                                            <CardTitle>{table.title}</CardTitle>
+                                                        </CardHeader>
+                                                        <CardContent>
+                                                            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                                                            {pivotedInventoryData.type === 'monthly' && Array.isArray(table.data) ? (
+                                                                table.data.map((yearData, yearIdx) => (
+                                                                    <div key={yearData.year} className="mb-6 last:mb-0">
+                                                                        <h4 className="p-4 text-lg font-semibold bg-muted">{`AÑO: ${yearData.year}`}</h4>
+                                                                        <Table>
+                                                                            <TableHeader>
+                                                                                <TableRow>
+                                                                                    <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
+                                                                                    {yearData.headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
+                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL</TableHead>
+                                                                                </TableRow>
+                                                                            </TableHeader>
+                                                                            <TableBody>
+                                                                                {yearData.clientRows.map((row: any) => (
+                                                                                    <TableRow key={row.clientName}>
+                                                                                        <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
+                                                                                        {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
+                                                                                        <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
+                                                                                    </TableRow>
+                                                                                ))}
+                                                                                <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
+                                                                                    <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
+                                                                                    {(inventoryTotals[tableIndex] as any)[yearIdx].columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{Math.round(total).toLocaleString('es-CO')}</TableCell>)}
+                                                                                    <TableCell className="sticky right-0 bg-primary/90 text-right font-bold">{Math.round((inventoryTotals[tableIndex] as any)[yearIdx].grandTotal).toLocaleString('es-CO')}</TableCell>
+                                                                                </TableRow>
+                                                                            </TableBody>
+                                                                        </Table>
+                                                                    </div>
+                                                                ))
+                                                            ) : table.data ? (
+                                                                <Table>
+                                                                    <TableHeader>
+                                                                        <TableRow>
+                                                                            <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
+                                                                            {table.data.headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
+                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL</TableHead>
+                                                                        </TableRow>
+                                                                    </TableHeader>
+                                                                    <TableBody>
+                                                                        {table.data.clientRows.map((row: any) => (
+                                                                            <TableRow key={row.clientName}>
+                                                                                <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
+                                                                                {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
+                                                                                <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
+                                                                            </TableRow>
+                                                                        ))}
+                                                                        <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
+                                                                            <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
+                                                                            {(inventoryTotals[tableIndex] as any).columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{Math.round(total).toLocaleString('es-CO')}</TableCell>)}
+                                                                            <TableCell className="sticky right-0 bg-primary/90 text-right font-bold">{Math.round((inventoryTotals[tableIndex] as any).grandTotal).toLocaleString('es-CO')}</TableCell>
+                                                                        </TableRow>
+                                                                    </TableBody>
+                                                                </Table>
+                                                            ) : null}
+                                                            <ScrollBar orientation="horizontal" />
+                                                            </ScrollArea>
+                                                        </CardContent>
+                                                    </Card>
+                                                ))
+                                            ) : (
+                                                <Card><CardContent className="py-20 text-center text-muted-foreground">No se encontraron registros de inventario para su selección.</CardContent></Card>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 <Card className="mt-6">
@@ -3639,5 +3537,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
+    
 
     
