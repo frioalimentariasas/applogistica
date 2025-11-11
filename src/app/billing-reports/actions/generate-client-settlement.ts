@@ -528,14 +528,17 @@ export async function generateClientSettlement(criteria: {
     
     // Fetch all submissions for the client up to the end date
     const allSubmissionsSnapshot = await firestore.collection('submissions')
-        .where('formData.cliente', '==', clientName)
         .where('formData.fecha', '<=', serverQueryEndDate)
         .get();
 
-    const allSubmissions = allSubmissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
-    
-    // Create a separate list for operations within the selected date range
-    const operationsInDateRange = allSubmissions.filter(op => {
+    const allSubmissionsForClient = allSubmissionsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }))
+        .filter(op => {
+            const docClientName = op.formData?.cliente || op.formData?.nombreCliente;
+            return docClientName === clientName;
+        });
+
+    const operationsInDateRange = allSubmissionsForClient.filter(op => {
         const opDate = new Date(op.formData.fecha);
         return isWithinInterval(opDate, { start: serverQueryStartDate, end: serverQueryEndDate });
     });
@@ -580,7 +583,7 @@ export async function generateClientSettlement(criteria: {
     let settlementRows: ClientSettlementRow[] = [];
     
     const processCargueAlmacenamiento = async (concept: ClientBillingConcept, weightCondition: (weight: number) => boolean) => {
-        const recepciones = allSubmissions
+        const recepciones = allSubmissionsForClient
             .filter(op => op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion')
             .filter(op => op.formData.tipoPedido === 'GENERICO');
 
@@ -605,7 +608,7 @@ export async function generateClientSettlement(criteria: {
 
                     const fechaDespachoBuscada = addDays(fechaRecepcion, 1);
 
-                    const despachoDelDiaSiguiente = allSubmissions.find(op => 
+                    const despachoDelDiaSiguiente = allSubmissionsForClient.find(op => 
                         op.formType === 'variable-weight-despacho' &&
                         format(new Date(op.formData.fecha), 'yyyy-MM-dd') === format(fechaDespachoBuscada, 'yyyy-MM-dd') &&
                         (op.formData.items || []).some((item: any) => item.lote === loteId)
@@ -692,36 +695,31 @@ export async function generateClientSettlement(criteria: {
 
     for (const concept of ruleConcepts) {
             
-        for (const op of operationsInDateRange) {
-            if (
-                clientName === 'GRUPO FRUTELLI SAS' && 
-                (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')
-            ) {
-                continue; 
-            }
-             
-            const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
-            const isDespacho = op.formType.includes('despacho');
+        for (const op of allOperations.filter(o => o.type === 'form')) {
+            const submission = op.data;
+
+            const isRecepcion = submission.formType.includes('recepcion') || submission.formType.includes('reception');
+            const isDespacho = submission.formType.includes('despacho');
             const opTypeMatch = concept.filterOperationType === 'ambos' ||
                                 (concept.filterOperationType === 'recepcion' && isRecepcion) ||
                                 (concept.filterOperationType === 'despacho' && isDespacho);
             if (!opTypeMatch) continue;
 
-            const isFixed = op.formType.includes('fixed-weight');
-            const isVariable = op.formType.includes('variable-weight');
+            const isFixed = submission.formType.includes('fixed-weight');
+            const isVariable = submission.formType.includes('variable-weight');
             const prodTypeMatch = concept.filterProductType === 'ambos' ||
                                   (concept.filterProductType === 'fijo' && isFixed) ||
                                   (concept.filterProductType === 'variable' && isVariable);
             if (!prodTypeMatch) continue;
             
-            const pedidoType = op.formData?.tipoPedido;
+            const pedidoType = submission.formData?.tipoPedido;
             if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0) {
                 if (!pedidoType || !concept.filterPedidoTypes.includes(pedidoType)) {
                     continue;
                 }
             }
             
-            const items = getFilteredItems(op, concept.filterSesion, articleSessionMap);
+            const items = getFilteredItems(submission, concept.filterSesion, articleSessionMap);
             if (items.length === 0) continue;
 
 
@@ -734,44 +732,44 @@ export async function generateClientSettlement(criteria: {
             
             const isConceptTunel = concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
             const isTariffPorTemperatura = concept.tariffType === 'POR_TEMPERATURA';
-            const isPedidoTunel = op.formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
+            const isPedidoTunel = submission.formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
             const forceNetWeight = isConceptTunel && isTariffPorTemperatura && isPedidoTunel;
             
-            let weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap, forceNetWeight);
+            let weightKg = calculateWeightForOperation(submission, concept.filterSesion, articleSessionMap, forceNetWeight);
             
             if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) continue;
 
             let finalWeightKg = weightKg;
-            if (isConceptTunel && op.formData.cliente === 'AVICOLA EL MADROÑO S.A.' && weightKg < 10000) {
+            if (isConceptTunel && submission.formData.cliente === 'AVICOLA EL MADROÑO S.A.' && weightKg < 10000) {
                 finalWeightKg = 10000;
             }
             
             switch (concept.calculationBase) {
                 case 'TONELADAS': quantity = finalWeightKg / 1000; break;
                 case 'KILOGRAMOS': quantity = finalWeightKg; break;
-                case 'CANTIDAD_PALETAS': quantity = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap, concept); break;
-                case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
+                case 'CANTIDAD_PALETAS': quantity = calculatePalletsForOperation(submission, concept.filterSesion, articleSessionMap, concept); break;
+                case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(submission, concept.filterSesion, articleSessionMap); break;
                 case 'NUMERO_OPERACIONES': quantity = 1; break;
-                case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
+                case 'NUMERO_CONTENEDORES': quantity = submission.formData.contenedor ? 1 : 0; break;
                 case 'PALETAS_SALIDA_MAQUILA_CONGELADOS':
-                    if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
-                        quantity = Number(op.formData.salidaPaletasMaquilaCO) || 0;
+                    if ((submission.formType === 'variable-weight-reception' || submission.formType === 'variable-weight-recepcion') && submission.formData.tipoPedido === 'MAQUILA') {
+                        quantity = Number(submission.formData.salidaPaletasMaquilaCO) || 0;
                     } else {
                         quantity = 0;
                     }
                     totalPallets = quantity;
                     break;
                 case 'PALETAS_SALIDA_MAQUILA_SECO':
-                     if ((op.formType.includes('reception') || op.formType.includes('recepcion')) && op.formData.tipoPedido === 'MAQUILA') {
-                        quantity = Number(op.formData.salidaPaletasMaquilaSE) || 0;
+                     if ((submission.formType.includes('reception') || submission.formType.includes('recepcion')) && submission.formData.tipoPedido === 'MAQUILA') {
+                        quantity = Number(submission.formData.salidaPaletasMaquilaSE) || 0;
                     } else {
                         quantity = 0;
                     }
                     totalPallets = quantity;
                     break;
                 case 'CANTIDAD_SACOS_MAQUILA':
-                    if ((op.formType.includes('reception') || op.formType.includes('recepcion')) && op.formData.tipoPedido === 'MAQUILA' && op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
-                        quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap);
+                    if ((submission.formType.includes('reception') || submission.formType.includes('recepcion')) && submission.formData.tipoPedido === 'MAQUILA' && submission.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
+                        quantity = calculateUnitsForOperation(submission, concept.filterSesion, articleSessionMap);
                     } else {
                         quantity = 0;
                     }
@@ -784,7 +782,7 @@ export async function generateClientSettlement(criteria: {
                 unitValue = concept.value || 0;
             } else if (concept.tariffType === 'RANGOS') {
                 const totalTons = weightKg / 1000;
-                operacionLogistica = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
+                operacionLogistica = getOperationLogisticsType(submission.formData.fecha, submission.formData.horaInicio, submission.formData.horaFin, concept);
                 
                 const matchingTariff = findMatchingTariff(totalTons, concept);
 
@@ -804,14 +802,14 @@ export async function generateClientSettlement(criteria: {
                 }
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
                 let tempSourceArray = [];
-                if (op.formType.startsWith('fixed-weight-')) {
-                    tempSourceArray = op.formData.productos || [];
+                if (submission.formType.startsWith('fixed-weight-')) {
+                    tempSourceArray = submission.formData.productos || [];
                 } else { // Variable Weight
-                    tempSourceArray = (op.formData.summary || []).concat(op.formData.productos || []);
+                    tempSourceArray = (submission.formData.summary || []).concat(submission.formData.productos || []);
                 }
             
                 let tempFields: (number | null | undefined)[] = [];
-                if (op.formType.startsWith('fixed-weight-')) {
+                if (submission.formType.startsWith('fixed-weight-')) {
                     tempFields = tempSourceArray.flatMap((item: any) => [item.temperatura1, item.temperatura2, item.temperatura3]);
                 } else {
                     tempFields = tempSourceArray.flatMap((item: any) => [item.temperatura1, item.temperatura2, item.temperatura3, item.temperatura]);
@@ -829,63 +827,63 @@ export async function generateClientSettlement(criteria: {
             }
             
             if (concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_CONGELADOS' && concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_SECO') {
-                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap, concept);
+                totalPallets = calculatePalletsForOperation(submission, concept.filterSesion, articleSessionMap, concept);
             }
 
-            const filteredItems = getFilteredItems(op, concept.filterSesion, articleSessionMap);
+            const filteredItems = getFilteredItems(submission, concept.filterSesion, articleSessionMap);
             const firstProductCode = filteredItems[0]?.codigo;
             let camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
 
             settlementRows.push({
-                date: op.formData.fecha,
-                placa: op.formData.placa || 'N/A',
-                container: op.formData.contenedor || 'N/A',
+                date: submission.formData.fecha,
+                placa: submission.formData.placa || 'N/A',
+                container: submission.formData.contenedor || 'N/A',
                 camara,
                 totalPaletas: totalPallets,
                 operacionLogistica,
-                pedidoSislog: op.formData.pedidoSislog,
+                pedidoSislog: submission.formData.pedidoSislog,
                 conceptName: concept.conceptName,
                 tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'No Aplica',
                 quantity,
                 unitOfMeasure: unitOfMeasureForReport,
                 unitValue: unitValue,
                 totalValue: quantity * unitValue,
-                horaInicio: op.formData.horaInicio,
-                horaFin: op.formData.horaFin,
+                horaInicio: submission.formData.horaInicio,
+                horaFin: submission.formData.horaFin,
             });
         }
     }
     
     const observationConcepts = selectedConcepts.filter(c => c.calculationType === 'OBSERVACION');
     if (observationConcepts.length > 0) {
-        const opsWithObservations = operationsInDateRange.filter(op => Array.isArray(op.formData.observaciones) && op.formData.observaciones.length > 0);
+        const opsWithObservations = allOperations.filter(op => op.type === 'form' && Array.isArray(op.data.formData.observaciones) && op.data.formData.observaciones.length > 0);
         
         for (const concept of observationConcepts) {
             const relevantOps = opsWithObservations.filter(op =>
-                (op.formData.observaciones as any[]).some(obs => obs.type === concept.associatedObservation)
+                (op.data.formData.observaciones as any[]).some(obs => obs.type === concept.associatedObservation)
             );
             
             for (const op of relevantOps) {
-                const obs = (op.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
+                const obs = (op.data.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
                 const quantity = Number(obs?.quantity) || 0;
 
                 if (quantity > 0) {
                     settlementRows.push({
-                        date: op.formData.fecha,
-                        placa: op.formData.placa || 'N/A',
-                        container: op.formData.contenedor || 'N/A',
+                        date: op.data.formData.fecha,
+                        placa: op.data.formData.placa || 'N/A',
+                        container: op.data.formData.contenedor || 'N/A',
                         camara: 'N/A',
                         totalPaletas: 0, 
                         operacionLogistica: 'No Aplica',
-                        pedidoSislog: op.formData.pedidoSislog,
+                        pedidoSislog: op.data.formData.pedidoSislog,
                         conceptName: concept.conceptName,
                         tipoVehiculo: 'No Aplica',
                         quantity,
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: concept.value || 0,
                         totalValue: quantity * (concept.value || 0),
-                        horaInicio: op.formData.horaInicio,
-                        horaFin: op.formData.horaFin,
+                        horaInicio: op.data.formData.horaInicio,
+                        horaFin: op.data.formData.horaFin,
                     });
                 }
             }
@@ -1184,21 +1182,10 @@ export async function generateClientSettlement(criteria: {
         if (!concept.value) continue;
     
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
-            const filteredOperations = allSubmissions.filter(op => {
-                if (op.formData?.cliente !== clientName && op.formData?.nombreCliente !== clientName) return false;
-                
-                const formType = op.formType as string;
-                if (formType.includes('recepcion') && op.formData?.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-                    return false;
-                }
-                return true;
-            });
-            
-            const containerMovements = filteredOperations.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
+            const containerMovements = allSubmissionsForClient.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
                 if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0 && !concept.filterPedidoTypes.includes(op.formData?.tipoPedido)) {
                     return acc;
                 }
-
                 const container = op.formData?.contenedor?.trim();
                 if (!container || container.toUpperCase() === 'N/A' || container.toUpperCase() === 'NO APLICA') return acc;
     
