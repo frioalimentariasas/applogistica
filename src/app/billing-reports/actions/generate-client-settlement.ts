@@ -526,6 +526,7 @@ export async function generateClientSettlement(criteria: {
     const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
     const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
+    // Fetch all submissions for the client up to the end date
     const allSubmissionsSnapshot = await firestore.collection('submissions')
         .where('formData.cliente', '==', clientName)
         .where('formData.fecha', '<=', serverQueryEndDate)
@@ -533,6 +534,7 @@ export async function generateClientSettlement(criteria: {
 
     const allSubmissions = allSubmissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
     
+    // Create a separate list for operations within the selected date range
     const operationsInDateRange = allSubmissions.filter(op => {
         const opDate = new Date(op.formData.fecha);
         return isWithinInterval(opDate, { start: serverQueryStartDate, end: serverQueryEndDate });
@@ -549,7 +551,7 @@ export async function generateClientSettlement(criteria: {
         const article = doc.data() as ArticuloData;
         articleSessionMap.set(article.codigoProducto, article.sesion);
     });
-
+    
     const allOperations: BasicOperation[] = [];
 
     operationsInDateRange.forEach(data => {
@@ -579,8 +581,8 @@ export async function generateClientSettlement(criteria: {
     
     const processCargueAlmacenamiento = async (concept: ClientBillingConcept, weightCondition: (weight: number) => boolean) => {
         const recepciones = allSubmissions
-            .filter(op => op.type === 'form' && (op.data.formType === 'variable-weight-reception' || op.data.formType === 'variable-weight-recepcion') && op.data.formData.tipoPedido === 'GENERICO')
-            .map(op => op.data);
+            .filter(op => op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion')
+            .filter(op => op.formData.tipoPedido === 'GENERICO');
 
         for (const recepcion of recepciones) {
             const lotesEnRecepcion = (recepcion.formData.items || []).reduce((acc: any, item: any) => {
@@ -597,18 +599,21 @@ export async function generateClientSettlement(criteria: {
             for (const loteId in lotesEnRecepcion) {
                 if (weightCondition(lotesEnRecepcion[loteId].peso)) {
                     const fechaRecepcion = new Date(recepcion.formData.fecha);
+                    if (!isWithinInterval(fechaRecepcion, { start: serverQueryStartDate, end: serverQueryEndDate })) {
+                        continue;
+                    }
+
                     const fechaDespachoBuscada = addDays(fechaRecepcion, 1);
 
                     const despachoDelDiaSiguiente = allSubmissions.find(op => 
-                        op.type === 'form' &&
-                        op.data.formType === 'variable-weight-despacho' &&
-                        format(new Date(op.data.formData.fecha), 'yyyy-MM-dd') === format(fechaDespachoBuscada, 'yyyy-MM-dd') &&
-                        (op.data.formData.items || []).some((item: any) => item.lote === loteId)
+                        op.formType === 'variable-weight-despacho' &&
+                        format(new Date(op.formData.fecha), 'yyyy-MM-dd') === format(fechaDespachoBuscada, 'yyyy-MM-dd') &&
+                        (op.formData.items || []).some((item: any) => item.lote === loteId)
                     );
 
                     if (despachoDelDiaSiguiente) {
                          const paletasEnDespacho = new Set(
-                            (despachoDelDiaSiguiente.data.formData.items || [])
+                            (despachoDelDiaSiguiente.formData.items || [])
                                 .filter((item: any) => item.lote === loteId && !item.esPicking)
                                 .map((item: any) => item.paleta)
                         ).size;
@@ -687,11 +692,7 @@ export async function generateClientSettlement(criteria: {
 
     for (const concept of ruleConcepts) {
             
-        const applicableOperations = allOperations
-            .filter(op => op.type === 'form')
-            .map(op => op.data);
-            
-        for (const op of applicableOperations) {
+        for (const op of operationsInDateRange) {
             if (
                 clientName === 'GRUPO FRUTELLI SAS' && 
                 (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')
@@ -857,34 +858,34 @@ export async function generateClientSettlement(criteria: {
     
     const observationConcepts = selectedConcepts.filter(c => c.calculationType === 'OBSERVACION');
     if (observationConcepts.length > 0) {
-        const opsWithObservations = allOperations.filter(op => op.type === 'form' && Array.isArray(op.data.formData.observaciones) && op.data.formData.observaciones.length > 0);
+        const opsWithObservations = operationsInDateRange.filter(op => Array.isArray(op.formData.observaciones) && op.formData.observaciones.length > 0);
         
         for (const concept of observationConcepts) {
             const relevantOps = opsWithObservations.filter(op =>
-                (op.data.formData.observaciones as any[]).some(obs => obs.type === concept.associatedObservation)
+                (op.formData.observaciones as any[]).some(obs => obs.type === concept.associatedObservation)
             );
             
             for (const op of relevantOps) {
-                const obs = (op.data.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
+                const obs = (op.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
                 const quantity = Number(obs?.quantity) || 0;
 
                 if (quantity > 0) {
                     settlementRows.push({
-                        date: op.data.formData.fecha,
-                        placa: op.data.formData.placa || 'N/A',
-                        container: op.data.formData.contenedor || 'N/A',
+                        date: op.formData.fecha,
+                        placa: op.formData.placa || 'N/A',
+                        container: op.formData.contenedor || 'N/A',
                         camara: 'N/A',
                         totalPaletas: 0, 
                         operacionLogistica: 'No Aplica',
-                        pedidoSislog: op.data.formData.pedidoSislog,
+                        pedidoSislog: op.formData.pedidoSislog,
                         conceptName: concept.conceptName,
                         tipoVehiculo: 'No Aplica',
                         quantity,
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: concept.value || 0,
                         totalValue: quantity * (concept.value || 0),
-                        horaInicio: op.data.formData.horaInicio,
-                        horaFin: op.data.formData.horaFin,
+                        horaInicio: op.formData.horaInicio,
+                        horaFin: op.formData.horaFin,
                     });
                 }
             }
@@ -1382,3 +1383,4 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
