@@ -494,7 +494,7 @@ export async function generateClientSettlement(criteria: {
   lotIds?: string[];
 }): Promise<ClientSettlementResult> {
   
-  const { clientName, startDate, endDate, conceptIds, lotIds } = criteria;
+  const { clientName, startDate, endDate, conceptIds, lotIds, containerNumber } = criteria;
   
   const allConcepts = await getClientBillingConcepts();
 
@@ -516,8 +516,6 @@ export async function generateClientSettlement(criteria: {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
   
-  const { containerNumber } = criteria;
-
   const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
 
   if (!clientName || !startDate || !endDate || selectedConcepts.length === 0) {
@@ -528,15 +526,22 @@ export async function generateClientSettlement(criteria: {
     const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
     const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
-    // Fetch ALL submissions up to the end date to calculate initial balances correctly
+    // Fetch ALL submissions for the client up to the end date
     const allSubmissionsSnapshot = await firestore.collection('submissions')
-        .where('formData.fecha', '>=', serverQueryStartDate)
+        .where('formData.cliente', '==', clientName)
         .where('formData.fecha', '<=', serverQueryEndDate)
         .get();
+
+    const allSubmissions = allSubmissionsSnapshot.docs.map(doc => serializeTimestamps(doc.data()));
+
+    const operationsInDateRange = allSubmissions.filter(op => {
+        const opDate = new Date(op.formData.fecha);
+        return isWithinInterval(opDate, { start: serverQueryStartDate, end: serverQueryEndDate });
+    });
     
     const [manualOpsSnapshot, crewManualOpsSnapshot, clientArticlesSnapshot] = await Promise.all([
-        firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get(),
-        firestore.collection('manual_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).where('clientName', '==', clientName).get(),
+        firestore.collection('manual_client_operations').where('clientName', '==', clientName).where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get(),
+        firestore.collection('manual_operations').where('clientName', '==', clientName).where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get(),
         firestore.collection('articulos').where('razonSocial', '==', clientName).get(),
     ]);
     
@@ -548,14 +553,7 @@ export async function generateClientSettlement(criteria: {
 
     const allOperations: BasicOperation[] = [];
 
-    const allSubmissions = allSubmissionsSnapshot.docs.map(doc => serializeTimestamps(doc.data()));
-
-    const clientSubmissions = allSubmissions.filter(data => {
-        const docClientName = data.formData?.cliente || data.formData?.nombreCliente;
-        return docClientName === clientName;
-    });
-
-    clientSubmissions.forEach(data => {
+    operationsInDateRange.forEach(data => {
         if (containerNumber && data.formData.contenedor !== containerNumber) {
             return;
         }
@@ -564,23 +562,24 @@ export async function generateClientSettlement(criteria: {
     
     manualOpsSnapshot.docs.forEach(doc => {
         const data = serializeTimestamps(doc.data());
-        if (data.clientName === clientName) {
-             if (containerNumber && data.details?.container !== containerNumber) {
-                return;
-            }
-            allOperations.push({ type: 'manual', data });
+        if (containerNumber && data.details?.container !== containerNumber) {
+            return;
         }
+        allOperations.push({ type: 'manual', data });
     });
 
     crewManualOpsSnapshot.docs.forEach(doc => {
         const data = serializeTimestamps(doc.data());
+         if (containerNumber && data.container !== containerNumber) {
+            return;
+        }
         allOperations.push({ type: 'crew_manual', data });
     });
     
     let settlementRows: ClientSettlementRow[] = [];
     
     const processCargueAlmacenamiento = async (concept: ClientBillingConcept, weightCondition: (weight: number) => boolean) => {
-        const recepciones = allOperations
+        const recepciones = allSubmissions
             .filter(op => op.type === 'form' && (op.data.formType === 'variable-weight-reception' || op.data.formType === 'variable-weight-recepcion') && op.data.formData.tipoPedido === 'GENERICO')
             .map(op => op.data);
 
@@ -601,7 +600,7 @@ export async function generateClientSettlement(criteria: {
                     const fechaRecepcion = new Date(recepcion.formData.fecha);
                     const fechaDespachoBuscada = addDays(fechaRecepcion, 1);
 
-                    const despachoDelDiaSiguiente = allOperations.find(op => 
+                    const despachoDelDiaSiguiente = allSubmissions.find(op => 
                         op.type === 'form' &&
                         op.data.formType === 'variable-weight-despacho' &&
                         format(new Date(op.data.formData.fecha), 'yyyy-MM-dd') === format(fechaDespachoBuscada, 'yyyy-MM-dd') &&
@@ -694,7 +693,7 @@ export async function generateClientSettlement(criteria: {
             .map(op => op.data)
             .filter(op => {
                 const opDate = new Date(op.formData.fecha);
-                if (opDate < serverQueryStartDate || opDate > serverQueryEndDate) return false;
+                if (!isWithinInterval(opDate, { start: serverQueryStartDate, end: serverQueryEndDate })) return false;
 
                 const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
                 const isDespacho = op.formType.includes('despacho');
@@ -739,7 +738,6 @@ export async function generateClientSettlement(criteria: {
             let vehicleTypeForReport = 'No Aplica';
             let unitOfMeasureForReport = concept.unitOfMeasure;
             
-            // --- INICIO DE LA LÓGICA DE CALCULO DE PESO Y TARIFA ---
             const isConceptTunel = concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
             const isTariffPorTemperatura = concept.tariffType === 'POR_TEMPERATURA';
             const isPedidoTunel = op.formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
@@ -749,7 +747,6 @@ export async function generateClientSettlement(criteria: {
             
             if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) continue;
 
-            // logíca para llevar a 10 toneladas los formularios de Tunel de congelación.
             let finalWeightKg = weightKg;
             if (isConceptTunel && op.formData.cliente === 'AVICOLA EL MADROÑO S.A.' && weightKg < 10000) {
                 finalWeightKg = 10000;
@@ -813,7 +810,6 @@ export async function generateClientSettlement(criteria: {
                 }
             } else if (concept.tariffType === 'POR_TEMPERATURA') {
                 let tempSourceArray = [];
-                // CORRECCIÓN: Unificar la fuente de temperaturas. Para peso fijo y algunos de peso variable, los datos están en 'productos'. Para otros de peso variable, en 'summary'.
                 if (op.formType.startsWith('fixed-weight-')) {
                     tempSourceArray = op.formData.productos || [];
                 } else { // Variable Weight
@@ -837,8 +833,6 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
             }
-
-            // --- FIN DE LA LÓGICA DE CÁLCULO ---
             
             if (concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_CONGELADOS' && concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_SECO') {
                 totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap, concept);
@@ -1196,7 +1190,7 @@ export async function generateClientSettlement(criteria: {
         if (!concept.value) continue;
     
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
-             const filteredOperations = allSubmissions.filter(op => {
+            const filteredOperations = allSubmissions.filter(op => {
                 if (op.formData?.cliente !== clientName && op.formData?.nombreCliente !== clientName) return false;
                 
                 const formType = op.formType as string;
@@ -1229,6 +1223,10 @@ export async function generateClientSettlement(criteria: {
             }, {});
     
             for (const container in containerMovements) {
+                if (containerNumber && container !== containerNumber) {
+                    continue;
+                }
+
                 const movementsForContainer = containerMovements[container];
                 
                 const initialBalanceMovements = movementsForContainer.filter(m => isBefore(m.date, serverQueryStartDate));
@@ -1293,7 +1291,8 @@ export async function generateClientSettlement(criteria: {
     }
 
     settlementRows.forEach(row => {
-        if (clientName === 'AVICOLA EL MADROÑO S.A.' && row.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && op.formData.tipoPedido === 'DESPACHO GENERICO') {
+        const op = allOperations.find(o => o.type === 'form' && o.data.formData.pedidoSislog === row.pedidoSislog);
+        if (clientName === 'AVICOLA EL MADROÑO S.A.' && row.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && op && op.data.formData.tipoPedido === 'DESPACHO GENERICO') {
             row.camara = 'SE';
         }
     });
@@ -1305,9 +1304,9 @@ export async function generateClientSettlement(criteria: {
         'Servicio de Manipulación', // Child
         'OPERACIÓN DESCARGUE/TONELADAS',
         'OPERACIÓN CARGUE/TONELADAS',
-        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
+        'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC) POR CONTENEDOR',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
-        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+        'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
         'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
         'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
@@ -1390,21 +1389,3 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
-    
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
