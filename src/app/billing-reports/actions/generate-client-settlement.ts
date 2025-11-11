@@ -526,14 +526,13 @@ export async function generateClientSettlement(criteria: {
     const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
     const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
-    // Fetch ALL submissions for the client up to the end date
     const allSubmissionsSnapshot = await firestore.collection('submissions')
         .where('formData.cliente', '==', clientName)
         .where('formData.fecha', '<=', serverQueryEndDate)
         .get();
 
-    const allSubmissions = allSubmissionsSnapshot.docs.map(doc => serializeTimestamps(doc.data()));
-
+    const allSubmissions = allSubmissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
+    
     const operationsInDateRange = allSubmissions.filter(op => {
         const opDate = new Date(op.formData.fecha);
         return isWithinInterval(opDate, { start: serverQueryStartDate, end: serverQueryEndDate });
@@ -690,38 +689,7 @@ export async function generateClientSettlement(criteria: {
             
         const applicableOperations = allOperations
             .filter(op => op.type === 'form')
-            .map(op => op.data)
-            .filter(op => {
-                const opDate = new Date(op.formData.fecha);
-                if (!isWithinInterval(opDate, { start: serverQueryStartDate, end: serverQueryEndDate })) return false;
-
-                const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
-                const isDespacho = op.formType.includes('despacho');
-                const opTypeMatch = concept.filterOperationType === 'ambos' ||
-                                    (concept.filterOperationType === 'recepcion' && isRecepcion) ||
-                                    (concept.filterOperationType === 'despacho' && isDespacho);
-                if (!opTypeMatch) return false;
-
-                const isFixed = op.formType.includes('fixed-weight');
-                const isVariable = op.formType.includes('variable-weight');
-                const prodTypeMatch = concept.filterProductType === 'ambos' ||
-                                      (concept.filterProductType === 'fijo' && isFixed) ||
-                                      (concept.filterProductType === 'variable' && isVariable);
-                if (!prodTypeMatch) return false;
-                
-                const pedidoType = op.formData?.tipoPedido;
-                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0) {
-                    if (!pedidoType || !concept.filterPedidoTypes.includes(pedidoType)) {
-                        return false;
-                    }
-                }
-                
-                const items = getFilteredItems(op, concept.filterSesion, articleSessionMap);
-                if (items.length === 0) return false;
-                
-                return true;
-            });
-
+            .map(op => op.data);
             
         for (const op of applicableOperations) {
             if (
@@ -730,6 +698,31 @@ export async function generateClientSettlement(criteria: {
             ) {
                 continue; 
             }
+             
+            const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
+            const isDespacho = op.formType.includes('despacho');
+            const opTypeMatch = concept.filterOperationType === 'ambos' ||
+                                (concept.filterOperationType === 'recepcion' && isRecepcion) ||
+                                (concept.filterOperationType === 'despacho' && isDespacho);
+            if (!opTypeMatch) continue;
+
+            const isFixed = op.formType.includes('fixed-weight');
+            const isVariable = op.formType.includes('variable-weight');
+            const prodTypeMatch = concept.filterProductType === 'ambos' ||
+                                  (concept.filterProductType === 'fijo' && isFixed) ||
+                                  (concept.filterProductType === 'variable' && isVariable);
+            if (!prodTypeMatch) continue;
+            
+            const pedidoType = op.formData?.tipoPedido;
+            if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0) {
+                if (!pedidoType || !concept.filterPedidoTypes.includes(pedidoType)) {
+                    continue;
+                }
+            }
+            
+            const items = getFilteredItems(op, concept.filterSesion, articleSessionMap);
+            if (items.length === 0) continue;
+
 
             let quantity = 0;
             let totalPallets = 0;
@@ -864,7 +857,7 @@ export async function generateClientSettlement(criteria: {
     
     const observationConcepts = selectedConcepts.filter(c => c.calculationType === 'OBSERVACION');
     if (observationConcepts.length > 0) {
-        const opsWithObservations = allOperations.filter(op => op.type === 'form' && Array.isArray(op.data.formData.observaciones) && op.data.formData.observaciones.length > 0 && isWithinInterval(new Date(op.data.formData.fecha), { start: serverQueryStartDate, end: serverQueryEndDate }));
+        const opsWithObservations = allOperations.filter(op => op.type === 'form' && Array.isArray(op.data.formData.observaciones) && op.data.formData.observaciones.length > 0);
         
         for (const concept of observationConcepts) {
             const relevantOps = opsWithObservations.filter(op =>
