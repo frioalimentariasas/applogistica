@@ -229,8 +229,10 @@ export async function getInventoryReport(
                     const clientName = row?.PROPIETARIO?.trim();
                     if (!clientName) return;
                     
-                    if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(clientName)) {
-                        return;
+                    if (criteria.clientNames && criteria.clientNames.length > 0) {
+                        const isAtlantic = clientName.toUpperCase().startsWith('ATLANTIC');
+                        const isSelected = criteria.clientNames.includes(clientName) || (isAtlantic && criteria.clientNames.includes('GRUPO ATLANTIC'));
+                        if (!isSelected) return;
                     }
 
                     const isAtlantic = clientName.toUpperCase().startsWith('ATLANTIC');
@@ -480,6 +482,7 @@ export async function getDetailedInventoryForExport(
     
 
     
+
 
 
 
