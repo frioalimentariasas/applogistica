@@ -221,36 +221,43 @@ export async function getInventoryReport(
                     console.warn(`Documento de inventario con formato incorrecto o fecha faltante, omitido: ${doc.id}`);
                     return;
                 }
+                
+                const dateDataForDay = new Map<string, { CO: Set<string>, RE: Set<string>, SE: Set<string> }>();
+                const atlanticGroupData = { CO: new Set<string>(), RE: new Set<string>(), SE: new Set<string>() };
 
                 inventoryDay.data.forEach((row: InventoryRow) => {
                     const clientName = row?.PROPIETARIO?.trim();
                     if (!clientName) return;
-
+                    
                     if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(clientName)) {
                         return;
                     }
-                    
-                    allClientsFound.add(clientName);
 
-                    if (!resultsByDate.has(inventoryDay.date)) {
-                        resultsByDate.set(inventoryDay.date, new Map());
-                    }
-                    const dateData = resultsByDate.get(inventoryDay.date)!;
+                    const isAtlantic = clientName.toUpperCase().startsWith('ATLANTIC');
+                    const targetClientName = isAtlantic ? 'GRUPO ATLANTIC' : clientName;
 
-                    if (!dateData.has(clientName)) {
-                        dateData.set(clientName, { CO: new Set(), RE: new Set(), SE: new Set() });
+                    allClientsFound.add(targetClientName);
+
+                    const targetMap = isAtlantic ? atlanticGroupData : (dateDataForDay.get(targetClientName) || { CO: new Set(), RE: new Set(), SE: new Set() });
+                    if (!isAtlantic && !dateDataForDay.has(targetClientName)) {
+                        dateDataForDay.set(targetClientName, targetMap);
                     }
-                    const clientPallets = dateData.get(clientName)!;
                     
                     const sesion = String(row.SE).trim().toUpperCase();
                     const palletId = String(row.PALETA).trim();
 
                     if (palletId) {
-                        if (sesion === 'CO') clientPallets.CO.add(palletId);
-                        else if (sesion === 'RE') clientPallets.RE.add(palletId);
-                        else if (sesion === 'SE') clientPallets.SE.add(palletId);
+                        if (sesion === 'CO') targetMap.CO.add(palletId);
+                        else if (sesion === 'RE') targetMap.RE.add(palletId);
+                        else if (sesion === 'SE') targetMap.SE.add(palletId);
                     }
                 });
+                
+                if (allClientsFound.has('GRUPO ATLANTIC')) {
+                    dateDataForDay.set('GRUPO ATLANTIC', atlanticGroupData);
+                }
+
+                resultsByDate.set(inventoryDay.date, dateDataForDay);
 
             } catch (innerError) {
                 console.error(`Error procesando el documento de inventario ${doc.id}:`, innerError);
@@ -268,9 +275,15 @@ export async function getInventoryReport(
 
             for (const clientName of sortedClientHeaders) {
                 const sets = clientPalletSets.get(clientName) || { CO: new Set(), RE: new Set(), SE: new Set() };
-                const countCO = sets.CO.size;
+                
+                let countCO = sets.CO.size;
                 const countRE = sets.RE.size;
                 const countSE = sets.SE.size;
+
+                if (clientName === 'GRUPO ATLANTIC') {
+                    const fixedPositions = 150;
+                    countCO = Math.max(0, fixedPositions - countRE);
+                }
 
                  if (criteria.sesion) {
                     let total = 0;
@@ -279,8 +292,9 @@ export async function getInventoryReport(
                     if (criteria.sesion === 'SE') total = countSE;
                      clientData[clientName] = { total: total, CO: countCO, RE: countRE, SE: countSE };
                 } else {
-                    const uniquePallets = new Set([...sets.CO, ...sets.RE, ...sets.SE]);
-                    clientData[clientName] = { total: uniquePallets.size, CO: countCO, RE: countRE, SE: countSE };
+                    const uniquePallets = new Set([...(clientName === 'GRUPO ATLANTIC' ? [] : sets.CO), ...sets.RE, ...sets.SE]);
+                    const total = (clientName === 'GRUPO ATLANTIC' ? countCO : uniquePallets.size);
+                    clientData[clientName] = { total: total, CO: countCO, RE: countRE, SE: countSE };
                 }
             }
             
@@ -329,7 +343,12 @@ export async function getClientsWithInventory(startDate: string, endDate: string
             if (inventoryDay && Array.isArray(inventoryDay.data)) {
                 inventoryDay.data.forEach((row: any) => {
                     if (row && row.PROPIETARIO && typeof row.PROPIETARIO === 'string') {
-                        clients.add(row.PROPIETARIO.trim());
+                        const clientName = row.PROPIETARIO.trim();
+                        if (clientName.toUpperCase().startsWith('ATLANTIC')) {
+                            clients.add('GRUPO ATLANTIC');
+                        } else {
+                            clients.add(clientName);
+                        }
                     }
                 });
             }
@@ -409,15 +428,26 @@ export async function getDetailedInventoryForExport(
         }
 
         const allRows: InventoryRow[] = [];
+        const wantsAtlanticGroup = criteria.clientNames.includes('GRUPO ATLANTIC');
+
         snapshot.docs.forEach(doc => {
             const inventoryDay = doc.data();
             if (!inventoryDay || !Array.isArray(inventoryDay.data)) {
                 return;
             }
             
-            const clientRows = inventoryDay.data.filter((row: InventoryRow) => 
-                row && row.PROPIETARIO && criteria.clientNames.includes(row.PROPIETARIO.trim())
-            );
+            const clientRows = inventoryDay.data.filter((row: InventoryRow) => {
+                if (row && row.PROPIETARIO) {
+                    const trimmedName = row.PROPIETARIO.trim();
+                    if (wantsAtlanticGroup && trimmedName.toUpperCase().startsWith('ATLANTIC')) {
+                        return true;
+                    }
+                    if (criteria.clientNames.includes(trimmedName)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
 
             // Serialize date objects for the client
             const serializedRows = clientRows.map((row: any) => {
@@ -450,6 +480,7 @@ export async function getDetailedInventoryForExport(
     
 
     
+
 
 
 

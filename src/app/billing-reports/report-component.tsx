@@ -842,9 +842,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         }, 0);
                     });
                     const grandTotal = yearData.clientRows.reduce((sum, row) => sum + row.total, 0);
-                    const grandAverage = columnTotals.reduce((sum, total) => sum + total, 0) / columnTotals.length;
+                    const grandAverage = columnTotals.length > 0 ? columnTotals.reduce((sum, total) => sum + total, 0) / columnTotals.length : 0;
                     
-                    const occupationPercentage = (grandTotal / (STORAGE_CAPACITY[table.sessionKey] * columnTotals.length)) * 100;
+                    const occupationPercentage = columnTotals.length > 0 ? (grandTotal / (STORAGE_CAPACITY[table.sessionKey] * columnTotals.length)) * 100 : 0;
                     
                     return { year: yearData.year, columnTotals, grandTotal, grandAverage, occupationPercentage };
                 });
@@ -2869,7 +2869,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 <TableRow>
                                                                                     <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
                                                                                     {yearData.headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
-                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL</TableHead>
+                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL CLIENTE</TableHead>
                                                                                     <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Promedio Posiciones</TableHead>
                                                                                 </TableRow>
                                                                             </TableHeader>
