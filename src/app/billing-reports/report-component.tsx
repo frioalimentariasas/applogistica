@@ -735,275 +735,285 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
    const pivotedInventoryData = useMemo(() => {
-        if (!inventoryReportData || inventoryReportData.rows.length === 0 || !inventoryDateRange?.from) return null;
+    if (!inventoryReportData || inventoryReportData.rows.length === 0 || !inventoryDateRange?.from) return null;
+
+    const allClients = inventoryReportData.clientHeaders;
+    const sessions: (keyof Omit<ClientInventoryDetail, 'total'>)[] = inventorySesion === 'TODAS'
+        ? ['CO', 'RE', 'SE']
+        : [inventorySesion as 'CO' | 'RE' | 'SE'];
     
-        const allClients = inventoryReportData.clientHeaders;
-        const sessions: (keyof Omit<ClientInventoryDetail, 'total'>)[] = inventorySesion === 'TODAS'
-            ? ['CO', 'RE', 'SE']
-            : [inventorySesion as 'CO' | 'RE' | 'SE'];
-        
-        const tables = sessions.map(session => {
-            const getGroupedData = (groupType: InventoryGroupType) => {
-                if (groupType === 'daily') {
-                    const dateHeaders = eachDayOfInterval({ start: inventoryDateRange.from!, end: inventoryDateRange.to! }).map(d => format(d, 'yyyy-MM-dd'));
+    const tables = sessions.map(session => {
+        const getGroupedData = (groupType: InventoryGroupType) => {
+            if (groupType === 'daily') {
+                const dateHeaders = eachDayOfInterval({ start: inventoryDateRange.from!, end: inventoryDateRange.to! }).map(d => format(d, 'yyyy-MM-dd'));
+                const clientRows = allClients.map(client => {
+                    const dateData: Record<string, number> = {};
+                     let total = 0;
+                    dateHeaders.forEach(date => {
+                        const rowForDate = inventoryReportData.rows.find(r => r.date === date);
+                        const value = Math.round(rowForDate?.clientData[client]?.[session] || 0);
+                        dateData[date] = value;
+                        total += value;
+                    });
+                    const average = dateHeaders.length > 0 ? total / dateHeaders.length : 0;
+                    return { clientName: client, data: dateData, total, average };
+                });
+                return { headers: dateHeaders.map(d => format(parseISO(d), 'dd/MM')), clientRows };
+            }
+            if (groupType === 'monthly') {
+                const yearGroups = inventoryReportData.rows.reduce((acc, row) => {
+                    const year = getYear(parseISO(row.date));
+                    if (!acc[year]) acc[year] = [];
+                    acc[year].push(row);
+                    return acc;
+                }, {} as Record<number, any[]>);
+
+                return Object.entries(yearGroups).map(([year, yearRows]) => {
+                    const monthHeaders = eachMonthOfInterval({ start: new Date(Number(year), 0, 1), end: new Date(Number(year), 11, 31) }).map(m => format(m, 'MMM', { locale: es }));
                     const clientRows = allClients.map(client => {
-                        const dateData: Record<string, number> = {};
-                         let total = 0;
-                        dateHeaders.forEach(date => {
-                            const rowForDate = inventoryReportData.rows.find(r => r.date === date);
-                            const value = Math.round(rowForDate?.clientData[client]?.[session] || 0);
-                            dateData[date] = value;
-                            total += value;
+                        const monthData: Record<string, number> = {};
+                        monthHeaders.forEach((mHeader, index) => {
+                            const monthRows = yearRows.filter(r => getYear(parseISO(r.date)) === Number(year) && parseISO(r.date).getMonth() === index);
+                            if (monthRows.length > 0) {
+                                const sumOfDailyTotals = monthRows.reduce((sum, row) => sum + (row.clientData[client]?.[session] || 0), 0);
+                                monthData[mHeader] = Math.round(sumOfDailyTotals);
+                            } else {
+                                monthData[mHeader] = 0;
+                            }
                         });
-                        return { clientName: client, data: dateData, total };
+                        const total = Object.values(monthData).reduce((sum, value) => sum + value, 0);
+                        const average = monthHeaders.length > 0 ? total / monthHeaders.length : 0;
+                        return { clientName: client, data: monthData, total, average };
                     });
-                    return { headers: dateHeaders.map(d => format(parseISO(d), 'dd/MM')), clientRows };
-                }
-                if (groupType === 'monthly') {
-                    const yearGroups = inventoryReportData.rows.reduce((acc, row) => {
-                        const year = getYear(parseISO(row.date));
-                        if (!acc[year]) acc[year] = [];
-                        acc[year].push(row);
-                        return acc;
-                    }, {} as Record<number, any[]>);
-    
-                    return Object.entries(yearGroups).map(([year, yearRows]) => {
-                        const monthHeaders = eachMonthOfInterval({ start: new Date(Number(year), 0, 1), end: new Date(Number(year), 11, 31) }).map(m => format(m, 'MMM', { locale: es }));
-                        const clientRows = allClients.map(client => {
-                            const monthData: Record<string, number> = {};
-                            monthHeaders.forEach((mHeader, index) => {
-                                const monthRows = yearRows.filter(r => getYear(parseISO(r.date)) === Number(year) && parseISO(r.date).getMonth() === index);
-                                if (monthRows.length > 0) {
-                                    const sumOfDailyTotals = monthRows.reduce((sum, row) => sum + (row.clientData[client]?.[session] || 0), 0);
-                                    monthData[mHeader] = Math.round(sumOfDailyTotals);
-                                } else {
-                                    monthData[mHeader] = 0;
-                                }
-                            });
-                            const total = Object.values(monthData).reduce((sum, value) => sum + value, 0);
-                            return { clientName: client, data: monthData, total };
-                        });
-                        return { year, headers: monthHeaders, clientRows };
-                    });
-                }
-                if (groupType === 'consolidated') {
-                    const clientRows = allClients.map(client => {
-                        const totalPallets = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client]?.[session] || 0), 0);
-                        return { clientName: client, data: { 'Total': totalPallets }, total: totalPallets };
-                    });
-                    return { headers: ['Total Período'], clientRows };
-                }
-                return null;
-            };
-    
-            return {
-                title: getSessionName(session),
-                sessionKey: session,
-                data: getGroupedData(inventoryGroupType)
-            };
-        });
-        
-        return { type: inventoryGroupType, tables };
-    
-    }, [inventoryReportData, inventoryDateRange, inventoryGroupType, inventorySesion]);
-    
-    
-    const inventoryTotals = useMemo(() => {
-        if (!pivotedInventoryData || !pivotedInventoryData.tables) {
-            return [];
-        }
-    
-        return pivotedInventoryData.tables.map(table => {
-            if (!table.data) return { columnTotals: [], grandTotal: 0 };
-    
-            if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
-                 return table.data.map(yearData => {
-                    const columnTotals = yearData.headers.map((_:any, colIndex:number) => {
-                        return yearData.clientRows.reduce((sum:number, row:any) => {
-                            const value = Object.values(row.data)[colIndex];
-                            return sum + (Number(value) || 0);
-                        }, 0);
-                    });
-                    const grandTotal = yearData.clientRows.reduce((sum, row) => sum + row.total, 0);
-                    return { year: yearData.year, columnTotals, grandTotal };
+                    return { year, headers: monthHeaders, clientRows };
                 });
             }
-            
-            const clientRows = table.data.clientRows;
-            const headers = table.data.headers;
-            const columnTotals = headers.map((_:any, colIndex:number) => {
-                 return clientRows.reduce((sum:number, row:any) => {
-                    const value = Object.values(row.data)[colIndex];
-                    return sum + (Number(value) || 0);
-                }, 0);
+            if (groupType === 'consolidated') {
+                const clientRows = allClients.map(client => {
+                    const totalPallets = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client]?.[session] || 0), 0);
+                    return { clientName: client, data: { 'Total': totalPallets }, total: totalPallets, average: totalPallets };
+                });
+                return { headers: ['Total Período'], clientRows };
+            }
+            return null;
+        };
+
+        return {
+            title: getSessionName(session),
+            sessionKey: session,
+            data: getGroupedData(inventoryGroupType)
+        };
+    });
+    
+    return { type: inventoryGroupType, tables };
+
+}, [inventoryReportData, inventoryDateRange, inventoryGroupType, inventorySesion]);
+
+    
+    const inventoryTotals = useMemo(() => {
+    if (!pivotedInventoryData || !pivotedInventoryData.tables) {
+        return [];
+    }
+
+    return pivotedInventoryData.tables.map(table => {
+        if (!table.data) return { columnTotals: [], grandTotal: 0, grandAverage: 0 };
+
+        if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
+             return table.data.map(yearData => {
+                const columnTotals = yearData.headers.map((_:any, colIndex:number) => {
+                    return yearData.clientRows.reduce((sum:number, row:any) => {
+                        const value = Object.values(row.data)[colIndex];
+                        return sum + (Number(value) || 0);
+                    }, 0);
+                });
+                const grandTotal = yearData.clientRows.reduce((sum, row) => sum + row.total, 0);
+                const grandAverage = yearData.headers.length > 0 ? grandTotal / yearData.headers.length : 0;
+                return { year: yearData.year, columnTotals, grandTotal, grandAverage };
             });
-            const grandTotal = clientRows.reduce((sum, row) => sum + row.total, 0);
-            
-            return { columnTotals, grandTotal };
+        }
+        
+        const clientRows = table.data.clientRows;
+        const headers = table.data.headers;
+        const columnTotals = headers.map((_:any, colIndex:number) => {
+             return clientRows.reduce((sum:number, row:any) => {
+                const value = Object.values(row.data)[colIndex];
+                return sum + (Number(value) || 0);
+            }, 0);
         });
-    }, [pivotedInventoryData]);
+        const grandTotal = clientRows.reduce((sum, row) => sum + row.total, 0);
+        const grandAverage = headers.length > 0 ? grandTotal / headers.length : 0;
+        
+        return { columnTotals, grandTotal, grandAverage };
+    });
+}, [pivotedInventoryData]);
     
     
     const handleInventoryExportExcel = async () => {
-        if (!pivotedInventoryData) return;
+    if (!pivotedInventoryData) return;
+
+    const workbook = new ExcelJS.Workbook();
     
-        const workbook = new ExcelJS.Workbook();
+    pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
+        const worksheet = workbook.addWorksheet(tableData.title);
+        worksheet.addRow([tableData.title]);
+        worksheet.mergeCells('A1:B1');
+        worksheet.addRow([]);
         
-        pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
-            const worksheet = workbook.addWorksheet(tableData.title);
-            worksheet.addRow([tableData.title]);
-            worksheet.mergeCells('A1:B1');
-            worksheet.addRow([]);
-            
-            if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
-                tableData.data.forEach((yearData, yearIdx) => {
-                    if (yearIdx > 0) worksheet.addRow([]);
-                    const yearRow = worksheet.addRow([`AÑO: ${yearData.year}`]);
-                    yearRow.font = { bold: true, size: 14 };
-                    worksheet.mergeCells(yearRow.number, 1, yearRow.number, yearData.headers.length + 2);
-    
-                    const headerRow = worksheet.addRow(['Cliente', ...yearData.headers, 'TOTAL CLIENTE']);
-                    headerRow.font = { bold: true };
-    
-                    yearData.clientRows.forEach((row: any) => {
-                        worksheet.addRow([row.clientName, ...Object.values(row.data), row.total]);
-                    });
-                    
-                    const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
-                    const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal]);
-                    totalRow.font = { bold: true };
-                });
-            } else if (tableData.data) {
-                const { headers, clientRows } = tableData.data;
-                const headerRow = worksheet.addRow(['Cliente', ...headers, 'TOTAL CLIENTE']);
+        if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
+            tableData.data.forEach((yearData, yearIdx) => {
+                if (yearIdx > 0) worksheet.addRow([]);
+                const yearRow = worksheet.addRow([`AÑO: ${yearData.year}`]);
+                yearRow.font = { bold: true, size: 14 };
+                worksheet.mergeCells(yearRow.number, 1, yearRow.number, yearData.headers.length + 3);
+
+                const headerRow = worksheet.addRow(['Cliente', ...yearData.headers, 'TOTAL CLIENTE', 'Promedio Posiciones']);
                 headerRow.font = { bold: true };
-    
-                clientRows.forEach((row: any) => {
-                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total]);
+
+                yearData.clientRows.forEach((row: any) => {
+                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, row.average]);
                 });
                 
-                const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number };
-                const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal]);
+                const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
+                const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal, yearTotals.grandAverage]);
                 totalRow.font = { bold: true };
+                totalRow.getCell(yearData.headers.length + 3).numFmt = '0.00';
+            });
+        } else if (tableData.data) {
+            const { headers, clientRows } = tableData.data;
+            const headerRow = worksheet.addRow(['Cliente', ...headers, 'TOTAL CLIENTE', 'Promedio Posiciones']);
+            headerRow.font = { bold: true };
+
+            clientRows.forEach((row: any) => {
+                worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, row.average]);
+            });
+            
+            const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number };
+            const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal, tableTotals.grandAverage]);
+            totalRow.font = { bold: true };
+            totalRow.getCell(headers.length + 3).numFmt = '0.00';
+        }
+    });
+
+    const worksheet = workbook.getWorksheet(1);
+    if (worksheet) {
+        worksheet.columns.forEach((column, i) => {
+            if (i === 0) { // Cliente
+                column.width = 35;
+            } else if (i === (column.values?.length ?? 0) -1) { // Promedio
+                 column.width = 20;
+            } else {
+                 column.width = 15;
             }
         });
+    }
 
-        const worksheet = workbook.getWorksheet(1); // Get the first worksheet to adjust columns
-        if (worksheet) {
-            worksheet.columns.forEach((column) => {
-                column.width = 15;
-            });
-            worksheet.getColumn(1).width = 35;
-        }
-    
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        const fileName = `Reporte_Inventario_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
-        link.download = fileName;
-        link.click();
-    };
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    const fileName = `Reporte_Inventario_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+    link.download = fileName;
+    link.click();
+};
+
     
     const handleInventoryExportPDF = () => {
-        if (!pivotedInventoryData || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
-    
-        const doc = new jsPDF({ orientation: 'landscape' });
-        let isFirstPage = true;
-    
-        const addHeaderAndTitle = (title: string, sessionText: string, clientText: string) => {
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const margin = 14;
-    
-            const logoWidth = 21; // 70% reduction from 70
-            const aspectRatio = logoDimensions!.width / logoDimensions!.height;
-            const logoHeight = logoWidth / aspectRatio;
-    
-            const logoX = (pageWidth - logoWidth) / 2;
-            const headerY = 10;
-            doc.addImage(logoBase64!, 'PNG', logoX, headerY, logoWidth, logoHeight);
-    
-            const titleY = headerY + logoHeight + 8;
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, titleY, { align: 'center' });
-            
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.text(title, pageWidth / 2, titleY + 6, { align: 'center' });
-    
-            let contentStartY = titleY + 14;
-            const periodText = (inventoryDateRange?.from && inventoryDateRange?.to)
-                ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
-                : '';
-    
-            const lineHeight = doc.getTextDimensions('A').h || 10;
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
-            doc.text(sessionText, margin, contentStartY);
+    if (!pivotedInventoryData || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
 
-            const clientTextBlockHeight = 0; // Removed client text block
-    
-            const sessionY = contentStartY + clientTextBlockHeight;
-    
-            return sessionY + lineHeight + 4;
-        };
+    const doc = new jsPDF({ orientation: 'landscape' });
+    let isFirstPage = true;
 
-        pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
-            if (!isFirstPage) {
-                doc.addPage();
-            }
-            const clientText = inventoryClients.join(', ');
-            const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${tableData.title}`, clientText);
+    const addHeaderAndTitle = (title: string, sessionText: string) => {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 14;
 
-            if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
-                 tableData.data.forEach((yearData: any, yearIdx: number) => {
-                    const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
-                    autoTable(doc, {
-                        startY: yearIdx === 0 ? tableStartY : (doc as any).lastAutoTable.finalY + 10,
-                        head: [[{content: `AÑO: ${yearData.year}`, colSpan: yearData.headers.length + 2}]],
-                        body: [],
-                        theme: 'plain',
-                        headStyles: { fontStyle: 'bold', fontSize: 10 }
-                    });
-                    
-                    const head = [['Cliente', ...yearData.headers, 'TOTAL']];
-                    const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO')]);
-                    const foot = [['TOTALES', ...yearTotals.columnTotals.map((t: number) => Math.round(t).toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO')]];
-                    
-                    autoTable(doc, {
-                        startY: (doc as any).lastAutoTable.finalY,
-                        head, body, foot, theme: 'grid',
-                        styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
-                        headStyles: { fillColor: [33, 150, 243], textColor: 255 },
-                        footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' }
-                    });
-                });
-            } else if (tableData.data) {
-                const { headers, clientRows } = tableData.data;
-                const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number };
+        const logoWidth = 21; 
+        const aspectRatio = logoDimensions!.width / logoDimensions!.height;
+        const logoHeight = logoWidth / aspectRatio;
 
-                const head = [['Cliente', ...headers, 'TOTAL CLIENTE']];
-                const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO')]);
-                const foot = [['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO')]];
+        const logoX = (pageWidth - logoWidth) / 2;
+        const headerY = 10;
+        doc.addImage(logoBase64!, 'PNG', logoX, headerY, logoWidth, logoHeight);
 
+        const titleY = headerY + logoHeight + 8;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, titleY, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, pageWidth / 2, titleY + 6, { align: 'center' });
+
+        let contentStartY = titleY + 14;
+        const periodText = (inventoryDateRange?.from && inventoryDateRange?.to)
+            ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
+            : '';
+
+        const lineHeight = doc.getTextDimensions('A').h || 10;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
+        doc.text(sessionText, margin, contentStartY);
+
+        const sessionY = contentStartY + lineHeight;
+
+        return sessionY + 4;
+    };
+
+    pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
+        if (!isFirstPage) {
+            doc.addPage();
+        }
+        const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${tableData.title}`);
+
+        if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
+             tableData.data.forEach((yearData: any, yearIdx: number) => {
+                const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
                 autoTable(doc, {
-                    startY: tableStartY,
+                    startY: yearIdx === 0 ? tableStartY : (doc as any).lastAutoTable.finalY + 10,
+                    head: [[{content: `AÑO: ${yearData.year}`, colSpan: yearData.headers.length + 3}]],
+                    body: [],
+                    theme: 'plain',
+                    headStyles: { fontStyle: 'bold', fontSize: 10 }
+                });
+                
+                const head = [['Cliente', ...yearData.headers, 'TOTAL', 'Prom. Pos.']];
+                const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), row.average.toFixed(2)]);
+                const foot = [['TOTALES', ...yearTotals.columnTotals.map((t: number) => Math.round(t).toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO'), yearTotals.grandAverage.toFixed(2)]];
+                
+                autoTable(doc, {
+                    startY: (doc as any).lastAutoTable.finalY,
                     head, body, foot, theme: 'grid',
                     styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
-                    headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
-                    footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
-                    columnStyles: { 0: { cellWidth: 40, halign: 'left' } },
-                    didParseCell: (data: any) => { if (data.column.index > 0) data.cell.styles.halign = 'right'; }
+                    headStyles: { fillColor: [33, 150, 243], textColor: 255 },
+                    footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' }
                 });
-            }
-            isFirstPage = false;
-        });
+            });
+        } else if (tableData.data) {
+            const { headers, clientRows } = tableData.data;
+            const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number };
 
-        const fileName = `Reporte_Inventario_Acumulado_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
-        doc.save(fileName);
-    };
+            const head = [['Cliente', ...headers, 'TOTAL CLIENTE', 'Prom. Pos.']];
+            const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), row.average.toFixed(2)]);
+            const foot = [['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO'), tableTotals.grandAverage.toFixed(2)]];
+
+            autoTable(doc, {
+                startY: tableStartY,
+                head, body, foot, theme: 'grid',
+                styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
+                headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
+                columnStyles: { 0: { cellWidth: 40, halign: 'left' } },
+                didParseCell: (data: any) => { if (data.column.index > 0) data.cell.styles.halign = 'right'; }
+            });
+        }
+        isFirstPage = false;
+    });
+
+    const fileName = `Reporte_Inventario_Acumulado_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+    doc.save(fileName);
+};
+
 
     const handleInventoryClear = () => {
         setInventoryDateRange(undefined);
@@ -2824,7 +2834,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 <TableRow>
                                                                                     <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
                                                                                     {yearData.headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
-                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL CLIENTE</TableHead>
+                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL</TableHead>
+                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Prom. Pos.</TableHead>
                                                                                 </TableRow>
                                                                             </TableHeader>
                                                                             <TableBody>
@@ -2833,12 +2844,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                         <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
                                                                                         {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
                                                                                         <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
+                                                                                        <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{row.average.toFixed(2)}</TableCell>
                                                                                     </TableRow>
                                                                                 ))}
                                                                                 <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
                                                                                     <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
                                                                                     {(inventoryTotals[tableIndex] as any)[yearIdx].columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{Math.round(total).toLocaleString('es-CO')}</TableCell>)}
                                                                                     <TableCell className="sticky right-0 bg-primary/90 text-right font-bold">{Math.round((inventoryTotals[tableIndex] as any)[yearIdx].grandTotal).toLocaleString('es-CO')}</TableCell>
+                                                                                    <TableCell className="sticky right-0 bg-primary/90 text-right font-mono">{ (inventoryTotals[tableIndex] as any)[yearIdx].grandAverage.toFixed(2) }</TableCell>
                                                                                 </TableRow>
                                                                             </TableBody>
                                                                         </Table>
@@ -2850,7 +2863,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableRow>
                                                                             <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
                                                                             {table.data.headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
-                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL CLIENTE</TableHead>
+                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL</TableHead>
+                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Prom. Pos.</TableHead>
                                                                         </TableRow>
                                                                     </TableHeader>
                                                                     <TableBody>
@@ -2859,12 +2873,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
                                                                                 {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
                                                                                 <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
+                                                                                <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{row.average.toFixed(2)}</TableCell>
                                                                             </TableRow>
                                                                         ))}
                                                                         <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
                                                                             <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
                                                                             {(inventoryTotals[tableIndex] as any).columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{Math.round(total).toLocaleString('es-CO')}</TableCell>)}
                                                                             <TableCell className="sticky right-0 bg-primary/90 text-right font-bold">{Math.round((inventoryTotals[tableIndex] as any).grandTotal).toLocaleString('es-CO')}</TableCell>
+                                                                            <TableCell className="sticky right-0 bg-primary/90 text-right font-mono">{ (inventoryTotals[tableIndex] as any).grandAverage.toFixed(2) }</TableCell>
                                                                         </TableRow>
                                                                     </TableBody>
                                                                 </Table>
@@ -3546,3 +3562,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+

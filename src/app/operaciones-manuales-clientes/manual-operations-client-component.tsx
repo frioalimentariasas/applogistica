@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -81,7 +80,7 @@ const manualOperationSchema = z.object({
   concept: z.string().min(1, 'El concepto es obligatorio.'),
   specificTariffs: z.array(specificTariffEntrySchema).optional(),
   quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.').optional(),
-  numeroPersonas: z.coerce.number({ invalid_type_error: "Debe ser un número." }).min(0.1, "Debe ser mayor a 0."),
+  numeroPersonas: z.coerce.number({ invalid_type_error: "Debe ser un número." }).min(0.1, "Debe ser mayor a 0.").optional(),
   numeroPosiciones: z.coerce.number().int().min(1, 'Debe ingresar al menos una posición.').optional(),
   comentarios: z.string().max(150, "Máximo 150 caracteres.").optional(),
   details: z.object({
