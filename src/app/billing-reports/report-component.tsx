@@ -9,7 +9,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
-import { format, addDays, differenceInDays, subDays, parseISO, isEqual, startOfMonth, endOfMonth, eachMonthOfInterval, getYear, startOfYear, endOfYear, eachDayOfInterval } from 'date-fns';
+import { format, addDays, differenceInDays, subDays, parseISO, isEqual, startOfMonth, endOfMonth, eachMonthOfInterval, getYear, startOfYear, endOfYear, eachDayOfInterval, max, min } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -769,11 +769,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 }, {} as Record<number, any[]>);
 
                 return Object.entries(yearGroups).map(([year, yearRows]) => {
-                    const monthHeaders = eachMonthOfInterval({ start: new Date(Number(year), 0, 1), end: new Date(Number(year), 11, 31) }).map(m => format(m, 'MMM', { locale: es }));
+                    const startRange = max([inventoryDateRange.from!, startOfYear(new Date(Number(year), 0, 1))]);
+                    const endRange = min([inventoryDateRange.to!, endOfYear(new Date(Number(year), 11, 31))]);
+                    const monthHeaders = eachMonthOfInterval({ start: startRange, end: endRange }).map(m => format(m, 'MMM', { locale: es }));
+                    
                     const clientRows = allClients.map(client => {
                         const monthData: Record<string, number> = {};
                         monthHeaders.forEach((mHeader, index) => {
-                            const monthRows = yearRows.filter(r => getYear(parseISO(r.date)) === Number(year) && parseISO(r.date).getMonth() === index);
+                            const monthDate = eachMonthOfInterval({ start: startRange, end: endRange })[index];
+                            const monthRows = yearRows.filter(r => {
+                                const rowDate = parseISO(r.date);
+                                return rowDate.getFullYear() === Number(year) && rowDate.getMonth() === monthDate.getMonth();
+                            });
                             if (monthRows.length > 0) {
                                 const sumOfDailyTotals = monthRows.reduce((sum, row) => sum + (row.clientData[client]?.[session] || 0), 0);
                                 monthData[mHeader] = Math.round(sumOfDailyTotals);
@@ -1692,7 +1699,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
                         const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
                         const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
+                        const finalOrderB = subOrderB === -1 ? Infinity : b.order;
                         if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
                     }
                     
@@ -2086,7 +2093,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
                         const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
                         const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
+                        const finalOrderB = subOrderB === -1 ? Infinity : b.order;
                         if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
                     }
                     
@@ -2863,8 +2870,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableRow>
                                                                             <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
                                                                             {table.data.headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
-                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL</TableHead>
-                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Prom. Pos.</TableHead>
+                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL CLIENTE</TableHead>
+                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Promedio Posiciones</TableHead>
                                                                         </TableRow>
                                                                     </TableHeader>
                                                                     <TableBody>
@@ -3562,4 +3569,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+
 
