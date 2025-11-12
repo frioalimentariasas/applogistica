@@ -754,14 +754,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const dateHeaders = eachDayOfInterval({ start: inventoryDateRange.from!, end: inventoryDateRange.to! }).map(d => format(d, 'yyyy-MM-dd'));
                 const clientRows = allClients.map(client => {
                     const dateData: Record<string, number> = {};
-                     let total = 0;
+                    let total = 0;
+                    let daysWithStock = 0;
                     dateHeaders.forEach(date => {
                         const rowForDate = inventoryReportData.rows.find(r => r.date === date);
                         const value = Math.round(rowForDate?.clientData[client]?.[session] || 0);
                         dateData[date] = value;
-                        total += value;
+                        if (value > 0) {
+                          total += value;
+                          daysWithStock++;
+                        }
                     });
-                    const average = dateHeaders.length > 0 ? total / dateHeaders.length : 0;
+                    const average = daysWithStock > 0 ? total / daysWithStock : 0;
                     return { clientName: client, data: dateData, total, average };
                 });
                 return { headers: dateHeaders.map(d => format(parseISO(d), 'dd/MM')), clientRows };
@@ -781,6 +785,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     
                     const clientRows = allClients.map(client => {
                         const monthData: Record<string, number> = {};
+                        let total = 0;
+                        let monthsWithStock = 0;
                         monthHeaders.forEach((mHeader, index) => {
                             const monthDate = eachMonthOfInterval({ start: startRange, end: endRange })[index];
                             const monthRows = yearRows.filter(r => {
@@ -790,12 +796,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             if (monthRows.length > 0) {
                                 const sumOfDailyTotals = monthRows.reduce((sum, row) => sum + (row.clientData[client]?.[session] || 0), 0);
                                 monthData[mHeader] = Math.round(sumOfDailyTotals);
+                                if (sumOfDailyTotals > 0) {
+                                  total += sumOfDailyTotals;
+                                  monthsWithStock++;
+                                }
                             } else {
                                 monthData[mHeader] = 0;
                             }
                         });
-                        const total = Object.values(monthData).reduce((sum, value) => sum + value, 0);
-                        const average = monthHeaders.length > 0 ? total / monthHeaders.length : 0;
+                        const average = monthsWithStock > 0 ? total / monthsWithStock : 0;
                         return { clientName: client, data: monthData, total, average };
                     });
                     return { year, headers: monthHeaders, clientRows };
@@ -804,8 +813,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             if (groupType === 'consolidated') {
                 const clientRows = allClients.map(client => {
                     const totalPallets = inventoryReportData.rows.reduce((sum, row) => sum + (row.clientData[client]?.[session] || 0), 0);
-                    const numDays = inventoryReportData.rows.length;
-                    const average = numDays > 0 ? totalPallets / numDays : 0;
+                    const numDaysWithStock = inventoryReportData.rows.filter(row => (row.clientData[client]?.[session] || 0) > 0).length;
+                    const average = numDaysWithStock > 0 ? totalPallets / numDaysWithStock : 0;
                     return { clientName: client, data: { 'Total': totalPallets }, total: totalPallets, average: average };
                 });
                 return { headers: ['Total Período'], clientRows };
@@ -890,13 +899,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 headerRow.font = { bold: true };
 
                 yearData.clientRows.forEach((row: any) => {
-                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, row.average]);
+                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
                 });
                 
                 const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
-                const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal, yearTotals.grandAverage]);
+                const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal, Math.round(yearTotals.grandAverage)]);
                 totalRow.font = { bold: true };
-                totalRow.getCell(yearData.headers.length + 3).numFmt = '0.00%';
+                totalRow.getCell(yearData.headers.length + 3).numFmt = '0';
                  const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey]), yearTotals.grandTotal / (STORAGE_CAPACITY[tableData.sessionKey] * yearTotals.columnTotals.length), yearTotals.grandAverage / STORAGE_CAPACITY[tableData.sessionKey]]);
                 occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
                 occupationRow.eachCell(cell => cell.numFmt = '0.00%');
@@ -907,13 +916,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             headerRow.font = { bold: true };
 
             clientRows.forEach((row: any) => {
-                worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, row.average]);
+                worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
             });
             
             const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number };
-            const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal, tableTotals.grandAverage]);
+            const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal, Math.round(tableTotals.grandAverage)]);
             totalRow.font = { bold: true };
-            totalRow.getCell(headers.length + 3).numFmt = '0.00%';
+            totalRow.getCell(headers.length + 3).numFmt = '0';
 
             const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey]), tableTotals.grandTotal / (STORAGE_CAPACITY[tableData.sessionKey] * tableTotals.columnTotals.length), tableTotals.grandAverage / STORAGE_CAPACITY[tableData.sessionKey]]);
             occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
@@ -1007,9 +1016,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 });
                 
                 const head = [['Cliente', ...yearData.headers, 'TOTAL', 'Prom. Pos.']];
-                const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), `${Math.round(row.average * 100)}%`]);
+                const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), `${Math.round(row.average)}%`]);
                 const foot = [
-                    ['TOTALES', ...yearTotals.columnTotals.map((t: number) => Math.round(t).toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO'), `${Math.round(yearTotals.grandAverage * 100)}%`],
+                    ['TOTALES', ...yearTotals.columnTotals.map((t: number) => Math.round(t).toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO'), `${Math.round(yearTotals.grandAverage)}%`],
                     ['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round((yearTotals.grandTotal / (STORAGE_CAPACITY[tableData.sessionKey] * yearTotals.columnTotals.length)) * 100)}%`, `${Math.round((yearTotals.grandAverage / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`]
                 ];
                 
@@ -1026,9 +1035,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number };
 
             const head = [['Cliente', ...headers, 'TOTAL CLIENTE', 'Prom. Pos.']];
-            const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), `${Math.round(row.average * 100)}%`]);
+            const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), `${Math.round(row.average)}%`]);
             const foot = [
-                ['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO'), `${Math.round(tableTotals.grandAverage * 100)}%`],
+                ['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO'), `${Math.round(tableTotals.grandAverage)}%`],
                 ['(%) Ocupación', ...tableTotals.columnTotals.map(t => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round((tableTotals.grandTotal / (STORAGE_CAPACITY[tableData.sessionKey] * tableTotals.columnTotals.length)) * 100)}%`, `${Math.round((tableTotals.grandAverage / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`]
             ];
 
@@ -2879,14 +2888,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                         <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
                                                                                         {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
                                                                                         <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
-                                                                                        <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${Math.round(row.average * 100)}%`}</TableCell>
+                                                                                        <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${Math.round(row.average)}%`}</TableCell>
                                                                                     </TableRow>
                                                                                 ))}
                                                                                 <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
                                                                                     <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
                                                                                     {(inventoryTotals[tableIndex] as any)[yearIdx].columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{Math.round(total).toLocaleString('es-CO')}</TableCell>)}
                                                                                     <TableCell className="sticky right-0 bg-primary/90 text-right font-bold">{Math.round((inventoryTotals[tableIndex] as any)[yearIdx].grandTotal).toLocaleString('es-CO')}</TableCell>
-                                                                                    <TableCell className="sticky right-0 bg-primary/90 text-right font-mono">{`${Math.round((inventoryTotals[tableIndex] as any)[yearIdx].grandAverage * 100)}%`}</TableCell>
+                                                                                    <TableCell className="sticky right-0 bg-primary/90 text-right font-mono">{`${Math.round((inventoryTotals[tableIndex] as any)[yearIdx].grandAverage)}%`}</TableCell>
                                                                                 </TableRow>
                                                                                 <TableRow className="bg-sky-100 hover:bg-sky-100 text-sky-900 font-bold">
                                                                                     <TableCell className="sticky left-0 z-10 bg-sky-100">(%) Ocupación</TableCell>
@@ -2914,14 +2923,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
                                                                                 {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
                                                                                 <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
-                                                                                <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${Math.round(row.average * 100)}%`}</TableCell>
+                                                                                <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${Math.round(row.average)}%`}</TableCell>
                                                                             </TableRow>
                                                                         ))}
                                                                         <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
                                                                             <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
                                                                             {(inventoryTotals[tableIndex] as any).columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{Math.round(total).toLocaleString('es-CO')}</TableCell>)}
                                                                             <TableCell className="sticky right-0 bg-primary/90 text-right font-bold">{Math.round((inventoryTotals[tableIndex] as any).grandTotal).toLocaleString('es-CO')}</TableCell>
-                                                                            <TableCell className="sticky right-0 bg-primary/90 text-right font-mono">{`${Math.round((inventoryTotals[tableIndex] as any).grandAverage * 100)}%`}</TableCell>
+                                                                            <TableCell className="sticky right-0 bg-primary/90 text-right font-mono">{`${Math.round((inventoryTotals[tableIndex] as any).grandAverage)}%`}</TableCell>
                                                                         </TableRow>
                                                                         <TableRow className="bg-sky-100 hover:bg-sky-100 text-sky-900 font-bold">
                                                                             <TableCell className="sticky left-0 z-10 bg-sky-100">(%) Ocupación</TableCell>
@@ -3614,6 +3623,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 
