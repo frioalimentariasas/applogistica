@@ -2643,10 +2643,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                 </div>
 
-                                <div>
+                                <div className="space-y-4">
                                     <Label className="font-semibold text-base">Consultar inventario Acumulado (Informe de ocupación)</Label>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-2">
-                                         <div className="space-y-2">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                                        <div className="space-y-2">
                                             <Label>Rango de Fechas</Label>
                                             <Popover>
                                                 <PopoverTrigger asChild>
@@ -2658,10 +2658,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                                         {inventoryDateRange?.from ? (
                                                             inventoryDateRange.to ? (
-                                                                <>
-                                                                    {format(inventoryDateRange.from, "LLL dd, y", { locale: es })} -{" "}
-                                                                    {format(inventoryDateRange.to, "LLL dd, y", { locale: es })}
-                                                                </>
+                                                                <>{format(inventoryDateRange.from, "LLL dd, y", { locale: es })} - {format(inventoryDateRange.to, "LLL dd, y", { locale: es })}</>
                                                             ) : ( format(inventoryDateRange.from, "LLL dd, y", { locale: es }) )
                                                         ) : ( <span>Seleccione un rango</span> )}
                                                     </Button>
@@ -2689,7 +2686,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
-                                         <div className="space-y-2">
+                                        <div className="space-y-2">
                                             <Label>O seleccione un año</Label>
                                             <Select value={selectedYear} onValueChange={handleYearSelect}>
                                                 <SelectTrigger>
@@ -2702,6 +2699,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </SelectContent>
                                             </Select>
                                         </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                         <div className="space-y-2">
                                             <Label>Cliente(s)</Label>
                                             <Dialog open={isInventoryClientDialogOpen} onOpenChange={setIsInventoryClientDialogOpen}>
@@ -2812,16 +2811,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 Este filtro es obligatorio.
                                             </p>
                                         </div>
-                                        <div className="flex gap-2">
-                                            <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients || !inventorySesion || inventoryClients.length === 0}>
-                                                {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                                                Consultar
-                                            </Button>
-                                            <Button onClick={handleInventoryClear} variant="outline" className="w-full self-end">
-                                                <XCircle className="h-4 w-4" />
-                                                Limpiar
-                                            </Button>
-                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 pt-4">
+                                        <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients || !inventorySesion || inventoryClients.length === 0}>
+                                            {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                            Consultar
+                                        </Button>
+                                        <Button onClick={handleInventoryClear} variant="outline" className="w-full self-end">
+                                            <XCircle className="h-4 w-4" />
+                                            Limpiar
+                                        </Button>
                                     </div>
                                 </div>
                                 
@@ -3236,7 +3235,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     } else {
                                                         setSettlementDateRange(range);
                                                     }
-                                                }} numberOfMonths={2} locale={es} disabled={{ after: today, before: threeYearsAgo }} /></PopoverContent>
+                                                }} numberOfMonths={2} locale={es} disabled={{ before: threeYearsAgo }} /></PopoverContent>
                                             </Popover>
                                         </div>
                                         <div className="space-y-2">
@@ -3639,6 +3638,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+
 
 
 
