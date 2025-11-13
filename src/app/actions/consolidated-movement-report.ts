@@ -62,8 +62,13 @@ export async function getConsolidatedMovementReport(
     if (latestInventoryDoc.exists) {
         const inventoryDay = latestInventoryDoc.data();
         if (inventoryDay && Array.isArray(inventoryDay.data)) {
+            const clientNameForFilter = criteria.clientName === 'GRUPO ATLANTIC' ? 'ATLANTIC' : criteria.clientName;
+            
             let relevantRows = (inventoryDay.data as any[]).filter(row => 
-                row?.PROPIETARIO?.trim() === criteria.clientName
+                row && row.PROPIETARIO && typeof row.PROPIETARIO === 'string' &&
+                (clientNameForFilter === 'ATLANTIC'
+                    ? row.PROPIETARIO.trim().toUpperCase().startsWith('ATLANTIC')
+                    : row.PROPIETARIO.trim() === criteria.clientName)
             );
 
             // Filter by session
@@ -84,15 +89,15 @@ export async function getConsolidatedMovementReport(
         }
     }
   } catch (error) {
-      console.error(`Error fetching latest stock for ${'${criteria.clientName}'} before ${'${criteria.startDate}'}:`, error);
+      console.error(`Error fetching latest stock for ${criteria.clientName} before ${criteria.startDate}:`, error);
       saldoInicial = 0;
   }
 
   const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'date'>>();
   
   // 4. Populate map with movements for the SELECTED session from the comprehensive billing data
-  const recibidasKey = `paletasRecibidas${'${criteria.sesion}'}` as keyof typeof billingData[0];
-  const despachadasKey = `paletasDespachadas${'${criteria.sesion}'}` as keyof typeof billingData[0];
+  const recibidasKey = `paletasRecibidas${criteria.sesion}` as keyof typeof billingData[0];
+  const despachadasKey = `paletasDespachadas${criteria.sesion}` as keyof typeof billingData[0];
 
   billingData.forEach(item => {
     if (!consolidatedMap.has(item.date)) {
@@ -127,10 +132,33 @@ export async function getConsolidatedMovementReport(
 
   for (const dateStr of fullDateRange) {
       const dataForDay = consolidatedMap.get(dateStr);
-      const recibidasHoy = dataForDay?.paletasRecibidas || 0;
+      let recibidasHoy = dataForDay?.paletasRecibidas || 0;
       const despachadasHoy = dataForDay?.paletasDespachadas || 0;
       const inventarioHoy = dataForDay?.inventarioAcumulado || 0;
 
+      // Special exclusion logic for Frutelli and Fabrialimentos
+       if (criteria.clientName === 'GRUPO FRUTELLI SAS' || criteria.clientName === 'FABRIALIMENTOS SAS') {
+         // This logic is now isolated here and doesn't affect getBillingReport
+         // We need to re-fetch the submissions to check the formType and tipoPedido
+         const submissionsSnapshot = await firestore.collection('submissions')
+            .where('formData.fecha', '>=', new Date(`${dateStr}T00:00:00-05:00`))
+            .where('formData.fecha', '<=', new Date(`${dateStr}T23:59:59.999-05:00`))
+            .where('formData.cliente', '==', criteria.clientName)
+            .get();
+        
+        let excludedPallets = 0;
+         for (const doc of submissionsSnapshot.docs) {
+             const submission = doc.data();
+             if (submission.formType === 'variable-weight-reception' || submission.formType === 'variable-weight-recepcion') {
+                 // The logic to calculate pallets should be consistent with getBillingReport
+                 const items = submission.formData.items || [];
+                 const palletSet = new Set(items.map((i: any) => i.paleta));
+                 excludedPallets += palletSet.size;
+             }
+         }
+         recibidasHoy = Math.max(0, recibidasHoy - excludedPallets);
+      }
+      
       const posicionesAlmacenadas = posicionesDiaAnterior + recibidasHoy - despachadasHoy;
 
       consolidatedReport.push({
