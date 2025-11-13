@@ -903,7 +903,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 headerRow.font = { bold: true };
 
                 yearData.clientRows.forEach((row: any) => {
-                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, `${Math.round(row.average)}%`]);
+                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
                 });
                 
                 const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
@@ -920,7 +920,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             headerRow.font = { bold: true };
 
             clientRows.forEach((row: any) => {
-                worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, `${Math.round(row.average)}%`]);
+                worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
             });
             
             const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
@@ -1021,7 +1021,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 });
                 
                 const head = [['Cliente', ...yearData.headers, 'TOTAL', 'Promedio Posiciones']];
-                const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), `${Math.round(row.average)}%`]);
+                const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), Math.round(row.average)]);
                 const foot = [
                     ['TOTALES', ...yearTotals.columnTotals.map((t: number) => Math.round(t).toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO'), ''],
                     ['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round(yearTotals.totalCustomerOccupation)}%`, '']
@@ -1272,7 +1272,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             startY: clientY + 10,
             head: [['Fecha', 'Recibidas', 'Despachadas', 'Pos. Almacenadas', 'Inv. Acumulado', 'Validación']],
             body: consolidatedReportData.map(row => {
-                const invAcumulado = (row.inventarioAcumulado as ClientInventoryDetail).total ?? row.inventarioAcumulado;
+                const invAcumulado = (row.inventarioAcumulado as ClientInventoryDetail)?.total ?? row.inventarioAcumulado;
                 return [
                     format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
                     row.paletasRecibidas,
@@ -2897,7 +2897,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                         <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
                                                                                         {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
                                                                                         <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
-                                                                                        <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${Math.round(row.average)}%`}</TableCell>
+                                                                                        <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{Math.round(row.average)}</TableCell>
                                                                                     </TableRow>
                                                                                 ))}
                                                                                 <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
@@ -2932,7 +2932,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
                                                                                 {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
                                                                                 <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
-                                                                                <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${Math.round(row.average)}%`}</TableCell>
+                                                                                <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{Math.round(row.average)}</TableCell>
                                                                             </TableRow>
                                                                         ))}
                                                                         <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
@@ -3642,4 +3642,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+
 
