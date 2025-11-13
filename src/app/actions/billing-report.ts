@@ -175,12 +175,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             } else if (formType === 'fixed-weight-despacho') {
                 productos.forEach((p: any) => {
                     const session = getSessionForProduct(p.codigo, p.descripcion);
-                    const paletas = (Number(p.paletasCompletas) || 0); // Only count complete pallets for dispatch
+                    const paletas = (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0);
                     incrementPallets(session, 'despachadas', paletas);
                 });
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                // Corrected logic: Always count pallets from variable weight reception regardless of tipoPedido
                 const isSummaryFormat = items.some((item: any) => Number(item.paleta) === 0);
 
                 if (isSummaryFormat) {
@@ -235,7 +234,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                      allItems.forEach((item: any) => {
                          if (item && Number(item.paleta) === 0) {
                             const session = getSessionForProduct(item.codigo, item.descripcion);
-                            const paletas = (Number(item.paletasCompletas) || 0); // Only count complete pallets for dispatch
+                            const paletas = (Number(item.paletasCompletas) || 0) + (Number(item.paletasPicking) || 0);
                             incrementPallets(session, 'despachadas', paletas);
                          }
                     });
@@ -243,7 +242,8 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     const palletSessionMap = new Map<string, 'CO' | 'RE' | 'SE' | 'MIXTA'>();
                     allItems.forEach((item: any) => {
                         const paletaValue = String(item.paleta);
-                        if (!item.esPicking && item.paleta !== undefined && Number(paletaValue) > 0 && Number(paletaValue) !== 999){
+                        // Despacho cuenta todas las paletas
+                        if (item.paleta !== undefined && Number(paletaValue) > 0 && Number(paletaValue) !== 999){
                             const itemSession = getSessionForProduct(item.codigo, item.descripcion);
                             if (palletSessionMap.has(paletaValue)) {
                                 if (palletSessionMap.get(paletaValue) !== itemSession && itemSession) {

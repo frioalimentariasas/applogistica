@@ -899,7 +899,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 yearRow.font = { bold: true, size: 14 };
                 worksheet.mergeCells(yearRow.number, 1, yearRow.number, yearData.headers.length + 3);
 
-                const headerRow = worksheet.addRow(['Cliente', ...yearData.headers, 'TOTAL CLIENTE', 'Promedio Posiciones']);
+                const headerRow = worksheet.addRow(['Cliente', ...yearData.headers, 'Total Cliente', 'Promedio Posiciones']);
                 headerRow.font = { bold: true };
 
                 yearData.clientRows.forEach((row: any) => {
@@ -916,7 +916,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
         } else if (tableData.data) {
             const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
-            const headerRow = worksheet.addRow(['Cliente', ...headers, 'TOTAL CLIENTE', 'Promedio Posiciones']);
+            const headerRow = worksheet.addRow(['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']);
             headerRow.font = { bold: true };
 
             clientRows.forEach((row: any) => {
@@ -1039,7 +1039,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
             const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
 
-            const head = [['Cliente', ...headers, 'TOTAL CLIENTE', 'Promedio Posiciones']];
+            const head = [['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']];
             const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), '']);
             const foot = [
                 ['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO'), ''],
@@ -2887,7 +2887,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 <TableRow>
                                                                                     <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
                                                                                     {yearData.headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
-                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL CLIENTE</TableHead>
+                                                                                    <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Total Cliente</TableHead>
                                                                                     <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Promedio Posiciones</TableHead>
                                                                                 </TableRow>
                                                                             </TableHeader>
@@ -2922,7 +2922,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableRow>
                                                                             <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
                                                                             {(table.data as { headers: string[] }).headers.map((h:any) => <TableHead key={h} className="text-right">{h}</TableHead>)}
-                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">TOTAL CLIENTE</TableHead>
+                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Total Cliente</TableHead>
                                                                             <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Promedio Posiciones</TableHead>
                                                                         </TableRow>
                                                                     </TableHeader>

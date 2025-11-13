@@ -135,29 +135,6 @@ export async function getConsolidatedMovementReport(
       let recibidasHoy = dataForDay?.paletasRecibidas || 0;
       const despachadasHoy = dataForDay?.paletasDespachadas || 0;
       const inventarioHoy = dataForDay?.inventarioAcumulado || 0;
-
-      // Special exclusion logic for Frutelli and Fabrialimentos
-       if (criteria.clientName === 'GRUPO FRUTELLI SAS' || criteria.clientName === 'FABRIALIMENTOS SAS') {
-         // This logic is now isolated here and doesn't affect getBillingReport
-         // We need to re-fetch the submissions to check the formType and tipoPedido
-         const submissionsSnapshot = await firestore.collection('submissions')
-            .where('formData.fecha', '>=', new Date(`${dateStr}T00:00:00-05:00`))
-            .where('formData.fecha', '<=', new Date(`${dateStr}T23:59:59.999-05:00`))
-            .where('formData.cliente', '==', criteria.clientName)
-            .get();
-        
-        let excludedPallets = 0;
-         for (const doc of submissionsSnapshot.docs) {
-             const submission = doc.data();
-             if (submission.formType === 'variable-weight-reception' || submission.formType === 'variable-weight-recepcion') {
-                 // The logic to calculate pallets should be consistent with getBillingReport
-                 const items = submission.formData.items || [];
-                 const palletSet = new Set(items.map((i: any) => i.paleta));
-                 excludedPallets += palletSet.size;
-             }
-         }
-         recibidasHoy = Math.max(0, recibidasHoy - excludedPallets);
-      }
       
       const posicionesAlmacenadas = posicionesDiaAnterior + recibidasHoy - despachadasHoy;
 
