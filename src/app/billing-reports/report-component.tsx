@@ -115,15 +115,6 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
 
 const formatTime12Hour = (timeStr: string | undefined): string => {
     if (!timeStr) return 'No Aplica';
-
-    // Check if it's already a formatted date-time string
-    // e.g., "13/09/2025 06:50 PM"
-    const dateTimeParts = timeStr.split(' ');
-    if (dateTimeParts.length > 2 && (dateTimeParts[2] === 'AM' || dateTimeParts[2] === 'PM')) {
-        return timeStr;
-    }
-    
-    // Handle HH:mm format
     if (!timeStr.includes(':')) return 'No Aplica';
 
     const [hours, minutes] = timeStr.split(':');
@@ -853,9 +844,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     const grandTotal = yearData.clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
                     const daysWithData = columnTotals.filter(total => total > 0).length;
                     const grandAverage = daysWithData > 0 ? columnTotals.reduce((sum, total) => sum + total, 0) / daysWithData : 0;
-                    const totalCustomerOccupation = (grandTotal / 66402) * 100;
                     
                     const occupationPercentage = columnTotals.length > 0 ? (columnTotals.reduce((a, b) => a + b, 0) / (STORAGE_CAPACITY[table.sessionKey] * columnTotals.length)) * 100 : 0;
+                    
+                    const totalCustomerOccupation = (grandTotal / 66402) * 100;
                     
                     return { year: yearData.year, columnTotals, grandTotal, grandAverage, occupationPercentage, totalCustomerOccupation };
                 });
@@ -903,16 +895,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 headerRow.font = { bold: true };
 
                 yearData.clientRows.forEach((row: any) => {
-                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
+                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, row.average]);
                 });
                 
                 const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
                 const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal, '']);
                 totalRow.font = { bold: true };
                 
-                 const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey]), `${Math.round(yearTotals.totalCustomerOccupation)}%`, '']);
+                 const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey]), `${yearTotals.totalCustomerOccupation / 100}`, '']);
                 occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
-                occupationRow.eachCell(cell => cell.numFmt = '0.00%');
+                occupationRow.eachCell((cell, colNumber) => {
+                    // Start from the second column and exclude the last one ('Promedio Posiciones')
+                    if (colNumber > 1 && colNumber <= yearData.headers.length + 2) {
+                        cell.numFmt = '0%';
+                    }
+                });
             });
         } else if (tableData.data) {
             const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
@@ -927,11 +924,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal, '']);
             totalRow.font = { bold: true };
             
-            const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey]), `${Math.round(tableTotals.totalCustomerOccupation)}%`, '']);
+            const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey]), `${tableTotals.totalCustomerOccupation / 100}`, '']);
             occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
             occupationRow.eachCell((cell, colNumber) => {
-                if (colNumber > 1 && colNumber <= headers.length + 1) { // Only format the monthly/daily data
-                    cell.numFmt = '0.00%';
+                if (colNumber > 1 && colNumber <= headers.length + 2) {
+                    cell.numFmt = '0%';
                 }
             });
         }
@@ -1040,7 +1037,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
 
             const head = [['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']];
-            const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), '']);
+            const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), Math.round(row.average)]);
             const foot = [
                 ['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO'), ''],
                 ['(%) Ocupación', ...tableTotals.columnTotals.map(t => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round(tableTotals.totalCustomerOccupation)}%`, '']
@@ -1214,7 +1211,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
         
         consolidatedReportData.forEach(row => {
-            const invAcumulado = (row.inventarioAcumulado as ClientInventoryDetail).total ?? row.inventarioAcumulado;
+            const invAcumulado = typeof row.inventarioAcumulado === 'object' ? (row.inventarioAcumulado as ClientInventoryDetail)?.total : row.inventarioAcumulado;
             const validationValue = row.posicionesAlmacenadas === invAcumulado ? 'OK' : 'Error';
             const addedRow = worksheet.addRow({
                 fecha: format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
@@ -1272,7 +1269,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             startY: clientY + 10,
             head: [['Fecha', 'Recibidas', 'Despachadas', 'Pos. Almacenadas', 'Inv. Acumulado', 'Validación']],
             body: consolidatedReportData.map(row => {
-                const invAcumulado = (row.inventarioAcumulado as ClientInventoryDetail)?.total ?? row.inventarioAcumulado;
+                const invAcumulado = typeof row.inventarioAcumulado === 'object' ? (row.inventarioAcumulado as ClientInventoryDetail)?.total : row.inventarioAcumulado;
                 return [
                     format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
                     row.paletasRecibidas,
@@ -1283,7 +1280,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 ]
             }),
             headStyles: { fillColor: [33, 150, 243] },
-            didParseCell: function (data) {
+            didParseCell: function (data:any) {
                 if (data.column.index === 5 && data.cell.section === 'body') {
                     if (data.cell.text[0] === 'OK') {
                         data.cell.styles.textColor = '#16a34a';
@@ -3157,7 +3154,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <ResultsSkeleton />
                                             ) : consolidatedReportData.length > 0 ? (
                                                 consolidatedReportData.map((row) => {
-                                                    const invAcumulado = (row.inventarioAcumulado as ClientInventoryDetail)?.total ?? row.inventarioAcumulado;
+                                                    const invAcumulado = typeof row.inventarioAcumulado === 'object' ? (row.inventarioAcumulado as ClientInventoryDetail)?.total : row.inventarioAcumulado;
                                                     const isValid = row.posicionesAlmacenadas === invAcumulado;
                                                     return (
                                                         <TableRow key={row.date}>
@@ -3642,5 +3639,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+
 
 
