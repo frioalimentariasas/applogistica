@@ -831,7 +831,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     
         return pivotedInventoryData.tables.map(table => {
-            if (!table.data) return { columnTotals: [], grandTotal: 0, grandAverage: 0, occupationPercentage: 0 };
+            if (!table.data) return { columnTotals: [], grandTotal: 0, grandAverage: 0, occupationPercentage: 0, totalCustomerOccupation: 0 };
     
             if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
                  return table.data.map(yearData => {
@@ -842,14 +842,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         }, 0);
                     });
                     const grandTotal = yearData.clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
-                    const daysWithData = columnTotals.filter(total => total > 0).length;
-                    const grandAverage = daysWithData > 0 ? columnTotals.reduce((sum, total) => sum + total, 0) / daysWithData : 0;
-                    
-                    const occupationPercentage = columnTotals.length > 0 ? (columnTotals.reduce((a, b) => a + b, 0) / (STORAGE_CAPACITY[table.sessionKey] * columnTotals.length)) * 100 : 0;
                     
                     const totalCustomerOccupation = (grandTotal / 66402) * 100;
                     
-                    return { year: yearData.year, columnTotals, grandTotal, grandAverage, occupationPercentage, totalCustomerOccupation };
+                    return { year: yearData.year, columnTotals, grandTotal, occupationPercentage: 0, totalCustomerOccupation };
                 });
             }
             
@@ -862,13 +858,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 }, 0);
             });
             const grandTotal = clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
-            const daysWithData = columnTotals.filter(total => total > 0).length;
-            const grandAverage = daysWithData > 0 ? columnTotals.reduce((a,b) => a+b, 0) / daysWithData : 0;
 
             const totalCustomerOccupation = (grandTotal / 66402) * 100;
             const occupationPercentage = (columnTotals.reduce((a, b) => a + b, 0) / (STORAGE_CAPACITY[table.sessionKey] * columnTotals.length)) * 100;
             
-            return { columnTotals, grandTotal, grandAverage, occupationPercentage, totalCustomerOccupation };
+            return { columnTotals, grandTotal, occupationPercentage, totalCustomerOccupation };
         });
     }, [pivotedInventoryData]);
     
@@ -895,14 +889,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 headerRow.font = { bold: true };
 
                 yearData.clientRows.forEach((row: any) => {
-                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, row.average]);
+                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
                 });
                 
                 const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
                 const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal, '']);
                 totalRow.font = { bold: true };
                 
-                 const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey]), `${yearTotals.totalCustomerOccupation / 100}`, '']);
+                 const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey]), yearTotals.totalCustomerOccupation / 100, '']);
                 occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
                 occupationRow.eachCell((cell, colNumber) => {
                     // Start from the second column and exclude the last one ('Promedio Posiciones')
@@ -920,11 +914,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
             });
             
-            const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
+            const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, occupationPercentage: number, totalCustomerOccupation: number };
             const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal, '']);
             totalRow.font = { bold: true };
             
-            const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey]), `${tableTotals.totalCustomerOccupation / 100}`, '']);
+            const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey]), tableTotals.totalCustomerOccupation / 100, '']);
             occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
             occupationRow.eachCell((cell, colNumber) => {
                 if (colNumber > 1 && colNumber <= headers.length + 2) {
@@ -1034,7 +1028,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
         } else if (tableData.data) {
             const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
-            const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
+            const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, occupationPercentage: number, totalCustomerOccupation: number };
 
             const head = [['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']];
             const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), Math.round(row.average)]);
@@ -3054,59 +3048,61 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <CardDescription>Seleccione cliente, rango de fechas y sesión para ver el informe consolidado.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6">
-                                    <div className="space-y-2">
-                                        <Label>Cliente</Label>
-                                         <Dialog open={isConsolidatedClientDialogOpen} onOpenChange={setIsConsolidatedClientDialogOpen}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                    {consolidatedClient || "Seleccione un cliente"}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent className="sm:max-w-[425px]">
-                                                <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
-                                                <div className="p-4">
-                                                    <Input placeholder="Buscar cliente..." value={consolidatedClientSearch} onChange={(e) => setConsolidatedClientSearch(e.target.value)} className="mb-4" />
-                                                    <ScrollArea className="h-72"><div className="space-y-1">
-                                                        {filteredConsolidatedClients.map((client) => (
-                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setConsolidatedClient(client.razonSocial); setIsConsolidatedClientDialogOpen(false); setConsolidatedClientSearch(''); }}>{client.razonSocial}</Button>
-                                                        ))}
-                                                    </div></ScrollArea>
-                                                </div>
-                                            </DialogContent>
-                                        </Dialog>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Rango de Fechas</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !consolidatedDateRange && "text-muted-foreground")}>
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {consolidatedDateRange?.from ? (consolidatedDateRange.to ? (<>{format(consolidatedDateRange.from, "LLL dd, y", { locale: es })} - {format(consolidatedDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(consolidatedDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar initialFocus mode="range" defaultMonth={consolidatedDateRange?.from} selected={consolidatedDateRange} onSelect={(range) => {
-                                                            if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
-                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
-                                                            } else {
-                                                                setConsolidatedDateRange(range);
-                                                            }
-                                                        }} numberOfMonths={2} locale={es} disabled={{ after: today, before: threeYearsAgo }} />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                     <div className="space-y-2">
-                                        <Label>Sesión</Label>
-                                        <Select value={consolidatedSesion} onValueChange={setConsolidatedSesion}>
-                                            <SelectTrigger><SelectValue placeholder="Seleccione una sesión" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="CO">CO - Congelados</SelectItem>
-                                                <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                                <SelectItem value="SE">SE - Seco</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
+                                        <div className="space-y-2">
+                                            <Label>Cliente</Label>
+                                            <Dialog open={isConsolidatedClientDialogOpen} onOpenChange={setIsConsolidatedClientDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                        {consolidatedClient || "Seleccione un cliente"}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="sm:max-w-[425px]">
+                                                    <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                    <div className="p-4">
+                                                        <Input placeholder="Buscar cliente..." value={consolidatedClientSearch} onChange={(e) => setConsolidatedClientSearch(e.target.value)} className="mb-4" />
+                                                        <ScrollArea className="h-72"><div className="space-y-1">
+                                                            {filteredConsolidatedClients.map((client) => (
+                                                                <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setConsolidatedClient(client.razonSocial); setIsConsolidatedClientDialogOpen(false); setConsolidatedClientSearch(''); }}>{client.razonSocial}</Button>
+                                                            ))}
+                                                        </div></ScrollArea>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Rango de Fechas</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !consolidatedDateRange && "text-muted-foreground")}>
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {consolidatedDateRange?.from ? (consolidatedDateRange.to ? (<>{format(consolidatedDateRange.from, "LLL dd, y", { locale: es })} - {format(consolidatedDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(consolidatedDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                    <Calendar initialFocus mode="range" defaultMonth={consolidatedDateRange?.from} selected={consolidatedDateRange} onSelect={(range) => {
+                                                                if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
+                                                                    toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                                } else {
+                                                                    setConsolidatedDateRange(range);
+                                                                }
+                                                            }} numberOfMonths={2} locale={es} disabled={{ after: today, before: threeYearsAgo }} />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Sesión</Label>
+                                            <Select value={consolidatedSesion} onValueChange={setConsolidatedSesion}>
+                                                <SelectTrigger><SelectValue placeholder="Seleccione una sesión" /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="CO">CO - Congelados</SelectItem>
+                                                    <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                                    <SelectItem value="SE">SE - Seco</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
                                         <Button onClick={handleConsolidatedSearch} className="w-full" disabled={isConsolidatedLoading}>
@@ -3153,7 +3149,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <ResultsSkeleton />
                                             ) : consolidatedReportData.length > 0 ? (
                                                 consolidatedReportData.map((row) => {
-                                                    const invAcumulado = typeof row.inventarioAcumulado === 'object' ? (row.inventarioAcumulado as ClientInventoryDetail)?.total : row.inventarioAcumulado;
+                                                    const invAcumulado = row.inventarioAcumulado as number;
                                                     const isValid = row.posicionesAlmacenadas === invAcumulado;
                                                     return (
                                                         <TableRow key={row.date}>
@@ -3235,7 +3231,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     } else {
                                                         setSettlementDateRange(range);
                                                     }
-                                                }} numberOfMonths={2} locale={es} disabled={{ before: threeYearsAgo }} /></PopoverContent>
+                                                }} numberOfMonths={2} locale={es} disabled={{ after: today, before: threeYearsAgo }} /></PopoverContent>
                                             </Popover>
                                         </div>
                                         <div className="space-y-2">
@@ -3638,6 +3634,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+
 
 
 
