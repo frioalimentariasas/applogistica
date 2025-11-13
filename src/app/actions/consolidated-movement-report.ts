@@ -7,7 +7,7 @@ import { firestore } from '@/lib/firebase-admin';
 import { getBillingReport } from './billing-report';
 import { getInventoryReport } from './inventory-report';
 import { subDays, format, addDays, parseISO } from 'date-fns';
-import type { InventoryRow } from './inventory-report';
+import type { InventoryPivotReport, ClientInventoryDetail } from './inventory-report';
 
 
 export interface ConsolidatedReportCriteria {
@@ -21,7 +21,7 @@ export interface ConsolidatedReportRow {
   date: string;
   paletasRecibidas: number;
   paletasDespachadas: number;
-  inventarioAcumulado: number;
+  inventarioAcumulado: number | ClientInventoryDetail; // Can be a number or the detailed object
   posicionesAlmacenadas: number;
 }
 
@@ -43,7 +43,7 @@ export async function getConsolidatedMovementReport(
   });
 
   // 2. Get daily inventory stock for the period for the specific session
-  const inventoryData = await getInventoryReport({
+  const inventoryData: InventoryPivotReport = await getInventoryReport({
     clientNames: [criteria.clientName],
     startDate: criteria.startDate,
     endDate: criteria.endDate,
@@ -62,7 +62,7 @@ export async function getConsolidatedMovementReport(
     if (latestInventoryDoc.exists) {
         const inventoryDay = latestInventoryDoc.data();
         if (inventoryDay && Array.isArray(inventoryDay.data)) {
-            let relevantRows = (inventoryDay.data as InventoryRow[]).filter(row => 
+            let relevantRows = (inventoryDay.data as any[]).filter(row => 
                 row?.PROPIETARIO?.trim() === criteria.clientName
             );
 
@@ -84,15 +84,15 @@ export async function getConsolidatedMovementReport(
         }
     }
   } catch (error) {
-      console.error(`Error fetching latest stock for ${criteria.clientName} before ${criteria.startDate}:`, error);
+      console.error(`Error fetching latest stock for ${'${criteria.clientName}'} before ${'${criteria.startDate}'}:`, error);
       saldoInicial = 0;
   }
 
   const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'date'>>();
   
   // 4. Populate map with movements for the SELECTED session from the comprehensive billing data
-  const recibidasKey = `paletasRecibidas${criteria.sesion}` as keyof typeof billingData[0];
-  const despachadasKey = `paletasDespachadas${criteria.sesion}` as keyof typeof billingData[0];
+  const recibidasKey = `paletasRecibidas${'${criteria.sesion}'}` as keyof typeof billingData[0];
+  const despachadasKey = `paletasDespachadas${'${criteria.sesion}'}` as keyof typeof billingData[0];
 
   billingData.forEach(item => {
     if (!consolidatedMap.has(item.date)) {
@@ -105,7 +105,8 @@ export async function getConsolidatedMovementReport(
 
   // 5. Populate map with inventory data for the SELECTED session
   inventoryData.rows.forEach(item => {
-    const inventoryCount = item.clientData[criteria.clientName] || 0;
+    // This is where the object was being assigned
+    const inventoryCount = item.clientData[criteria.clientName]?.total || 0;
     if (!consolidatedMap.has(item.date)) {
         consolidatedMap.set(item.date, { paletasRecibidas: 0, paletasDespachadas: 0, inventarioAcumulado: 0, posicionesAlmacenadas: 0 });
     }
@@ -145,3 +146,6 @@ export async function getConsolidatedMovementReport(
 
   return consolidatedReport;
 }
+
+
+    

@@ -96,7 +96,7 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
     try {
         const response = await fetch(url);
         if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to fetch image: ${'${response.status}'} ${'${response.statusText}'}`);
         }
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
@@ -131,20 +131,20 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
-    return `${h.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+    return `${'${h.toString().padStart(2, '0')}'}:${'${minutes}'} ${'${ampm}'}`;
 };
 
 const formatDuration = (totalMinutes: number | null): string => {
     if (totalMinutes === null || totalMinutes < 0) return 'No Aplica';
     if (totalMinutes < 60) {
-        return `${totalMinutes} min`;
+        return `${'${totalMinutes}'} min`;
     }
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     if (minutes === 0) {
-        return `${hours}h`;
+        return `${'${hours}'}h`;
     }
-    return `${hours}h ${minutes}m`;
+    return `${'${hours}'}h ${'${minutes}'}m`;
 };
 
 const formatObservaciones = (observaciones: any): string => {
@@ -157,7 +157,7 @@ const formatObservaciones = (observaciones: any): string => {
         }
         let text = obs.type;
         if (obs.quantity > 0) {
-            text += ` (Cant: ${obs.quantity})`;
+            text += ` (Cant: ${'${obs.quantity}'})`;
         }
         return text;
     }).join(', ');
@@ -541,7 +541,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        const fileName = `Reporte_Detallado_Operacion_${format(detailedReportDateRange!.from!, 'yyyy-MM-dd')}_a_${format(detailedReportDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `Reporte_Detallado_Operacion_${'${format(detailedReportDateRange!.from!, 'yyyy-MM-dd')}'}_a_${'${format(detailedReportDateRange!.to!, 'yyyy-MM-dd')}'}.xlsx`;
         link.download = fileName;
         link.click();
     };
@@ -632,7 +632,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
         });
 
-        const fileName = `Reporte_Detallado_Operacion_${format(detailedReportDateRange!.from!, 'yyyy-MM-dd')}_a_${format(detailedReportDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `Reporte_Detallado_Operacion_${'${format(detailedReportDateRange!.from!, 'yyyy-MM-dd')}'}_a_${'${format(detailedReportDateRange!.to!, 'yyyy-MM-dd')}'}.pdf`;
         doc.save(fileName);
     };
 
@@ -664,12 +664,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const result = await uploadInventoryCsv(singleFileFormData);
                 if (!result.success) {
                     filesWithErrors++;
-                    errorMessages.push(`Error en "${file.name}": ${result.message}`);
+                    errorMessages.push(`Error en "${file.name}": ${'${result.message}'}`);
                 }
             } catch (error) {
                 filesWithErrors++;
                 const errorMessage = error instanceof Error ? error.message : "Error inesperado en el cliente.";
-                errorMessages.push(`Error crítico en "${file.name}": ${errorMessage}`);
+                errorMessages.push(`Error crítico en "${file.name}": ${'${errorMessage}'}`);
             }
             
             const newProgress = ((i + 1) / files.length) * 100
@@ -895,7 +895,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
             tableData.data.forEach((yearData, yearIdx) => {
                 if (yearIdx > 0) worksheet.addRow([]);
-                const yearRow = worksheet.addRow([`AÑO: ${yearData.year}`]);
+                const yearRow = worksheet.addRow([`AÑO: ${'${yearData.year}'}`]);
                 yearRow.font = { bold: true, size: 14 };
                 worksheet.mergeCells(yearRow.number, 1, yearRow.number, yearData.headers.length + 3);
 
@@ -903,14 +903,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 headerRow.font = { bold: true };
 
                 yearData.clientRows.forEach((row: any) => {
-                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, `${Math.round(row.average)}%`]);
+                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, `${'${Math.round(row.average)}'}%`]);
                 });
                 
                 const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
                 const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal, '']);
                 totalRow.font = { bold: true };
                 
-                 const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey]), `${Math.round(yearTotals.totalCustomerOccupation)}%`, '']);
+                 const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey]), `${'${Math.round(yearTotals.totalCustomerOccupation)}'}%`, '']);
                 occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
                 occupationRow.eachCell(cell => cell.numFmt = '0.00%');
             });
@@ -920,14 +920,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             headerRow.font = { bold: true };
 
             clientRows.forEach((row: any) => {
-                worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, `${Math.round(row.average)}%`]);
+                worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, `${'${Math.round(row.average)}'}%`]);
             });
             
             const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
             const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal, '']);
             totalRow.font = { bold: true };
             
-            const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey]), `${Math.round(tableTotals.totalCustomerOccupation)}%`, '']);
+            const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey]), `${'${Math.round(tableTotals.totalCustomerOccupation)}'}%`, '']);
             occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
             occupationRow.eachCell((cell, colNumber) => {
                 if (colNumber > 1 && colNumber <= headers.length + 1) { // Only format the monthly/daily data
@@ -954,7 +954,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    const fileName = `Reporte_Inventario_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+    const fileName = `Reporte_Inventario_${'${inventorySesion}'}_${'${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}'}_a_${'${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}'}.xlsx`;
     link.download = fileName;
     link.click();
 };
@@ -989,7 +989,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         let contentStartY = titleY + 14;
         const periodText = (inventoryDateRange?.from && inventoryDateRange?.to)
-            ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
+            ? `Periodo: ${'${format(inventoryDateRange.from, 'dd/MM/yyyy')}'} - ${'${format(inventoryDateRange.to, 'dd/MM/yyyy')}'}`
             : '';
 
         const lineHeight = doc.getTextDimensions('A').h || 10;
@@ -1007,24 +1007,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!isFirstPage) {
             doc.addPage();
         }
-        const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${tableData.title}`);
+        const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${'${tableData.title}'}`);
 
         if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
              tableData.data.forEach((yearData: any, yearIdx: number) => {
                 const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
                 autoTable(doc, {
                     startY: yearIdx === 0 ? tableStartY : (doc as any).lastAutoTable.finalY + 10,
-                    head: [[{content: `AÑO: ${yearData.year}`, colSpan: yearData.headers.length + 3}]],
+                    head: [[{content: `AÑO: ${'${yearData.year}'}`, colSpan: yearData.headers.length + 3}]],
                     body: [],
                     theme: 'plain',
                     headStyles: { fontStyle: 'bold', fontSize: 10 }
                 });
                 
                 const head = [['Cliente', ...yearData.headers, 'TOTAL', 'Prom. Pos.']];
-                const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), `${Math.round(row.average)}%`]);
+                const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), `${'${Math.round(row.average)}'}%`]);
                 const foot = [
                     ['TOTALES', ...yearTotals.columnTotals.map((t: number) => Math.round(t).toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO'), ''],
-                    ['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round(yearTotals.totalCustomerOccupation)}%`, '']
+                    ['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => `${'${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}'}%`), `${'${Math.round(yearTotals.totalCustomerOccupation)}'}%`, '']
                 ];
                 
                 autoTable(doc, {
@@ -1040,10 +1040,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
 
             const head = [['Cliente', ...headers, 'TOTAL CLIENTE', 'Prom. Pos.']];
-            const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), `${Math.round(row.average)}%`]);
+            const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), `${'${Math.round(row.average)}'}%`]);
             const foot = [
                 ['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO'), ''],
-                ['(%) Ocupación', ...tableTotals.columnTotals.map(t => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round(tableTotals.totalCustomerOccupation)}%`, '']
+                ['(%) Ocupación', ...tableTotals.columnTotals.map(t => `${'${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}'}%`), `${'${Math.round(tableTotals.totalCustomerOccupation)}'}%`, '']
             ];
 
             autoTable(doc, {
@@ -1059,7 +1059,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         isFirstPage = false;
     });
 
-    const fileName = `Reporte_Inventario_Acumulado_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+    const fileName = `Reporte_Inventario_Acumulado_${'${inventorySesion}'}_${'${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}'}_a_${'${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}'}.pdf`;
     doc.save(fileName);
 };
 
@@ -1111,7 +1111,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     deletedCount++;
                 } else {
                     errorCount++;
-                    console.error(`No se pudo eliminar el documento ${id}: ${deleteResult.message}`);
+                    console.error(`No se pudo eliminar el documento ${'${id}'}: ${'${deleteResult.message}'}`);
                 }
                 setDeleteProgress(((i + 1) / totalCount) * 100);
             }
@@ -1120,12 +1120,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                  toast({
                     variant: "destructive",
                     title: 'Proceso completado con errores',
-                    description: `Se eliminaron ${deletedCount} de ${totalCount} registro(s). ${errorCount} no pudieron ser eliminados.`,
+                    description: `Se eliminaron ${'${deletedCount}'} de ${'${totalCount}'} registro(s). ${'${errorCount}'} no pudieron ser eliminados.`,
                 });
             } else {
                  toast({
                     title: 'Proceso completado',
-                    description: `Se eliminaron ${deletedCount} de ${totalCount} registro(s) de inventario.`,
+                    description: `Se eliminaron ${'${deletedCount}'} de ${'${totalCount}'} registro(s) de inventario.`,
                 });
             }
             
@@ -1233,7 +1233,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        const fileName = `Reporte_Consolidado_${consolidatedClient.replace(/\s/g, '_')}_${format(consolidatedDateRange!.from!, 'yyyy-MM-dd')}_a_${format(consolidatedDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `Reporte_Consolidado_${'${consolidatedClient.replace(/\s/g, '_')}'}_${'${format(consolidatedDateRange!.from!, 'yyyy-MM-dd')}'}_a_${'${format(consolidatedDateRange!.to!, 'yyyy-MM-dd')}'}.xlsx`;
         link.download = fileName;
         link.click();
     };
@@ -1264,8 +1264,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const clientY = titleY + 16;
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Cliente: ${consolidatedClient}`, 14, clientY);
-        doc.text(`Periodo: ${format(consolidatedDateRange!.from!, 'dd/MM/yyyy')} - ${format(consolidatedDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth - 14, clientY, { align: 'right' });
+        doc.text(`Cliente: ${'${consolidatedClient}'}`, 14, clientY);
+        doc.text(`Periodo: ${'${format(consolidatedDateRange!.from!, 'dd/MM/yyyy')}'} - ${'${format(consolidatedDateRange!.to!, 'dd/MM/yyyy')}'}`, pageWidth - 14, clientY, { align: 'right' });
 
         autoTable(doc, {
             startY: clientY + 10,
@@ -1292,7 +1292,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
         });
 
-        const fileName = `Reporte_Consolidado_${consolidatedClient.replace(/\s/g, '_')}_${format(consolidatedDateRange!.from!, 'yyyy-MM-dd')}_a_${format(consolidatedDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `Reporte_Consolidado_${'${consolidatedClient.replace(/\s/g, '_')}'}_${'${format(consolidatedDateRange!.from!, 'yyyy-MM-dd')}'}_a_${'${format(consolidatedDateRange!.to!, 'yyyy-MM-dd')}'}.pdf`;
         doc.save(fileName);
     };
 
@@ -1333,7 +1333,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            const fileName = `Inventario_Detallado_${format(exportDateRange.from, 'yyyy-MM-dd')}_a_${format(exportDateRange.to, 'yyyy-MM-dd')}.xlsx`;
+            const fileName = `Inventario_Detallado_${'${format(exportDateRange.from, 'yyyy-MM-dd')}'}_a_${'${format(exportDateRange.to, 'yyyy-MM-dd')}'}.xlsx`;
             link.download = fileName;
             link.click();
 
@@ -1380,7 +1380,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
             
             if (result.success && result.data) {
-                const dataWithIds = result.data.map((row, index) => ({...row, uniqueId: `${row.date}-${row.conceptName}-${index}`}));
+                const dataWithIds = result.data.map((row, index) => ({...row, uniqueId: `${'${row.date}'}-${'${row.conceptName}'}-${'${index}'}`}));
                 setSettlementReportData(dataWithIds);
                 setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
                 if(result.data.length === 0) {
@@ -1488,12 +1488,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             ws.mergeCells(2, 1, 2, columns.length);
         
             const clientRow = ws.getRow(3);
-            clientRow.getCell(1).value = `Cliente: ${settlementClient}`;
+            clientRow.getCell(1).value = `Cliente: ${'${settlementClient}'}`;
             clientRow.font = { bold: true };
             clientRow.getCell(1).alignment = { horizontal: 'center' };
             ws.mergeCells(3, 1, 3, columns.length);
             if (settlementDateRange?.from && settlementDateRange.to) {
-                const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
+                const periodText = `Periodo: ${'${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })}'} - ${'${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}'}`;
                 const periodRow = ws.getRow(4);
                 periodRow.getCell(1).value = periodText;
                 periodRow.font = { bold: true };
@@ -1533,17 +1533,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             let unitOfMeasure: string;
     
             if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'No Aplica') {
-                conceptName = `${row.conceptName} (${row.operacionLogistica})`;
+                conceptName = `${'${row.conceptName}'} (${'${row.operacionLogistica}'})`;
                 unitOfMeasure = row.tipoVehiculo;
-                conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
+                conceptKey = `${'${row.conceptName}'}-${'${row.operacionLogistica}'}-${'${unitOfMeasure}'}`;
             } else if (row.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                 conceptName = row.conceptName;
                 unitOfMeasure = 'HORA';
                 conceptKey = row.conceptName;
             } else {
-                conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+                conceptName = row.conceptName + (row.subConceptName ? ` (${'${row.subConceptName}'})` : '');
                 unitOfMeasure = row.unitOfMeasure;
-                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${unitOfMeasure}`;
+                conceptKey = `${'${row.conceptName}'}-${'${row.subConceptName || ''}'}-${'${unitOfMeasure}'}`;
             }
     
             if (!acc[conceptKey]) {
@@ -1708,7 +1708,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
                 Object.entries(containerGroups).forEach(([containerKey, containerData]) => {
                     const subHeaderRow = detailWorksheet.addRow([]);
-                    subHeaderRow.getCell('B').value = `Contenedor: ${containerKey}`;
+                    subHeaderRow.getCell('B').value = `Contenedor: ${'${containerKey}'}`;
                     subHeaderRow.font = { bold: true };
                     subHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
                     detailWorksheet.mergeCells(subHeaderRow.number, 2, subHeaderRow.number, detailColumns.length);
@@ -1724,7 +1724,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     });
                     
                     const containerSubtotalRow = detailWorksheet.addRow([]);
-                    containerSubtotalRow.getCell('conceptName').value = `Subtotal Contenedor ${containerKey}:`;
+                    containerSubtotalRow.getCell('conceptName').value = `Subtotal Contenedor ${'${containerKey}'}:`;
                     containerSubtotalRow.getCell('quantity').value = containerData.subtotalCantidad;
                     containerSubtotalRow.getCell('totalValue').value = containerData.subtotalValor;
                     containerSubtotalRow.font = { bold: true };
@@ -1776,7 +1776,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 });
         
                 const subtotalRow = detailWorksheet.addRow([]);
-                subtotalRow.getCell('conceptName').value = `Subtotal ${conceptName}:`;
+                subtotalRow.getCell('conceptName').value = `Subtotal ${'${conceptName}'}:`;
                 subtotalRow.getCell('conceptName').font = { bold: true };
                 subtotalRow.getCell('conceptName').alignment = { horizontal: 'right' };
                 subtotalRow.getCell('quantity').value = group.subtotalCantidad;
@@ -1807,7 +1807,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${'${settlementClient.replace(/\s/g, '_')}'}_${'${format(settlementDateRange!.from!, 'yyyy-MM-dd')}'}_a_${'${format(settlementDateRange!.to!, 'yyyy-MM-dd')}'}.xlsx`;
         link.download = fileName;
         link.click();
     };
@@ -1851,7 +1851,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
             'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
-        ];
+    ];
 
         const zfpcSubConceptOrder = [
             'HORA EXTRA DIURNA',
@@ -1908,10 +1908,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             currentY += 6;
             docInstance.setFontSize(10);
             docInstance.setFont('helvetica', 'normal');
-            docInstance.text(`Cliente: ${settlementClient}`, pageWidth / 2, currentY, { align: 'center' });
+            docInstance.text(`Cliente: ${'${settlementClient}'}`, pageWidth / 2, currentY, { align: 'center' });
 
             currentY += 5;
-            docInstance.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, currentY, { align: 'center' });
+            docInstance.text(`Periodo: ${'${format(settlementDateRange!.from!, 'dd/MM/yyyy')}'} - ${'${format(settlementDateRange!.to!, 'dd/MM/yyyy')}'}`, pageWidth / 2, currentY, { align: 'center' });
 
             return currentY + 10;
         };
@@ -1927,21 +1927,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             let unitOfMeasure: string;
 
             if (isLogisticsClient && settlementContainer) {
-                conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+                conceptName = row.conceptName + (row.subConceptName ? ` (${'${row.subConceptName}'})` : '');
                 unitOfMeasure = row.unitOfMeasure;
-                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${unitOfMeasure}`;
+                conceptKey = `${'${row.conceptName}'}-${'${row.subConceptName || ''}'}-${'${unitOfMeasure}'}`;
             } else if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'No Aplica') {
-                conceptName = `${row.conceptName} (${row.operacionLogistica})`;
+                conceptName = `${'${row.conceptName}'} (${'${row.operacionLogistica}'})`;
                 unitOfMeasure = row.tipoVehiculo;
-                conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
+                conceptKey = `${'${row.conceptName}'}-${'${row.operacionLogistica}'}-${'${unitOfMeasure}'}`;
             } else if (row.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                 conceptName = row.conceptName;
                 unitOfMeasure = row.unitOfMeasure;
                 conceptKey = row.conceptName;
             } else {
-                conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+                conceptName = row.conceptName + (row.subConceptName ? ` (${'${row.subConceptName}'})` : '');
                 unitOfMeasure = row.unitOfMeasure;
-                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${unitOfMeasure}`;
+                conceptKey = `${'${row.conceptName}'}-${'${row.subConceptName || ''}'}-${'${unitOfMeasure}'}`;
             }
 
             if (!acc[conceptKey]) {
@@ -2016,7 +2016,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             headStyles: { fillColor: [26, 144, 200], fontSize: 10 },
             styles: { fontSize: 9, cellPadding: 1.5 },
             columnStyles: summaryColumnStyles,
-            didParseCell: function(data) {
+            didParseCell: function(data:any) {
                 if(data.row.raw[0].content === 'TOTALES:') {
                     if(data.row.cells[0]) data.row.cells[0].styles.fillColor = [26, 144, 200];
                     if(data.row.cells[totalRowColSpan]) data.row.cells[totalRowColSpan].styles.fillColor = [26, 144, 200];
@@ -2052,9 +2052,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const termAsNumber = parseInt(settlementPaymentTerm, 10);
 
             if (!isNaN(termAsNumber)) {
-                paymentTermText = `PLAZO DE VENCIMIENTO: ${termAsNumber} DÍAS`;
+                paymentTermText = `PLAZO DE VENCIMIENTO: ${'${termAsNumber}'} DÍAS`;
             } else {
-                paymentTermText = `PLAZO DE VENCIMIENTO: ${settlementPaymentTerm.toUpperCase()}`;
+                paymentTermText = `PLAZO DE VENCIMIENTO: ${'${settlementPaymentTerm.toUpperCase()}'}`;
             }
             doc.text(paymentTermText, margin + 20, finalY + 15);
         }
@@ -2114,12 +2114,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
 
                 Object.entries(containerGroups).forEach(([containerKey, containerData]: [string, any]) => {
-                     detailBody.push([{ content: `Contenedor: ${containerKey}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
+                     detailBody.push([{ content: `Contenedor: ${'${containerKey}'}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
                      containerData.rows.sort((a: ClientSettlementRow, b: ClientSettlementRow) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach((row: ClientSettlementRow) => {
                         detailBody.push(generateDetailRow(row));
                      });
                      detailBody.push([
-                        { content: `Subtotal Contenedor ${containerKey}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: `Subtotal Contenedor ${'${containerKey}'}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
                         { content: containerData.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                         { content: '', colSpan: 2 },
                         { content: containerData.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
@@ -2148,7 +2148,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
              }
 
              detailBody.push([
-                { content: `Subtotal ${conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: `Subtotal ${'${conceptName}'}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: group.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: '', colSpan: 2 },
                 { content: group.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
@@ -2174,7 +2174,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
 
     
-        const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${'${settlementClient.replace(/\s/g, '_')}'}_${'${format(settlementDateRange!.from!, 'yyyy-MM-dd')}'}_a_${'${format(settlementDateRange!.to!, 'yyyy-MM-dd')}'}.pdf`;
         doc.save(fileName);
     };
 
@@ -2182,14 +2182,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (detailedReportTipoPedido.length === 0) return "Todos";
         if (detailedReportTipoPedido.length === 1) return detailedReportTipoPedido[0];
         if (detailedReportTipoPedido.length === allPedidoTypes.length) return "Todos";
-        return `${detailedReportTipoPedido.length} tipos seleccionados`;
+        return `${'${detailedReportTipoPedido.length}'} tipos seleccionados`;
     };
     
     const getExportClientsText = () => {
         if (exportClients.length === 0) return "Seleccione uno o más clientes...";
         if (exportClients.length === clients.length) return "Todos los clientes seleccionados";
         if (exportClients.length === 1) return exportClients[0];
-        return `${exportClients.length} clientes seleccionados`;
+        return `${'${exportClients.length}'} clientes seleccionados`;
     };
     
     const visibleSettlementData = useMemo(() => {
@@ -2371,7 +2371,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <PopoverContent className="w-auto p-0" align="start">
                                                     <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={(range) => {
                                                             if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
-                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${'${MAX_DATE_RANGE_DAYS}'} días.` });
                                                             } else {
                                                                 setDetailedReportDateRange(range);
                                                             }
@@ -2439,7 +2439,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 {filteredDetailedPedidoTypes.map((option) => (
                                                                     <div key={option.id} className="flex items-center space-x-2">
                                                                     <Checkbox
-                                                                        id={`tipo-pedido-${option.id}`}
+                                                                        id={`tipo-pedido-${'${option.id}'}`}
                                                                         checked={detailedReportTipoPedido.includes(option.name)}
                                                                         onCheckedChange={(checked) => {
                                                                         setDetailedReportTipoPedido((prev) =>
@@ -2449,7 +2449,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         );
                                                                         }}
                                                                     />
-                                                                    <Label htmlFor={`tipo-pedido-${option.id}`} className="font-normal cursor-pointer">
+                                                                    <Label htmlFor={`tipo-pedido-${'${option.id}'}`} className="font-normal cursor-pointer">
                                                                         {option.name}
                                                                     </Label>
                                                                     </div>
@@ -2674,7 +2674,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         selected={inventoryDateRange}
                                                         onSelect={(range) => {
                                                             if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
-                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${'${MAX_DATE_RANGE_DAYS}'} días.` });
                                                             } else {
                                                                 setInventoryDateRange(range);
                                                                 setSelectedYear(''); // Clear year selection
@@ -2715,7 +2715,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 ? "Seleccione uno o más clientes"
                                                                 : inventoryClients.length === 1
                                                                 ? inventoryClients[0]
-                                                                : `${inventoryClients.length} clientes seleccionados`}
+                                                                : `${'${inventoryClients.length}'} clientes seleccionados`}
                                                         </span>
                                                         {isLoadingInventoryClients ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
                                                     </Button>
@@ -2756,7 +2756,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     {filteredAvailableInventoryClients.map((clientName) => (
                                                                         <div key={clientName} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
                                                                             <Checkbox
-                                                                                id={`client-inv-${clientName}`}
+                                                                                id={`client-inv-${'${clientName}'}`}
                                                                                 checked={inventoryClients.includes(clientName)}
                                                                                 onCheckedChange={(checked) => {
                                                                                     setInventoryClients(prev =>
@@ -2766,7 +2766,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                     )
                                                                                 }}
                                                                             />
-                                                                            <Label htmlFor={`client-inv-${clientName}`} className="w-full cursor-pointer">{clientName}</Label>
+                                                                            <Label htmlFor={`client-inv-${'${clientName}'}`} className="w-full cursor-pointer">{clientName}</Label>
                                                                         </div>
                                                                     ))}
                                                                     {filteredAvailableInventoryClients.length === 0 && (
@@ -2877,7 +2877,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             {pivotedInventoryData.type === 'monthly' && Array.isArray(table.data) ? (
                                                                 table.data.map((yearData, yearIdx) => (
                                                                     <div key={yearData.year} className="mb-6 last:mb-0">
-                                                                        <h4 className="p-4 text-lg font-semibold bg-muted">{`AÑO: ${yearData.year}`}</h4>
+                                                                        <h4 className="p-4 text-lg font-semibold bg-muted">{`AÑO: ${'${yearData.year}'}`}</h4>
                                                                         <Table>
                                                                             <TableHeader>
                                                                                 <TableRow>
@@ -2893,7 +2893,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                         <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
                                                                                         {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
                                                                                         <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
-                                                                                        <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${Math.round(row.average)}`}</TableCell>
+                                                                                        <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${'${Math.round(row.average)}'}%`}</TableCell>
                                                                                     </TableRow>
                                                                                 ))}
                                                                                 <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
@@ -2904,8 +2904,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 </TableRow>
                                                                                 <TableRow className="bg-sky-100 hover:bg-sky-100 text-sky-900 font-bold">
                                                                                     <TableCell className="sticky left-0 z-10 bg-sky-100">(%) Ocupación</TableCell>
-                                                                                    {(inventoryTotals[tableIndex] as any)[yearIdx].columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{`${Math.round((total / STORAGE_CAPACITY[table.sessionKey]) * 100)}%`}</TableCell>)}
-                                                                                    <TableCell className="sticky right-0 bg-sky-100 text-right font-bold">{`${Math.round((inventoryTotals[tableIndex] as any)[yearIdx].totalCustomerOccupation)}%`}</TableCell>
+                                                                                    {(inventoryTotals[tableIndex] as any)[yearIdx].columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{`${'${Math.round((total / STORAGE_CAPACITY[table.sessionKey]) * 100)}'}%`}</TableCell>)}
+                                                                                    <TableCell className="sticky right-0 bg-sky-100 text-right font-bold">{`${'${Math.round((inventoryTotals[tableIndex] as any)[yearIdx].totalCustomerOccupation)}'}%`}</TableCell>
                                                                                     <TableCell className="sticky right-0 bg-sky-100 text-right font-mono"></TableCell>
                                                                                 </TableRow>
                                                                             </TableBody>
@@ -2928,7 +2928,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                 <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
                                                                                 {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Math.round(value).toLocaleString('es-CO')}</TableCell>)}
                                                                                 <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{Math.round(row.total).toLocaleString('es-CO')}</TableCell>
-                                                                                <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${Math.round(row.average)}`}</TableCell>
+                                                                                <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-mono">{`${'${Math.round(row.average)}'}%`}</TableCell>
                                                                             </TableRow>
                                                                         ))}
                                                                         <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
@@ -2939,8 +2939,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         </TableRow>
                                                                         <TableRow className="bg-sky-100 hover:bg-sky-100 text-sky-900 font-bold">
                                                                             <TableCell className="sticky left-0 z-10 bg-sky-100">(%) Ocupación</TableCell>
-                                                                            {(inventoryTotals[tableIndex] as any).columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{`${Math.round((total / STORAGE_CAPACITY[table.sessionKey]) * 100)}%`}</TableCell>)}
-                                                                            <TableCell className="sticky right-0 bg-sky-100 text-right font-bold">{`${Math.round((inventoryTotals[tableIndex] as any).totalCustomerOccupation)}%`}</TableCell>
+                                                                            {(inventoryTotals[tableIndex] as any).columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{`${'${Math.round((total / STORAGE_CAPACITY[table.sessionKey]) * 100)}'}%`}</TableCell>)}
+                                                                            <TableCell className="sticky right-0 bg-sky-100 text-right font-bold">{`${'${Math.round((inventoryTotals[tableIndex] as any).totalCustomerOccupation)}'}%`}</TableCell>
                                                                             <TableCell className="sticky right-0 bg-sky-100 text-right font-mono"></TableCell>
                                                                         </TableRow>
                                                                     </TableBody>
@@ -2998,9 +2998,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <Label htmlFor="select-all-export-clients" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
                                                                     </div>
                                                                     {filteredExportClients.map((client) => (
-                                                                        <div key={`export-${client.id}`} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                                        <div key={`export-${'${client.id}'}`} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
                                                                             <Checkbox
-                                                                                id={`client-export-${client.id}`}
+                                                                                id={`client-export-${'${client.id}'}`}
                                                                                 checked={exportClients.includes(client.razonSocial)}
                                                                                 onCheckedChange={(checked) => {
                                                                                     setExportClients(prev =>
@@ -3008,7 +3008,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                     );
                                                                                 }}
                                                                             />
-                                                                            <Label htmlFor={`client-export-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
+                                                                            <Label htmlFor={`client-export-${'${client.id}'}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -3089,7 +3089,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <PopoverContent className="w-auto p-0" align="start">
                                                 <Calendar initialFocus mode="range" defaultMonth={consolidatedDateRange?.from} selected={consolidatedDateRange} onSelect={(range) => {
                                                             if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
-                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${'${MAX_DATE_RANGE_DAYS}'} días.` });
                                                             } else {
                                                                 setConsolidatedDateRange(range);
                                                             }
@@ -3123,7 +3123,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <div className="flex justify-between items-center flex-wrap gap-4 my-4">
                                     <div>
                                         <h3 className="text-lg font-semibold">Resultados del Informe Consolidado</h3>
-                                        <p className="text-sm text-muted-foreground">{isConsolidatedLoading ? "Cargando resultados..." : `Mostrando ${consolidatedReportData.length} días.`}</p>
+                                        <p className="text-sm text-muted-foreground">{isConsolidatedLoading ? "Cargando resultados..." : `Mostrando ${'${consolidatedReportData.length}'} días.`}</p>
                                     </div>
                                     <div className="flex gap-2">
                                         <Button onClick={handleConsolidatedExportExcel} disabled={isConsolidatedLoading || consolidatedReportData.length === 0} variant="outline">
@@ -3153,14 +3153,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <ResultsSkeleton />
                                             ) : consolidatedReportData.length > 0 ? (
                                                 consolidatedReportData.map((row) => {
-                                                    const isValid = row.posicionesAlmacenadas === row.inventarioAcumulado;
+                                                    const invAcumulado = typeof row.inventarioAcumulado === 'object' 
+                                                        ? (row.inventarioAcumulado as any).total 
+                                                        : row.inventarioAcumulado;
+                                                    const isValid = row.posicionesAlmacenadas === invAcumulado;
                                                     return (
                                                         <TableRow key={row.date}>
                                                             <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
                                                             <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
                                                             <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
                                                             <TableCell className="text-right font-semibold">{row.posicionesAlmacenadas}</TableCell>
-                                                            <TableCell className="text-right">{row.inventarioAcumulado}</TableCell>
+                                                            <TableCell className="text-right">{invAcumulado}</TableCell>
                                                             <TableCell className="text-center">
                                                                 {isValid ? (
                                                                     <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200">
@@ -3230,7 +3233,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-between text-left font-normal", !settlementDateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{settlementDateRange?.from ? (settlementDateRange.to ? (<>{format(settlementDateRange.from, "LLL dd, y", { locale: es })} - {format(settlementDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(settlementDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={settlementDateRange?.from} selected={settlementDateRange} onSelect={(range) => {
                                                     if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
-                                                        toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                        toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${'${MAX_DATE_RANGE_DAYS}'} días.` });
                                                     } else {
                                                         setSettlementDateRange(range);
                                                     }
@@ -3274,7 +3277,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         className="w-full justify-between"
                                                         disabled={isConceptSelectorDisabled || !settlementClient || !settlementDateRange}
                                                     >
-                                                        <span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>
+                                                        <span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${'${selectedConcepts.length}'} seleccionados`}</span>
                                                         {isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}
                                                     </Button>
                                                 </DialogTrigger>
@@ -3300,7 +3303,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         Seleccionar Todos
                                                                     </Label>
                                                                 </div>
-                                                                {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))}
+                                                                {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${'${c.id}'}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${'${c.id}'}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))}
                                                             </>
                                                         ) : (
                                                             <p className="text-sm text-muted-foreground text-center py-10">No hay conceptos de liquidación aplicables para el cliente y fechas seleccionados.</p>
@@ -3441,13 +3444,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 return (
                                                                     <React.Fragment key={conceptName}>
                                                                         {Object.entries(containerGroups).map(([containerKey, rows]) => {
-                                                                            const containerSubtotalLabel = `Subtotal Contenedor ${containerKey}:`;
-                                                                            return renderGroup(rows, `${conceptName} - Contenedor: ${containerKey}`, containerSubtotalLabel);
+                                                                            const containerSubtotalLabel = `Subtotal Contenedor ${'${containerKey}'}:`;
+                                                                            return renderGroup(rows, `${'${conceptName}'} - Contenedor: ${'${containerKey}'}`, containerSubtotalLabel);
                                                                         })}
                                                                     </React.Fragment>
                                                                 );
                                                             } else {
-                                                                return renderGroup(group.rows, conceptName, `Subtotal ${conceptName}:`);
+                                                                return renderGroup(group.rows, conceptName, `Subtotal ${'${conceptName}'}:`);
                                                             }
                                                         })}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
@@ -3633,5 +3636,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+    
 
     
