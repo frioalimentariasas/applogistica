@@ -59,6 +59,9 @@ export interface ClientSettlementRow {
   numeroPersonas?: number | string;
   uniqueId?: boolean;
   isEdited?: boolean;
+  isPending?: boolean; // Para marcar si necesita legalización
+  submissionId?: string; // Para saber a qué formulario enlazar
+  formType?: string; // NUEVA LÍNEA
 }
 
 export interface ClientSettlementResult {
@@ -737,8 +740,29 @@ export async function generateClientSettlement(criteria: {
             
             let weightKg = calculateWeightForOperation(submission, concept.filterSesion, articleSessionMap, forceNetWeight);
             
-            if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) continue;
-
+            //if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) continue;
+            if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) {
+                settlementRows.push({
+                    isPending: true,
+                    submissionId: submission.id,
+                    formType: submission.formType, // NUEVA LÍNEA
+                    date: submission.formData.fecha,
+                    placa: submission.formData.placa || 'N/A',
+                    container: submission.formData.contenedor || 'N/A',
+                    camara: 'N/A',
+                    totalPaletas: 0,
+                    operacionLogistica: 'Pendiente',
+                    pedidoSislog: submission.formData.pedidoSislog,
+                    conceptName: concept.conceptName,
+                    tipoVehiculo: 'N/A',
+                    quantity: 0,
+                    unitOfMeasure: concept.unitOfMeasure,
+                    unitValue: 0,
+                    totalValue: 0
+                });
+                continue; // Ahora sí, continuamos para no procesar el resto de la lógica para esta fila
+            }
+            
             let finalWeightKg = weightKg;
             if (isConceptTunel && submission.formData.cliente === 'AVICOLA EL MADROÑO S.A.' && weightKg < 10000) {
                 finalWeightKg = 10000;
@@ -835,6 +859,8 @@ export async function generateClientSettlement(criteria: {
             let camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
 
             settlementRows.push({
+                submissionId: submission.id, // <-- Añadir esta línea
+                formType: submission.formType, // NUEVA LÍNEA
                 date: submission.formData.fecha,
                 placa: submission.formData.placa || 'N/A',
                 container: submission.formData.contenedor || 'N/A',

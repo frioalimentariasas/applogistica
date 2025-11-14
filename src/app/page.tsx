@@ -36,7 +36,7 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading, displayName, permissions } = useAuth();
-  const appVersion = "V.FAL.001";
+  const appVersion = "APP.Versión.001";
 
   useEffect(() => {
     if (!loading && !user) {

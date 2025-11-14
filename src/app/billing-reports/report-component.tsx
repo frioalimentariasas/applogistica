@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -14,7 +13,7 @@ import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as ExcelJS from 'exceljs';
-
+import Link from 'next/link';
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail } from '@/app/actions/inventory-report';
@@ -35,7 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -43,7 +42,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -173,6 +172,27 @@ const STORAGE_CAPACITY: { [key: string]: number } = {
   RE: 378,
   SE: 378,
 };
+//agregar botón legalizar
+function LegalizeLinkButton({ submissionId, formType }: { submissionId: string; formType: string }) {
+    const getEditUrl = () => {
+        const isReception = formType.includes('reception') || formType.includes('recepcion');
+        const operation = isReception ? 'recepcion' : 'despacho';
+
+        if (formType.startsWith('fixed-weight-')) {
+            return `/fixed-weight-form?operation=${operation}&id=${submissionId}`;
+        }
+        if (formType.startsWith('variable-weight-reception') || formType.startsWith('variable-weight-recepcion')) {
+            return `/variable-weight-reception-form?operation=recepcion&id=${submissionId}`;
+        }
+        return `/consultar-formatos`;
+    };
+
+    return (
+        <Button asChild variant="link" className="p-0 h-auto ml-2">
+            <Link href={getEditUrl()}>Ir a Legalizar</Link>
+        </Button>
+    );
+}
 
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
@@ -3231,7 +3251,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     } else {
                                                         setSettlementDateRange(range);
                                                     }
-                                                }} numberOfMonths={2} locale={es} disabled={{ after: today, before: threeYearsAgo }} /></PopoverContent>
+                                                }} numberOfMonths={2} locale={es} disabled={{ before: threeYearsAgo }} /></PopoverContent>
                                             </Popover>
                                         </div>
                                         <div className="space-y-2">
@@ -3380,39 +3400,58 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     )}
                                                                     {rows.map((row) => (
                                                                         <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
-                                                                            <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                                            <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
-                                                                            <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{row.placa}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{row.container}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                                            <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
-                                                                            <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                            <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                            <TableCell className="text-right p-1">
-                                                                                <div className="flex items-center justify-end gap-0">
-                                                                                    {row.isEdited && (
-                                                                                        <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original">
-                                                                                            <Undo2 className="h-4 w-4" />
+                                                                        {row.isPending ? (
+                                                                            <>
+                                                                                <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                                                <TableCell className="text-xs p-2 whitespace-normal font-semibold">{row.conceptName}</TableCell>
+                                                                                <TableCell colSpan={14}>
+                                                                                    <Alert variant="destructive" className="py-2 px-3">
+                                                                                        <AlertTriangle className="h-4 w-4" />
+                                                                                        <AlertDescription className="flex items-center">
+                                                                                            Pendiente Legalizar Peso Bruto.
+                                                                                            <LegalizeLinkButton submissionId={row.submissionId!} formType={row.formType || ''} />
+                                                                                        </AlertDescription>
+                                                                                    </Alert>
+                                                                                </TableCell>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                                                <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
+                                                                                <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{row.placa}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{row.container}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                                <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
+                                                                                <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                                <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                                <TableCell className="text-right p-1">
+                                                                                    <div className="flex items-center justify-end gap-0">
+                                                                                        {row.isEdited && (
+                                                                                            <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original">
+                                                                                                <Undo2 className="h-4 w-4" />
+                                                                                            </Button>
+                                                                                        )}
+                                                                                        <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }} title="Editar fila">
+                                                                                            <Edit2 className="h-4 w-4" />
                                                                                         </Button>
-                                                                                    )}
-                                                                                    <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }} title="Editar fila">
-                                                                                        <Edit2 className="h-4 w-4" />
-                                                                                    </Button>
-                                                                                    <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
-                                                                                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                                                                    </Button>
-                                                                                </div>
-                                                                            </TableCell>
-                                                                        </TableRow>
+                                                                                        <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
+                                                                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                </TableCell>
+                                                                            </>
+                                                                        )}
+                                                                    </TableRow>
+ 
                                                                     ))}
                                                                     {subtotalLabel && (
                                                                         <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
