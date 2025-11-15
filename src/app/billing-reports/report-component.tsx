@@ -113,8 +113,8 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
 };
 
 const formatTime12Hour = (timeStr: string | undefined): string => {
-    if (!timeStr) return 'No Aplica';
-    if (!timeStr.includes(':')) return 'No Aplica';
+    if (!timeStr) return 'N/A';
+    if (!timeStr.includes(':')) return 'N/A';
 
     const [hours, minutes] = timeStr.split(':');
     let h = parseInt(hours, 10);
@@ -125,7 +125,7 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
 };
 
 const formatDuration = (totalMinutes: number | null): string => {
-    if (totalMinutes === null || totalMinutes < 0) return 'No Aplica';
+    if (totalMinutes === null || totalMinutes < 0) return 'N/A';
     if (totalMinutes < 60) {
         return `${totalMinutes} min`;
     }
@@ -160,11 +160,11 @@ const sessionMapping: { [key: string]: string } = {
     CO: 'CONGELADO',
     RE: 'REFRIGERADO',
     SE: 'SECO',
-    'No Aplica': 'No Aplica'
+    'N/A': 'N/A'
 };
 
 const getSessionName = (sesionCode: string) => {
-    return sessionMapping[sesionCode] || 'No Aplica';
+    return sessionMapping[sesionCode] || 'N/A';
 }
 
 const STORAGE_CAPACITY: { [key: string]: number } = {
@@ -1547,7 +1547,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             let conceptName: string;
             let unitOfMeasure: string;
     
-            if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'No Aplica') {
+            if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'N/A') {
                 conceptName = `${row.conceptName} (${row.operacionLogistica})`;
                 unitOfMeasure = row.tipoVehiculo;
                 conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
@@ -1775,7 +1775,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         camara: getSessionName(row.camara),
                         pedidoSislog: row.pedidoSislog,
                         operacionLogistica: row.operacionLogistica,
-                        tipoVehiculo: (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : 'No Aplica',
+                        tipoVehiculo: (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : 'N/A',
                         horaInicio: formatTime12Hour(row.horaInicio),
                         horaFin: formatTime12Hour(row.horaFin),
                         quantity: row.quantity,
@@ -1945,7 +1945,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
                 unitOfMeasure = row.unitOfMeasure;
                 conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${unitOfMeasure}`;
-            } else if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'No Aplica') {
+            } else if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'N/A') {
                 conceptName = `${row.conceptName} (${row.operacionLogistica})`;
                 unitOfMeasure = row.tipoVehiculo;
                 conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
@@ -3594,7 +3594,8 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
                                     <SelectItem value="Diurno">Diurno</SelectItem>
                                     <SelectItem value="Nocturno">Nocturno</SelectItem>
                                     <SelectItem value="Extra">Extra</SelectItem>
-                                    <SelectItem value="No Aplica">No Aplica</SelectItem>
+                                    <SelectItem value="N/A"><N />
+                                    <A></A></SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -3655,26 +3656,3 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-
-    
-
-    
-
-
-
-
-    
-
-
-
-
-
-
-    
-
-    
-
-
-
-
-

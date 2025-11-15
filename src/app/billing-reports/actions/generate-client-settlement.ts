@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -95,14 +94,14 @@ const findMatchingTemperatureTariff = (temp: number, concept: ClientBillingConce
     });
 };
 
-const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "No Aplica" => {
+const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "N/A" => {
     const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO", "ALISTAMIENTO POR UNIDAD", "FMM DE INGRESO ZFPC", "FMM DE SALIDA ZFPC", "FMM ZFPC", "TIEMPO EXTRA FRIOAL (FIJO)", "TIEMPO EXTRA FRIOAL", "SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA"];
     if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
-      return "No Aplica";
+      return "N/A";
     }
 
     if (concept.calculationType !== 'REGLAS' || concept.tariffType !== 'RANGOS' || !isoDateString || !horaInicio || !horaFin) {
-        return "No Aplica";
+        return "N/A";
     }
 
     try {
@@ -139,7 +138,7 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
         }
         
         if (!diurnoStartStr || !diurnoEndStr) {
-            return "No Aplica"; // Shift times are not configured for this day
+            return "N/A"; // Shift times are not configured for this day
         }
 
         const [diurnoStartHours, diurnoStartMinutes] = diurnoStartStr.split(':').map(Number);
@@ -158,7 +157,7 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
 
     } catch (e) {
         console.error(`Error calculating logistics type:`, e);
-        return 'No Aplica';
+        return 'N/A';
     }
 };
 
@@ -378,7 +377,7 @@ const calculateUnitsForOperation = (
 };
 
 const formatTime12Hour = (timeStr: string | undefined): string => {
-    if (!timeStr) return 'No Aplica';
+    if (!timeStr) return 'N/A';
 
     // Check if it's already a formatted date-time string
     // e.g., "13/09/2025 06:50 PM"
@@ -388,7 +387,7 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
     }
     
     // Handle HH:mm format
-    if (!timeStr.includes(':')) return 'No Aplica';
+    if (!timeStr.includes(':')) return 'N/A';
 
     const [hours, minutes] = timeStr.split(':');
     let h = parseInt(hours, 10);
@@ -631,10 +630,10 @@ export async function generateClientSettlement(criteria: {
                                 container: recepcion.formData.contenedor,
                                 camara: 'CO', // Asumiendo Congelado
                                 totalPaletas: paletasEnDespacho,
-                                operacionLogistica: 'No Aplica',
+                                operacionLogistica: 'N/A',
                                 pedidoSislog: recepcion.formData.pedidoSislog,
                                 conceptName: concept.conceptName,
-                                tipoVehiculo: 'No Aplica',
+                                tipoVehiculo: 'N/A',
                                 quantity: 1, // Se cobra una vez por la operación completa
                                 unitOfMeasure: concept.unitOfMeasure,
                                 unitValue: concept.value || 0,
@@ -676,8 +675,8 @@ export async function generateClientSettlement(criteria: {
                 settlementRows.push({
                     date: opData.operationDate,
                     placa: opData.plate || 'Manual',
-                    container: 'No Aplica',
-                    camara: 'No Aplica',
+                    container: 'N/A',
+                    camara: 'N/A',
                     totalPaletas: 0,
                     operacionLogistica: operacionLogistica,
                     pedidoSislog: 'Manual',
@@ -729,8 +728,8 @@ export async function generateClientSettlement(criteria: {
             let quantity = 0;
             let totalPallets = 0;
             let unitValue = 0;
-            let operacionLogistica: string = 'No Aplica';
-            let vehicleTypeForReport = 'No Aplica';
+            let operacionLogistica: string = 'N/A';
+            let vehicleTypeForReport = 'N/A';
             let unitOfMeasureForReport = concept.unitOfMeasure;
             
             const isConceptTunel = concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
@@ -741,7 +740,9 @@ export async function generateClientSettlement(criteria: {
             let weightKg = calculateWeightForOperation(submission, concept.filterSesion, articleSessionMap, forceNetWeight);
             
             //if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) continue;
-            if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) {
+            //if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) {
+                const isWeightBased = concept.calculationBase === 'TONELADAS' || concept.calculationBase === 'KILOGRAMOS';
+                if (isWeightBased && weightKg <= 0) {
                 settlementRows.push({
                     isPending: true,
                     submissionId: submission.id,
@@ -869,7 +870,7 @@ export async function generateClientSettlement(criteria: {
                 operacionLogistica,
                 pedidoSislog: submission.formData.pedidoSislog,
                 conceptName: concept.conceptName,
-                tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'No Aplica',
+                tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'N/A',
                 quantity,
                 unitOfMeasure: unitOfMeasureForReport,
                 unitValue: unitValue,
@@ -900,10 +901,10 @@ export async function generateClientSettlement(criteria: {
                         container: op.data.formData.contenedor || 'N/A',
                         camara: 'N/A',
                         totalPaletas: 0, 
-                        operacionLogistica: 'No Aplica',
+                        operacionLogistica: 'N/A',
                         pedidoSislog: op.data.formData.pedidoSislog,
                         conceptName: concept.conceptName,
-                        tipoVehiculo: 'No Aplica',
+                        tipoVehiculo: 'N/A',
                         quantity,
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: concept.value || 0,
@@ -958,9 +959,9 @@ export async function generateClientSettlement(criteria: {
                         if (totalDiurnoMinutes > 0 && diurnaTariff) {
                             const quantityHours = totalDiurnoMinutes / 60;
                             settlementRows.push({
-                                date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: 'No Aplica',
-                                container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Diurno',
-                                pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantityHours,
+                                date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: 'N/A',
+                                container: 'N/A', totalPaletas: 0, camara: 'N/A', operacionLogistica: 'Diurno',
+                                pedidoSislog: 'Manual', tipoVehiculo: 'N/A', quantity: quantityHours,
                                 numeroPersonas: numPersonas, unitOfMeasure: diurnaTariff.unit, unitValue: diurnaTariff.value || 0,
                                 totalValue: quantityHours * (diurnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(baseStart, 'HH:mm'), horaFin: format(addMinutes(baseStart, totalDiurnoMinutes), 'HH:mm'),
@@ -969,9 +970,9 @@ export async function generateClientSettlement(criteria: {
                         if (totalNocturnoMinutes > 0 && nocturnaTariff) {
                             const quantityHours = totalNocturnoMinutes / 60;
                             settlementRows.push({
-                                date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: 'No Aplica',
-                                container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Nocturno',
-                                pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantityHours,
+                                date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: 'N/A',
+                                container: 'N/A', totalPaletas: 0, camara: 'N/A', operacionLogistica: 'Nocturno',
+                                pedidoSislog: 'Manual', tipoVehiculo: 'N/A', quantity: quantityHours,
                                 numeroPersonas: numPersonas, unitOfMeasure: nocturnaTariff.unit, unitValue: nocturnaTariff.value || 0,
                                 totalValue: quantityHours * (nocturnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: format(addMinutes(dayShiftEnd, totalNocturnoMinutes), 'HH:mm'),
@@ -1007,9 +1008,9 @@ export async function generateClientSettlement(criteria: {
                         if (totalDiurnoMinutes > 0 && diurnaTariff) {
                             const quantity = totalDiurnoMinutes / 60;
                             settlementRows.push({
-                                date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: opData.details?.plate || 'No Aplica',
-                                container: opData.details?.container || 'No Aplica', totalPaletas: opData.details?.totalPallets || 0, camara: 'No Aplica',
-                                operacionLogistica: 'Diurno', pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica',
+                                date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: opData.details?.plate || 'N/A',
+                                container: opData.details?.container || 'N/A', totalPaletas: opData.details?.totalPallets || 0, camara: 'N/A',
+                                operacionLogistica: 'Diurno', pedidoSislog: 'Manual', tipoVehiculo: 'N/A',
                                 quantity: quantity, numeroPersonas: numPersonas, unitOfMeasure: diurnaTariff.unit,
                                 unitValue: diurnaTariff.value || 0, totalValue: quantity * (diurnaTariff.value || 0) * numPersonas,
                                 horaInicio: startTime, horaFin: format(addMinutes(start, totalDiurnoMinutes), 'HH:mm'),
@@ -1018,9 +1019,9 @@ export async function generateClientSettlement(criteria: {
                         if (totalNocturnoMinutes > 0 && nocturnaTariff) {
                             const quantity = totalNocturnoMinutes / 60;
                             settlementRows.push({
-                                date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: opData.details?.plate || 'No Aplica',
-                                container: opData.details?.container || 'No Aplica', totalPaletas: opData.details?.totalPallets || 0, camara: 'No Aplica',
-                                operacionLogistica: 'Nocturno', pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica',
+                                date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: opData.details?.plate || 'N/A',
+                                container: opData.details?.container || 'N/A', totalPaletas: opData.details?.totalPallets || 0, camara: 'N/A',
+                                operacionLogistica: 'Nocturno', pedidoSislog: 'Manual', tipoVehiculo: 'N/A',
                                 quantity: quantity, numeroPersonas: numPersonas, unitOfMeasure: nocturnaTariff.unit,
                                 unitValue: nocturnaTariff.value || 0, totalValue: quantity * (nocturnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: endTime,
@@ -1057,15 +1058,15 @@ export async function generateClientSettlement(criteria: {
                     if (totalValue > 0) {
                         settlementRows.push({
                             date,
-                            placa: opData.details?.plate || 'No Aplica',
-                            container: opData.details?.container || 'No Aplica',
+                            placa: opData.details?.plate || 'N/A',
+                            container: opData.details?.container || 'N/A',
                             totalPaletas: opData.details?.totalPallets || 0,
                             camara: 'CO', // Hardcoded for this specific concept
-                            operacionLogistica: 'No Aplica',
+                            operacionLogistica: 'N/A',
                             pedidoSislog: opData.details?.pedidoSislog || 'Manual',
                             conceptName: concept.conceptName,
                             subConceptName: specificTariffInfo.name,
-                            tipoVehiculo: 'No Aplica',
+                            tipoVehiculo: 'N/A',
                             quantity: quantityForCalc,
                             unitOfMeasure: specificTariffInfo.unit,
                             unitValue: specificTariffInfo.value || 0,
@@ -1085,15 +1086,15 @@ export async function generateClientSettlement(criteria: {
                     const valorUnitario = specificTariffInfo.value || 0;
                      settlementRows.push({
                         date,
-                        placa: opData.details?.plate || 'No Aplica',
-                        container: opData.details?.container || 'No Aplica',
+                        placa: opData.details?.plate || 'N/A',
+                        container: opData.details?.container || 'N/A',
                         totalPaletas: opData.details?.totalPallets || 0,
                         camara: 'N/A',
-                        operacionLogistica: 'No Aplica',
+                        operacionLogistica: 'N/A',
                         pedidoSislog: opData.details?.pedidoSislog || 'No aplica',
                         conceptName: concept.conceptName,
                         subConceptName: specificTariffInfo.name,
-                        tipoVehiculo: 'No Aplica',
+                        tipoVehiculo: 'N/A',
                         quantity: quantityForCalc,
                         unitOfMeasure: specificTariffInfo.unit,
                         unitValue: valorUnitario,
@@ -1108,26 +1109,26 @@ export async function generateClientSettlement(criteria: {
                 let totalValue;
                 let numeroPersonasParaReporte: number | string | undefined = opData.numeroPersonas;
                 
-                let operacionLogistica = 'No Aplica';
+                let operacionLogistica = 'N/A';
                 // AQUÍ EMPIEZA LA LÓGICA
                 if (opData.concept === 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)') {
                     operacionLogistica = 'Servicio Congelación';
                 }
                 // AQUÍ TERMINA
-                let containerValue = opData.details?.container || 'No Aplica';
+                let containerValue = opData.details?.container || 'N/A';
                 const noDocumento = opData.details?.noDocumento;
             
                 if (opData.concept.includes('FMM')) {
                     operacionLogistica = opData.details?.opLogistica && opData.details?.fmmNumber
                         ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
-                        : 'No Aplica';
+                        : 'N/A';
                     // containerValue mantiene el valor del contenedor
                 } else if (opData.concept.includes('ARIN')) {
                     operacionLogistica = opData.details?.opLogistica && opData.details?.arin
                     ? `${opData.details.opLogistica} - #${opData.details?.arin}`
-                    : 'No Aplica';   
+                    : 'N/A';   
 
-                    containerValue = opData.details?.container || 'No Aplica'; // ARIN usa el número ARIN
+                    containerValue = opData.details?.container || 'N/A'; // ARIN usa el número ARIN
                 } else if (noDocumento) {
                     containerValue = noDocumento; // Fallback para otros conceptos
                 }
@@ -1182,14 +1183,14 @@ export async function generateClientSettlement(criteria: {
 
                  settlementRows.push({
                     date,
-                    placa: opData.details?.plate || 'No Aplica',
+                    placa: opData.details?.plate || 'N/A',
                     container: containerValue,
                     totalPaletas: opData.details?.totalPallets || 0,
                     camara: 'N/A',
                     operacionLogistica,
-                    pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
+                    pedidoSislog: opData.details?.pedidoSislog || 'N/A',
                     conceptName: concept.conceptName,
-                    tipoVehiculo: 'No Aplica',
+                    tipoVehiculo: 'N/A',
                     quantity: quantityForCalc,
                     unitOfMeasure: concept.unitOfMeasure,
                     unitValue: concept.value || 0,
@@ -1238,9 +1239,11 @@ export async function generateClientSettlement(criteria: {
                 
                 const initialBalanceMovements = movementsForContainer.filter(m => isBefore(m.date, serverQueryStartDate));
                 let balance = initialBalanceMovements.reduce((acc, mov) => acc + (mov.type === 'entry' ? mov.pallets : -mov.pallets), 0);
-    
-                const dateRangeArray = eachDayOfInterval({ start: serverQueryStartDate, end: serverQueryEndDate });
-    
+                
+                //const dateRangeArray = eachDayOfInterval({ start: serverQueryStartDate, end: serverQueryEndDate });
+                // Re-calculate the end date here to NOT include the extra day for this specific loop
+                const correctEndDate = new Date(`${endDate}T00:00:00-05:00`);
+                const dateRangeArray = eachDayOfInterval({ start: serverQueryStartDate, end: correctEndDate });
                 for (const date of dateRangeArray) {
                     const movementsForDay = movementsForContainer.filter(m => isEqual(startOfDay(m.date), date));
                     const entriesToday = movementsForDay.filter(m => m.type === 'entry').reduce((sum, m) => sum + m.pallets, 0);
@@ -1258,7 +1261,7 @@ export async function generateClientSettlement(criteria: {
                             operacionLogistica: 'Servicio Almacenamiento',
                             pedidoSislog: 'N/A',
                             conceptName: concept.conceptName,
-                            tipoVehiculo: 'No Aplica',
+                            tipoVehiculo: 'N/A',
                             quantity: balance,
                             unitOfMeasure: concept.unitOfMeasure,
                             unitValue: concept.value,
@@ -1286,7 +1289,7 @@ export async function generateClientSettlement(criteria: {
                         operacionLogistica: 'Servicio',
                         pedidoSislog: 'N/A',
                         conceptName: concept.conceptName,
-                        tipoVehiculo: 'No Aplica',
+                        tipoVehiculo: 'N/A',
                         quantity: dayData.posicionesAlmacenadas,
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: concept.value,

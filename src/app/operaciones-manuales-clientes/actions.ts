@@ -760,21 +760,23 @@ export async function uploadFmmOperations(
                 fmmChunks.push(fmmNumbersFromFile.slice(i, i + 30));
             }
             const fmmConcepts = [
-                'FMM DE INGRESO ZFPC (MANUAL)', 
+                'FMM DE INGRESO ZFPC (MANUAL)',
                 'FMM DE SALIDA ZFPC (MANUAL)',
                 'FMM DE INGRESO ZFPC (NACIONALIZADO)',
                 'FMM DE SALIDA ZFPC (NACIONALIZADO)'
             ];
             for (const chunk of fmmChunks) {
-                const querySnapshot = await firestore.collection('manual_client_operations')
-                    .where('details.fmmNumber', 'in', chunk)
-                    .where('concept', 'in', fmmConcepts)
-                    .get();
-                querySnapshot.forEach(doc => {
-                    existingFmms.add(String(doc.data().details.fmmNumber));
-                });
+                for (const concept of fmmConcepts) { // <-- Aquí está el bucle adicional
+                    const querySnapshot = await firestore.collection('manual_client_operations')
+                        .where('details.fmmNumber', 'in', chunk)
+                        .where('concept', '==', concept) // <-- Y aquí el uso de '=='
+                        .get();
+                    querySnapshot.forEach(doc => {
+                        existingFmms.add(String(doc.data().details.fmmNumber));
+                    });
+                }
             }
-        }
+        }        
         const createdBy = {
             uid: formData.get('userId') as string,
             displayName: formData.get('userDisplayName') as string,
