@@ -2180,7 +2180,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
-            margin: { left: 10 },
+            margin: { left: 20 },
             pageBreak: 'auto',
             headStyles: { fillColor: [26, 144, 200], fontSize: 7, cellPadding: 1 },
             styles: { fontSize: 7, cellPadding: 1 },
@@ -3594,8 +3594,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
                                     <SelectItem value="Diurno">Diurno</SelectItem>
                                     <SelectItem value="Nocturno">Nocturno</SelectItem>
                                     <SelectItem value="Extra">Extra</SelectItem>
-                                    <SelectItem value="N/A"><N />
-                                    <A></A></SelectItem>
+                                    <SelectItem value="No Aplica">No Aplica</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

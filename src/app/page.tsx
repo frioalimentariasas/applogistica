@@ -268,7 +268,7 @@ export default function Home() {
         
         <footer className="text-center pt-6">
             <p className="text-sm text-gray-500 font-mono">{appVersion}</p>
-            <p className="text-xs text-gray-500 font-mono mt-1">FRIO ALIMENTARIA SAS NIT: 900736914-0</p>
+            <p className="text-xs text-gray-500 font-mono mt-1 font-bold">FRIO ALIMENTARIA SAS NIT: 900736914-0</p>
         </footer>
 
       </div>

@@ -179,7 +179,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     incrementPallets(session, 'despachadas', paletas);
                 });
 
-            } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
+            } else if ((formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') && clientName !== 'GRUPO FRUTELLI SAS') {
                 const isSummaryFormat = items.some((item: any) => Number(item.paleta) === 0);
 
                 if (isSummaryFormat) {
@@ -243,7 +243,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     allItems.forEach((item: any) => {
                         const paletaValue = String(item.paleta);
                         // Despacho cuenta todas las paletas
-                        if (item.paleta !== undefined && Number(paletaValue) > 0 && Number(paletaValue) !== 999){
+                        if (item.paleta !== undefined && Number(paletaValue) > 0 && Number(paletaValue) !== 999 && !item.esPicking){
                             const itemSession = getSessionForProduct(item.codigo, item.descripcion);
                             if (palletSessionMap.has(paletaValue)) {
                                 if (palletSessionMap.get(paletaValue) !== itemSession && itemSession) {
