@@ -280,6 +280,21 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 <DefaultSummary formData={formData} />
             )}
 
+            {/* --- INICIO DE CÓDIGO A AGREGAR --- */}
+            <ReportSection title="Información Vehículo">
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+            <tr>
+                <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Condiciones Higiene" value={formData.condicionesHigiene} /></td>
+                <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Termoregistrador" value={formData.termoregistrador} /></td>
+                <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Cliente Requiere Termoregistro" value={formData.clienteRequiereTermoregistro} /></td>
+            </tr>
+            </tbody>
+            </table>
+        </ReportSection>
+        {/* --- FIN DE CÓDIGO A AGREGAR --- */}
+      
+
             {formData.observaciones && formData.observaciones.length > 0 && (
                  <ReportSection title="Observaciones">
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>

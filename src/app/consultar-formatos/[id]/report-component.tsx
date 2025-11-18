@@ -761,6 +761,33 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                  headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' },
                                  margin: { horizontal: margin, bottom: 40 },
                              });
+
+                              // --- INICIO DE CÓDIGO A AGREGAR ---
+            autoTable(doc, {
+                startY: yPos,
+                head: [[{ content: 'Información Vehículo', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                body: [
+                [
+                {content: 'Condiciones Higiene:', styles: {fontStyle: 'bold'}},
+                formData.condicionesHigiene || 'No Aplica',
+                {content: 'Termoregistrador:', styles: {fontStyle: 'bold'}},
+                formData.termoregistrador || 'No Aplica',
+                {content: 'Cliente Requiere Termoregistro:', styles: {fontStyle: 'bold'}},
+                formData.clienteRequiereTermoregistro || 'No Aplica'
+                    ]
+                ],
+                theme: 'grid', 
+                styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                columnStyles: {
+                0: { cellWidth: 'auto' }, 1: { cellWidth: '*' },
+                2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
+                4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
+                    },
+                margin: { horizontal: margin },
+                });
+                yPos = (doc as any).autoTable.previous.finalY + 15;
+                // --- FIN DE CÓDIGO A AGREGAR ---
+
                          }
                     }
                  } else { // Despacho Peso Variable
