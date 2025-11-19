@@ -858,7 +858,13 @@ export async function generateClientSettlement(criteria: {
             const filteredItems = getFilteredItems(submission, concept.filterSesion, articleSessionMap);
             const firstProductCode = filteredItems[0]?.codigo;
             let camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
-
+                // --- INICIO DE CÓDIGO A AGREGAR ---
+                if (
+                clientName === 'AVICOLA EL MADROÑO S.A.' && 
+                concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)') {
+                camara = 'SE';
+                }
+                // --- FIN DE CÓDIGO A AGREGAR ---
             settlementRows.push({
                 submissionId: submission.id, // <-- Añadir esta línea
                 formType: submission.formType, // NUEVA LÍNEA
@@ -1302,7 +1308,7 @@ export async function generateClientSettlement(criteria: {
 
     settlementRows.forEach(row => {
         const op = allOperations.find(o => o.type === 'form' && o.data.formData.pedidoSislog === row.pedidoSislog);
-        if (clientName === 'AVICOLA EL MADROÑO S.A.' && row.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && op && op.data.formData.tipoPedido === 'DESPACHO GENERICO') {
+        if (clientName === 'AVICOLA EL MADROÑO S.A.' && row.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)' && op && op.data.formData.tipoPedido === 'DESPACHO GENERICO') {
             row.camara = 'SE';
         }
     });

@@ -10,6 +10,7 @@ import * as z from 'zod';
 import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, endOfDay, differenceInMinutes, parse, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
+import * as ExcelJS from 'exceljs';
 
 
 import { addClientBillingConcept, updateClientBillingConcept, deleteMultipleClientBillingConcepts, toggleConceptStatus, type ClientBillingConcept } from './actions';
@@ -21,7 +22,7 @@ import type { PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator, ListChecks, Search, Eye, Warehouse, Sparkles } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator, ListChecks, Search, Eye, Warehouse, Sparkles, Download } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
@@ -352,6 +353,74 @@ export default function ConceptManagementClientComponent({ initialClients, initi
       setTogglingStatusId(null);
   };
 
+  const handleExportExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Frio Alimentaria App';
+    workbook.created = new Date();
+
+    const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
+    const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+
+    const worksheet = workbook.addWorksheet('Conceptos Liquidacion Clientes');
+
+    worksheet.columns = [
+        { header: 'Concepto', key: 'conceptName', width: 40 },
+        { header: 'Cliente(s)', key: 'clientNames', width: 40 },
+        { header: 'Tipo Cálculo', key: 'calculationType', width: 20 },
+        { header: 'Unidad Medida', key: 'unitOfMeasure', width: 20 },
+        { header: 'Tipo Tarifa', key: 'tariffType', width: 15 },
+        { header: 'Valor/Detalle', key: 'value', width: 50 },
+        { header: 'Estado', key: 'status', width: 15 },
+    ];
+    
+    const headerRow = worksheet.getRow(1);
+    headerRow.values = (worksheet.columns as any[]).map(c => c.header);
+    headerRow.eachCell(cell => {
+      cell.fill = headerFill;
+      cell.font = headerFont;
+      cell.alignment = { horizontal: 'center' };
+    });
+
+    const sortedConcepts = [...concepts].sort((a,b) => {
+        const clientA = a.clientNames.join(', ');
+        const clientB = b.clientNames.join(', ');
+        if (clientA < clientB) return -1;
+        if (clientA > clientB) return 1;
+        return a.calculationType.localeCompare(b.calculationType);
+    });
+
+    sortedConcepts.forEach(c => {
+        let valueDetail = '';
+        if (c.tariffType === 'UNICA') {
+            valueDetail = `Tarifa: ${c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'}) || 'N/A'}`;
+        } else if (c.tariffType === 'RANGOS' && c.tariffRanges) {
+            valueDetail = c.tariffRanges.map(r => `[${r.minTons}-${r.maxTons} Ton] ${r.vehicleType}: D:$${r.dayTariff}, N:$${r.nightTariff}, E:$${r.extraTariff}`).join('; ');
+        } else if (c.tariffType === 'ESPECIFICA' && c.specificTariffs) {
+             valueDetail = c.specificTariffs.map(s => `${s.name}: $${s.value}/${s.unit}`).join('; ');
+        } else if (c.tariffType === 'POR_TEMPERATURA' && c.tariffRangesTemperature) {
+            valueDetail = c.tariffRangesTemperature.map(t => `[${t.minTemp}°C - ${t.maxTemp}°C]: $${t.ratePerKg}/Kg`).join('; ');
+        }
+
+        worksheet.addRow({
+            conceptName: c.conceptName,
+            clientNames: c.clientNames.join(', '),
+            calculationType: c.calculationType,
+            unitOfMeasure: c.unitOfMeasure,
+            tariffType: c.tariffType,
+            value: valueDetail,
+            status: c.status
+        });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Conceptos_Liquidacion_Clientes_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    link.click();
+  };
+
+
   if (authLoading) {
       return <div className="flex min-h-screen w-full items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
   }
@@ -361,7 +430,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
           <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
               <div className="max-w-xl mx-auto text-center">
                   <AccessDenied />
-                  <Button onClick={() => router.push('/billing-reports')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Inicio</Button>
+                  <Button onClick={() => router.push('/billing-reports')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver</Button>
               </div>
           </div>
       );
@@ -402,6 +471,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                     <div className="flex justify-between items-center flex-wrap gap-4">
                         <CardTitle>Listado de Conceptos</CardTitle>
                         <div className="flex gap-2">
+                            <Button onClick={() => handleExportExcel()} variant="outline"><Download className="mr-2 h-4 w-4"/>Exportar a Excel</Button>
                             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                                 <DialogTrigger asChild>
                                     <Button><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Concepto</Button>
@@ -1047,4 +1117,5 @@ function PedidoTypeMultiSelect({
     </Dialog>
   );
 }
+
 
