@@ -224,7 +224,7 @@ export default function Home() {
                 <div>
                     <Card className="w-full">
                         <CardHeader>
-                            <CardTitle className="text-lg md:text-xl text-center text-primary">Consultas y Herramientas</CardTitle>
+                            <CardTitle className="text-lg md:text-xl text-center text-primary">Menú de Consultas y Herramientas</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <Accordion type="multiple" className="w-full space-y-2">
