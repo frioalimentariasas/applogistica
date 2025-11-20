@@ -486,6 +486,80 @@ async function generateSmylLiquidation(
       return allLotRows;
   }
   
+async function processCargueAlmacenamiento(
+    concept: ClientBillingConcept,
+    weightCondition: (weight: number) => boolean,
+    allSubmissionsForClient: any[],
+    serverQueryStartDate: Date,
+    serverQueryEndDate: Date,
+    settlementRows: ClientSettlementRow[]
+) {
+    const recepciones = allSubmissionsForClient
+        .filter(op => 
+            (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
+            op.formData.tipoPedido === 'GENERICO'
+        );
+
+    for (const recepcion of recepciones) {
+        const lotesEnRecepcion = (recepcion.formData.items || []).reduce((acc: any, item: any) => {
+            if (item.lote) {
+                if (!acc[item.lote]) {
+                    acc[item.lote] = { peso: 0, paletas: new Set() };
+                }
+                acc[item.lote].peso += Number(item.pesoBruto) || 0;
+                acc[item.lote].paletas.add(item.paleta);
+            }
+            return acc;
+        }, {});
+
+        for (const loteId in lotesEnRecepcion) {
+            if (weightCondition(lotesEnRecepcion[loteId].peso)) {
+                const fechaRecepcion = new Date(recepcion.formData.fecha);
+                if (!isWithinInterval(fechaRecepcion, { start: serverQueryStartDate, end: serverQueryEndDate })) {
+                    continue;
+                }
+
+                const fechaRecepcionStr = format(fechaRecepcion, 'yyyy-MM-dd');
+                const fechaSiguienteStr = format(addDays(fechaRecepcion, 1), 'yyyy-MM-dd');
+
+                const despachoEncontrado = allSubmissionsForClient.find(op => {
+                    if (op.formType !== 'variable-weight-despacho') return false;
+                    const fechaDespachoStr = format(new Date(op.formData.fecha), 'yyyy-MM-dd');
+                    const fechaValida = fechaDespachoStr === fechaRecepcionStr || fechaDespachoStr === fechaSiguienteStr;
+                    if (!fechaValida) return false;
+                    return (op.formData.items || []).some((item: any) => item.lote === loteId);
+                });
+
+
+                if (despachoEncontrado) {
+                     const paletasEnDespacho = new Set(
+                        (despachoEncontrado.formData.items || [])
+                            .filter((item: any) => item.lote === loteId && !item.esPicking)
+                            .map((item: any) => item.paleta)
+                    ).size;
+
+                    if (paletasEnDespacho === lotesEnRecepcion[loteId].paletas.size) {
+                         settlementRows.push({
+                            date: format(fechaRecepcion, 'yyyy-MM-dd'),
+                            placa: recepcion.formData.placa,
+                            container: recepcion.formData.contenedor,
+                            camara: 'CO',
+                            totalPaletas: paletasEnDespacho,
+                            operacionLogistica: 'N/A',
+                            pedidoSislog: recepcion.formData.pedidoSislog,
+                            conceptName: concept.conceptName,
+                            tipoVehiculo: 'N/A',
+                            quantity: 1, 
+                            unitOfMeasure: concept.unitOfMeasure,
+                            unitValue: concept.value || 0,
+                            totalValue: concept.value || 0,
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
 
 
 export async function generateClientSettlement(criteria: {
@@ -586,76 +660,14 @@ export async function generateClientSettlement(criteria: {
     
     let settlementRows: ClientSettlementRow[] = [];
     
-    const processCargueAlmacenamiento = async (concept: ClientBillingConcept, weightCondition: (weight: number) => boolean) => {
-        const recepciones = allSubmissionsForClient
-            .filter(op => op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion')
-            .filter(op => op.formData.tipoPedido === 'GENERICO');
-
-        for (const recepcion of recepciones) {
-            const lotesEnRecepcion = (recepcion.formData.items || []).reduce((acc: any, item: any) => {
-                if (item.lote) {
-                    if (!acc[item.lote]) {
-                        acc[item.lote] = { peso: 0, paletas: new Set() };
-                    }
-                    acc[item.lote].peso += Number(item.pesoBruto) || 0;
-                    acc[item.lote].paletas.add(item.paleta);
-                }
-                return acc;
-            }, {});
-
-            for (const loteId in lotesEnRecepcion) {
-                if (weightCondition(lotesEnRecepcion[loteId].peso)) {
-                    const fechaRecepcion = new Date(recepcion.formData.fecha);
-                    if (!isWithinInterval(fechaRecepcion, { start: serverQueryStartDate, end: serverQueryEndDate })) {
-                        continue;
-                    }
-
-                    const fechaDespachoBuscada = fechaRecepcion;
-
-                    const despachoDelDiaSiguiente = allSubmissionsForClient.find(op => 
-                        op.formType === 'variable-weight-despacho' &&
-                        format(new Date(op.formData.fecha), 'yyyy-MM-dd') === format(fechaDespachoBuscada, 'yyyy-MM-dd') &&
-                        (op.formData.items || []).some((item: any) => item.lote === loteId)
-                    );
-
-                    if (despachoDelDiaSiguiente) {
-                         const paletasEnDespacho = new Set(
-                            (despachoDelDiaSiguiente.formData.items || [])
-                                .filter((item: any) => item.lote === loteId && !item.esPicking)
-                                .map((item: any) => item.paleta)
-                        ).size;
-
-                        if (paletasEnDespacho === lotesEnRecepcion[loteId].paletas.size) {
-                             settlementRows.push({
-                                date: format(fechaRecepcion, 'yyyy-MM-dd'),
-                                placa: recepcion.formData.placa,
-                                container: recepcion.formData.contenedor,
-                                camara: 'CO', // Asumiendo Congelado
-                                totalPaletas: paletasEnDespacho,
-                                operacionLogistica: 'N/A',
-                                pedidoSislog: recepcion.formData.pedidoSislog,
-                                conceptName: concept.conceptName,
-                                tipoVehiculo: 'N/A',
-                                quantity: 1, // Se cobra una vez por la operación completa
-                                unitOfMeasure: concept.unitOfMeasure,
-                                unitValue: concept.value || 0,
-                                totalValue: concept.value || 0,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    };
-    
     const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows);
     }
 
     const smylCargueAlmacenamientoVehiculoLivianoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoVehiculoLivianoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows);
     }
     
     const operacionCargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN CARGUE');
@@ -1408,7 +1420,3 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
-
-
-
-
