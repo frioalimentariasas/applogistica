@@ -208,9 +208,11 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
 
             currentBalance = initialBalanceForDay - despachosHoy + ingresosHoy;
             
+            
             const queryStart = startOfDay(parseISO(queryStartDate));
             const queryEnd = endOfDay(parseISO(queryEndDate));
-            
+            //const queryStart = new Date(`${queryStartDate}T00:00:00-05:00`);
+            //const queryEnd = new Date(`${queryEndDate}T23:59:59.999-05:00`);
             if (date >= queryStart && date <= queryEnd) {
                 dailyBalances.push({
                     date: dateStr,

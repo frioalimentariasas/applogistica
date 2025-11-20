@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -431,8 +432,8 @@ async function generateSmylLiquidation(
   
           const { initialReception, dailyBalances } = report;
           const receptionDate = startOfDay(initialReception.date);
-          const queryStart = new Date(`${startDate}T00:00:00-05:00`);
-          const queryEnd = new Date(`${endDate}T23:59:59.999-05:00`);
+          const queryStart = startOfDay(parseISO(startDate));
+          const queryEnd = endOfDay(parseISO(endDate));
           
           if (receptionDate >= queryStart && receptionDate <= queryEnd) {
               const freezingTotal = initialReception.pallets * dailyPalletRate * 4;
@@ -463,7 +464,7 @@ async function generateSmylLiquidation(
           const gracePeriodEndDate = addDays(receptionDate, 3);
           const relevantDailyBalances = dailyBalances.filter(day => {
               const dayDate = parseISO(day.date);
-              return dayDate > gracePeriodEndDate && dayDate >= queryStart && dayDate <= queryEnd;
+              return dayDate >= gracePeriodEndDate && dayDate >= queryStart && dayDate <= queryEnd;
           });
   
           for (const day of relevantDailyBalances) {
@@ -525,6 +526,9 @@ export async function generateClientSettlement(criteria: {
   }
 
   try {
+    
+    //const serverQueryStartDate = startOfDay(parseISO(queryStartDate));
+    //const serverQueryEndDate =
     const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
     const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
@@ -858,13 +862,14 @@ export async function generateClientSettlement(criteria: {
             const filteredItems = getFilteredItems(submission, concept.filterSesion, articleSessionMap);
             const firstProductCode = filteredItems[0]?.codigo;
             let camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
-                // --- INICIO DE CÓDIGO A AGREGAR ---
-                if (
+                
+            if (
                 clientName === 'AVICOLA EL MADROÑO S.A.' && 
-                concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)') {
+                concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)'
+            ) {
                 camara = 'SE';
-                }
-                // --- FIN DE CÓDIGO A AGREGAR ---
+            }
+                
             settlementRows.push({
                 submissionId: submission.id, // <-- Añadir esta línea
                 formType: submission.formType, // NUEVA LÍNEA
@@ -1405,4 +1410,5 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
 
