@@ -402,7 +402,8 @@ async function generateSmylLiquidation(
     startDate: string,
     endDate: string,
     lotIds: string[],
-    allConcepts: ClientBillingConcept[]
+    allConcepts: ClientBillingConcept[],
+    processedCrossDockLots: Set<string>
   ): Promise<ClientSettlementRow[]> {
       if (lotIds.length === 0) return [];
       
@@ -424,6 +425,9 @@ async function generateSmylLiquidation(
       const dailyPalletRate = dailyConcept.value;
   
       for (const lotId of lotIds) {
+          if (processedCrossDockLots.has(lotId)) {
+            continue; // Skip this lot if it was already processed by cross-docking logic
+          }
           const report = await getSmylLotAssistantReport(lotId, startDate, endDate);
           if ('error' in report) {
               console.warn(`Skipping lot ${lotId}: ${report.error}`);
@@ -492,7 +496,8 @@ async function processCargueAlmacenamiento(
     allSubmissionsForClient: any[],
     serverQueryStartDate: Date,
     serverQueryEndDate: Date,
-    settlementRows: ClientSettlementRow[]
+    settlementRows: ClientSettlementRow[],
+    processedCrossDockLots: Set<string>
 ) {
     const recepciones = allSubmissionsForClient
         .filter(op => 
@@ -513,12 +518,11 @@ async function processCargueAlmacenamiento(
         }, {});
 
         for (const loteId in lotesEnRecepcion) {
+            if (processedCrossDockLots.has(loteId)) continue;
+            
             if (weightCondition(lotesEnRecepcion[loteId].peso)) {
                 const fechaRecepcion = new Date(recepcion.formData.fecha);
-                if (!isWithinInterval(fechaRecepcion, { start: serverQueryStartDate, end: serverQueryEndDate })) {
-                    continue;
-                }
-
+                
                 const fechaRecepcionStr = format(fechaRecepcion, 'yyyy-MM-dd');
                 const fechaSiguienteStr = format(addDays(fechaRecepcion, 1), 'yyyy-MM-dd');
 
@@ -534,6 +538,7 @@ async function processCargueAlmacenamiento(
                     
                     return allItems.some((item: any) => item.lote === loteId);
                 });
+
 
                 if (despachosRelevantes.length > 0) {
                     let totalPaletasDespachadas = 0;
@@ -555,6 +560,9 @@ async function processCargueAlmacenamiento(
                     });
 
                     if (totalPaletasDespachadas > 0 && totalPaletasDespachadas === lotesEnRecepcion[loteId].paletas.size) {
+                         if (!isWithinInterval(fechaRecepcion, { start: serverQueryStartDate, end: serverQueryEndDate })) {
+                            continue;
+                        }
                         settlementRows.push({
                             date: format(fechaRecepcion, 'yyyy-MM-dd'),
                             placa: recepcion.formData.placa,
@@ -570,6 +578,7 @@ async function processCargueAlmacenamiento(
                             unitValue: concept.value || 0,
                             totalValue: concept.value || 0,
                         });
+                        processedCrossDockLots.add(loteId);
                     }
                 }
             }
@@ -588,7 +597,7 @@ export async function generateClientSettlement(criteria: {
 }): Promise<ClientSettlementResult> {
   
   const { clientName, startDate, endDate, conceptIds, lotIds, containerNumber } = criteria;
-  
+  const processedCrossDockLots = new Set<string>();
   const allConcepts = await getClientBillingConcepts();
 
   // --- SPECIAL SMYL by LOT ID LOGIC ---
@@ -597,7 +606,7 @@ export async function generateClientSettlement(criteria: {
           return { success: false, error: "No puede seleccionar conceptos manuales al liquidar por lote en SMYL." };
       }
       try {
-        const smylRows = await generateSmylLiquidation(startDate, endDate, lotIds, allConcepts);
+        const smylRows = await generateSmylLiquidation(startDate, endDate, lotIds, allConcepts, processedCrossDockLots);
         return { success: true, data: smylRows };
       } catch (e: any) {
         return { success: false, error: e.message || "Error al generar liquidación SMYL." };
@@ -678,12 +687,12 @@ export async function generateClientSettlement(criteria: {
     
     const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots);
     }
 
     const smylCargueAlmacenamientoVehiculoLivianoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoVehiculoLivianoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots);
     }
     
     const operacionCargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN CARGUE');
@@ -1439,3 +1448,4 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
