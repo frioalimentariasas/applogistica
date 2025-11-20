@@ -435,7 +435,7 @@ async function generateSmylLiquidation(
           const queryStart = startOfDay(parseISO(startDate));
           const queryEnd = endOfDay(parseISO(endDate));
           
-          if (receptionDate >= queryStart && receptionDate <= queryEnd) {
+          if (isWithinInterval(receptionDate, { start: queryStart, end: queryEnd })) {
               const freezingTotal = initialReception.pallets * dailyPalletRate * 4;
               const manipulationTotal = mainTariff - freezingTotal;
   
@@ -501,7 +501,7 @@ async function processCargueAlmacenamiento(
         );
 
     for (const recepcion of recepciones) {
-        const lotesEnRecepcion = (recepcion.formData.items || []).reduce((acc: any, item: any) => {
+        const lotesEnRecepcion: Record<string, { peso: number, paletas: Set<string> }> = (recepcion.formData.items || []).reduce((acc: any, item: any) => {
             if (item.lote) {
                 if (!acc[item.lote]) {
                     acc[item.lote] = { peso: 0, paletas: new Set() };
@@ -522,34 +522,50 @@ async function processCargueAlmacenamiento(
                 const fechaRecepcionStr = format(fechaRecepcion, 'yyyy-MM-dd');
                 const fechaSiguienteStr = format(addDays(fechaRecepcion, 1), 'yyyy-MM-dd');
 
-                const despachoEncontrado = allSubmissionsForClient.find(op => {
+                const despachosRelevantes = allSubmissionsForClient.filter(op => {
                     if (op.formType !== 'variable-weight-despacho') return false;
+                    
                     const fechaDespachoStr = format(new Date(op.formData.fecha), 'yyyy-MM-dd');
                     const fechaValida = fechaDespachoStr === fechaRecepcionStr || fechaDespachoStr === fechaSiguienteStr;
                     if (!fechaValida) return false;
-                    return (op.formData.items || []).some((item: any) => item.lote === loteId);
+                    
+                    const allItems = (op.formData.items || [])
+                        .concat((op.formData.destinos || []).flatMap((d: any) => d.items || []));
+                    
+                    return allItems.some((item: any) => item.lote === loteId);
                 });
 
+                if (despachosRelevantes.length > 0) {
+                    let totalPaletasDespachadas = 0;
+                    const paletasContadas = new Set<string>();
 
-                if (despachoEncontrado) {
-                     const paletasEnDespacho = new Set(
-                        (despachoEncontrado.formData.items || [])
-                            .filter((item: any) => item.lote === loteId && !item.esPicking)
-                            .map((item: any) => item.paleta)
-                    ).size;
+                    despachosRelevantes.forEach(despacho => {
+                        const allItemsDespacho = (despacho.formData.items || [])
+                            .concat((despacho.formData.destinos || []).flatMap((d: any) => d.items || []));
 
-                    if (paletasEnDespacho === lotesEnRecepcion[loteId].paletas.size) {
-                         settlementRows.push({
+                        allItemsDespacho.forEach((item: any) => {
+                            if (item.lote === loteId && !item.esPicking && item.paleta) {
+                                const palletIdentifier = `${despacho.id}-${item.paleta}`; // Identificador único por despacho y paleta
+                                if (!paletasContadas.has(palletIdentifier)) {
+                                    totalPaletasDespachadas++;
+                                    paletasContadas.add(palletIdentifier);
+                                }
+                            }
+                        });
+                    });
+
+                    if (totalPaletasDespachadas > 0 && totalPaletasDespachadas === lotesEnRecepcion[loteId].paletas.size) {
+                        settlementRows.push({
                             date: format(fechaRecepcion, 'yyyy-MM-dd'),
                             placa: recepcion.formData.placa,
                             container: recepcion.formData.contenedor,
                             camara: 'CO',
-                            totalPaletas: paletasEnDespacho,
+                            totalPaletas: totalPaletasDespachadas,
                             operacionLogistica: 'N/A',
                             pedidoSislog: recepcion.formData.pedidoSislog,
                             conceptName: concept.conceptName,
                             tipoVehiculo: 'N/A',
-                            quantity: 1, 
+                            quantity: 1,
                             unitOfMeasure: concept.unitOfMeasure,
                             unitValue: concept.value || 0,
                             totalValue: concept.value || 0,
@@ -1420,3 +1436,6 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
+
+    
