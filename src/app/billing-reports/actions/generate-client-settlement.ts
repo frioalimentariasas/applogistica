@@ -527,8 +527,6 @@ export async function generateClientSettlement(criteria: {
 
   try {
     
-    //const serverQueryStartDate = startOfDay(parseISO(queryStartDate));
-    //const serverQueryEndDate =
     const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
     const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
@@ -612,7 +610,7 @@ export async function generateClientSettlement(criteria: {
                         continue;
                     }
 
-                    const fechaDespachoBuscada = addDays(fechaRecepcion, 1);
+                    const fechaDespachoBuscada = fechaRecepcion;
 
                     const despachoDelDiaSiguiente = allSubmissionsForClient.find(op => 
                         op.formType === 'variable-weight-despacho' &&
@@ -1335,8 +1333,8 @@ export async function generateClientSettlement(criteria: {
         'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
         'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
         'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
-        'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS',
-        'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
+        'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+        'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 
         'TIEMPO EXTRA ZFPC',
         'HORA EXTRA DIURNA',//child (TIEMPO EXTRA ZFPC)
@@ -1410,5 +1408,6 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
 
 
