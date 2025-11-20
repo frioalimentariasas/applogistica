@@ -301,14 +301,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             
             setIsLoadingAvailableConcepts(true);
             try {
-                const result = await findApplicableConcepts(
+                const results = await findApplicableConcepts(
                     settlementClient,
                     format(settlementDateRange.from, 'yyyy-MM-dd'),
                     format(settlementDateRange.to, 'yyyy-MM-dd')
                 );
-                setAvailableConcepts(result);
-                // Clear selected concepts that are no longer available for the new criteria
-                setSelectedConcepts(prev => prev.filter(sc => result.some(ac => ac.id === sc)));
+                
+                const smylLotConcepts = [
+                    'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+                    'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'
+                ];
+                
+                const filteredResults = results.filter(concept => !smylLotConcepts.includes(concept.conceptName));
+                
+                setAvailableConcepts(filteredResults);
+                setSelectedConcepts(prev => prev.filter(sc => filteredResults.some(ac => ac.id === sc)));
+
             } catch (error) {
                 toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los conceptos aplicables.' });
                 setAvailableConcepts([]);

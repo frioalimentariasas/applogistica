@@ -526,7 +526,7 @@ async function processCargueAlmacenamiento(
                 const fechaRecepcionStr = format(fechaRecepcion, 'yyyy-MM-dd');
                 const fechaSiguienteStr = format(addDays(fechaRecepcion, 1), 'yyyy-MM-dd');
 
-                const despachosRelevantes = allSubmissionsForClient.filter(op => {
+                 const despachosRelevantes = allSubmissionsForClient.filter(op => {
                     if (op.formType !== 'variable-weight-despacho') return false;
                     
                     const fechaDespachoStr = format(new Date(op.formData.fecha), 'yyyy-MM-dd');
@@ -1355,6 +1355,8 @@ export async function generateClientSettlement(criteria: {
     
     const conceptOrder = [
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)', // Concepto de Cross-docking
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)', // Concepto de Cross-docking Liviano
         'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
         'Servicio logístico Congelación (4 Días)', // Child
         'Servicio de Manipulación', // Child
@@ -1448,4 +1450,5 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
