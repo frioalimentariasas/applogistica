@@ -1842,6 +1842,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 14;
 
         const conceptOrder = [
@@ -1944,11 +1945,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         let lastY = addHeader(doc, "Resumen Liquidación de Servicios Clientes");
         
         const isLogisticsClient = settlementClient === 'LOGISTICS & INTERNATIONAL TRADE SAS';
+        const isMultiContainerSummary = !settlementContainer && visibleRows.some(row => row.conceptName.includes("POR CONTENEDOR"));
 
         const summaryByConcept = visibleRows.reduce((acc, row) => {
             let conceptKey: string;
             let conceptName: string;
             let unitOfMeasure: string;
+            let containerKeyPart = (isMultiContainerSummary && row.conceptName.includes("POR CONTENEDOR")) ? row.container : "GENERAL";
+
 
             if (isLogisticsClient && settlementContainer) {
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
@@ -1965,7 +1969,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             } else {
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
                 unitOfMeasure = row.unitOfMeasure;
-                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${unitOfMeasure}`;
+                conceptKey = `${containerKeyPart}-${row.conceptName}-${row.subConceptName || ''}-${unitOfMeasure}`;
             }
 
             if (!acc[conceptKey]) {
@@ -1975,7 +1979,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     totalValue: 0, 
                     unitOfMeasure: unitOfMeasure, 
                     order: conceptOrder.indexOf(row.conceptName),
-                    container: settlementContainer || row.container,
+                    container: containerKeyPart,
                 };
             }
             acc[conceptKey].totalQuantity += row.quantity;
@@ -1991,66 +1995,111 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
 
         const totalGeneralQuantity = sortedSummary.reduce((sum, item) => sum + item.totalQuantity, 0);
-
-        const summaryHead = isLogisticsClient
-            ? [['#', 'Concepto', 'Contenedor', 'Total Cantidad', 'Unidad', 'Total Valor']]
-            : [['#', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']];
-
-        const summaryBody = sortedSummary.map((item, index) => {
-            const rowData = [
-                index + 1,
-                item.concept,
-            ];
-            if (isLogisticsClient) {
-                rowData.push(item.container || 'N/A');
-            }
-            rowData.push(
-                item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                item.unitOfMeasure,
-                item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-            );
-            return rowData;
-        });
-
-        const totalRowColSpan = isLogisticsClient ? 3 : 2;
-
-        const summaryBodyWithTotal = [
-            ...summaryBody,
-            [
-                { content: 'TOTALES:', colSpan: totalRowColSpan, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
-                { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
-                { content: '', styles: {fillColor: [26, 144, 200]} },
-                { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
-            ]
-        ];
         
-        const summaryColumnStyles: { [key: number]: any } = {
-            0: { cellWidth: 10 },
-            [totalRowColSpan]: { halign: 'right' }, // Total Cantidad
-            [totalRowColSpan + 2]: { halign: 'right' }, // Total Valor
-        };
+        if (isMultiContainerSummary) {
+            const summaryByContainer = sortedSummary.reduce((acc, item) => {
+                const key = item.container || 'SIN_CONTENEDOR';
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(item);
+                return acc;
+            }, {} as Record<string, typeof sortedSummary>);
 
-        autoTable(doc, {
-            head: summaryHead,
-            body: summaryBodyWithTotal,
-            startY: lastY,
-            margin: { left: 30 },
-            pageBreak: 'auto',
-            theme: 'grid',
-            headStyles: { fillColor: [26, 144, 200], fontSize: 10 },
-            styles: { fontSize: 9, cellPadding: 1.5 },
-            columnStyles: summaryColumnStyles,
-            didParseCell: function(data:any) {
-                if(data.row.raw[0].content === 'TOTALES:') {
-                    if(data.row.cells[0]) data.row.cells[0].styles.fillColor = [26, 144, 200];
-                    if(data.row.cells[totalRowColSpan]) data.row.cells[totalRowColSpan].styles.fillColor = [26, 144, 200];
-                    if(data.row.cells[totalRowColSpan + 1]) data.row.cells[totalRowColSpan + 1].styles.fillColor = [26, 144, 200];
-                    if(data.row.cells[totalRowColSpan + 2]) data.row.cells[totalRowColSpan + 2].styles.fillColor = [26, 144, 200];
+            Object.entries(summaryByContainer).forEach(([containerId, items]) => {
+                if (lastY > pageHeight - 150) {
+                    doc.addPage();
+                    lastY = addHeader(doc, "Resumen Liquidación de Servicios Clientes");
                 }
-            },
-        });
+                
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Resumen Contenedor: ${containerId}`, margin, lastY + 10);
+                lastY += 15;
+                
+                const containerTotal = items.reduce((sum, item) => sum + item.totalValue, 0);
+                const containerBody = items.map((item, index) => [
+                    index + 1, item.concept,
+                    item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    item.unitOfMeasure,
+                    item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+                ]);
+                
+                autoTable(doc, {
+                    head: [['#', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
+                    body: containerBody,
+                    foot: [[
+                        { content: `TOTAL CONTENEDOR:`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: containerTotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+                    ]],
+                    startY: lastY,
+                    theme: 'grid',
+                    headStyles: { fillColor: [220, 220, 220], textColor: 0, fontSize: 9 },
+                    footStyles: { fillColor: [220, 220, 220], textColor: 0 },
+                    styles: { fontSize: 8, cellPadding: 1.5 },
+                });
+                lastY = (doc as any).lastAutoTable.finalY + 10;
+            });
+        } else {
+             const summaryHead = isLogisticsClient
+                ? [['#', 'Concepto', 'Contenedor', 'Total Cantidad', 'Unidad', 'Total Valor']]
+                : [['#', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']];
 
-        let finalY = (doc as any).lastAutoTable.finalY || 0;
+            const summaryBody = sortedSummary.map((item, index) => {
+                const rowData = [
+                    index + 1,
+                    item.concept,
+                ];
+                if (isLogisticsClient) {
+                    rowData.push(item.container || 'N/A');
+                }
+                rowData.push(
+                    item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    item.unitOfMeasure,
+                    item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+                );
+                return rowData;
+            });
+
+            const totalRowColSpan = isLogisticsClient ? 3 : 2;
+
+            const summaryBodyWithTotal = [
+                ...summaryBody,
+                [
+                    { content: 'TOTALES:', colSpan: totalRowColSpan, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                    { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                    { content: '', styles: {fillColor: [26, 144, 200]} },
+                    { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
+                ]
+            ];
+            
+            const summaryColumnStyles: { [key: number]: any } = {
+                0: { cellWidth: 10 },
+                [totalRowColSpan]: { halign: 'right' }, // Total Cantidad
+                [totalRowColSpan + 2]: { halign: 'right' }, // Total Valor
+            };
+
+            autoTable(doc, {
+                head: summaryHead,
+                body: summaryBodyWithTotal,
+                startY: lastY,
+                margin: { left: isLogisticsClient ? 20 : 30 },
+                pageBreak: 'auto',
+                theme: 'grid',
+                headStyles: { fillColor: [26, 144, 200], fontSize: 10 },
+                styles: { fontSize: 9, cellPadding: 1.5 },
+                columnStyles: summaryColumnStyles,
+                didParseCell: function(data:any) {
+                    if(data.row.raw[0].content === 'TOTALES:') {
+                        if(data.row.cells[0]) data.row.cells[0].styles.fillColor = [26, 144, 200];
+                        if(data.row.cells[totalRowColSpan]) data.row.cells[totalRowColSpan].styles.fillColor = [26, 144, 200];
+                        if(data.row.cells[totalRowColSpan + 1]) data.row.cells[totalRowColSpan + 1].styles.fillColor = [26, 144, 200];
+                        if(data.row.cells[totalRowColSpan + 2]) data.row.cells[totalRowColSpan + 2].styles.fillColor = [26, 144, 200];
+                    }
+                },
+            });
+            lastY = (doc as any).lastAutoTable.finalY || 0;
+        }
+
+        let finalY = lastY;
         const smylConceptNames = ['SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'];
         if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && visibleRows.some(row => smylConceptNames.includes(row.conceptName))) {
             const containerNumbers = [...new Set(
@@ -2195,7 +2244,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             styles: { fontSize: 7, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
-            didDrawPage: function (data: any) {
+
+            didDrawPage: function (data) {
                 const totalPages = (doc as any).internal.getNumberOfPages();
                 for (let i = 1; i <= totalPages; i++) {
                     doc.setPage(i);
@@ -3184,7 +3234,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <ResultsSkeleton />
                                             ) : consolidatedReportData.length > 0 ? (
                                                 consolidatedReportData.map((row) => {
-                                                    const invAcumulado = row.inventarioAcumulado as number;
+                                                    const invAcumulado = typeof row.inventarioAcumulado === 'object' ? (row.inventarioAcumulado as ClientInventoryDetail)?.total : row.inventarioAcumulado;
                                                     const isValid = row.posicionesAlmacenadas === invAcumulado;
                                                     return (
                                                         <TableRow key={row.date}>
@@ -3670,3 +3720,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
+

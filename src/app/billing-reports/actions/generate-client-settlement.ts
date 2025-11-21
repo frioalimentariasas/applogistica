@@ -409,13 +409,8 @@ async function generateSmylLiquidation(
       
       let allLotRows: ClientSettlementRow[] = [];
       
-      const conceptsToFind = [
-          'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-          'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'
-      ];
-  
-      const mainConcept = allConcepts.find(c => c.conceptName.toUpperCase() === conceptsToFind[0]);
-      const dailyConcept = allConcepts.find(c => c.conceptName.toUpperCase() === conceptsToFind[1]);
+      const mainConcept = allConcepts.find(c => c.conceptName.toUpperCase() === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA');
+      const dailyConcept = allConcepts.find(c => c.conceptName.toUpperCase() === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
       
       if (!mainConcept?.value || !dailyConcept?.value) {
           throw new Error(`No se encontraron las tarifas para los conceptos de SMYL ('MANIPULACIÓN CARGA', 'COBRO DIARIO'). Verifique la configuración.`);
@@ -970,7 +965,7 @@ export async function generateClientSettlement(criteria: {
                 placa: submission.formData.placa || 'N/A',
                 container: submission.formData.contenedor || 'N/A',
                 camara,
-                totalPallets: totalPallets,
+                totalPaletas: totalPallets,
                 operacionLogistica,
                 pedidoSislog: submission.formData.pedidoSislog,
                 conceptName: concept.conceptName,
@@ -1508,6 +1503,8 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
+
 
 
 
