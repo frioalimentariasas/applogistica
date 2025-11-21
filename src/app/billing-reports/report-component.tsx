@@ -2012,7 +2012,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 
                 doc.setFontSize(11);
                 doc.setFont('helvetica', 'bold');
-                doc.text(`Resumen Contenedor: ${containerId}`, margin, lastY + 10);
+                doc.text(`Resumen Contenedor: ${containerId}`, margin + 30, lastY + 10);
                 lastY += 15;
                 
                 const containerTotal = items.reduce((sum, item) => sum + item.totalValue, 0);
@@ -2035,6 +2035,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     headStyles: { fillColor: [220, 220, 220], textColor: 0, fontSize: 9 },
                     footStyles: { fillColor: [220, 220, 220], textColor: 0 },
                     styles: { fontSize: 8, cellPadding: 1.5 },
+                    // --- INICIO DE LA LÍNEA A AJUSTAR ---
+                    margin: { left: 30 }, // Ajusta este valor según necesites (ej. 20, 40, etc.)
+                    // --- FIN DE LA LÍNEA A AJUSTAR ---
                 });
                 lastY = (doc as any).lastAutoTable.finalY + 10;
             });
@@ -2076,12 +2079,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 [totalRowColSpan]: { halign: 'right' }, // Total Cantidad
                 [totalRowColSpan + 2]: { halign: 'right' }, // Total Valor
             };
+             // --- INICIO DEL CÓDIGO A AGREGAR ---
+            if (settlementContainer) {
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Resumen Contenedor: ${settlementContainer}`, margin + 30, lastY + 10);
+            lastY += 15;
+            }
+            // --- FIN DEL CÓDIGO A AGREGAR ---
 
             autoTable(doc, {
                 head: summaryHead,
                 body: summaryBodyWithTotal,
                 startY: lastY,
-                margin: { left: isLogisticsClient ? 20 : 30 },
+                margin: { left: isLogisticsClient ? 30 : 30 },
                 pageBreak: 'auto',
                 theme: 'grid',
                 headStyles: { fillColor: [26, 144, 200], fontSize: 10 },
@@ -2246,13 +2257,41 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             footStyles: { fontStyle: 'bold' },
 
             didDrawPage: function (data) {
+                const doc = data.doc;
+                // No obtenemos el total de páginas aquí
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+    
+                // Usamos un marcador de posición para el total de páginas
+                //const footerText = `Página ${data.pageNumber} de {totalPages}`;
+    
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(150);
+    
+                //doc.text(footerText, pageWidth / 2, pageHeight - 10, {
+                //align: 'center'
+                //});
+                },
+    
+                });
+    
+                // --- INICIO DE CÓDIGO A AGREGAR ---
+                const totalPages = (doc as any).internal.getNumberOfPages();
+                for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.text(doc.internal.getCurrentPageInfo().pageNumber + " de " + totalPages, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+    }
+    // --- FIN DE CÓDIGO A AGREGAR ---
+
+            /*didDrawPage: function (data: any) {
                 const totalPages = (doc as any).internal.getNumberOfPages();
                 for (let i = 1; i <= totalPages; i++) {
                     doc.setPage(i);
                     doc.text(doc.internal.getCurrentPageInfo().pageNumber + " de " + totalPages, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
                 }
-            },
-        });
+            },*/
+        //});
 
         const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
