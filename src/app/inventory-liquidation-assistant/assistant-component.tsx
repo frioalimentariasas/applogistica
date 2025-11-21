@@ -459,6 +459,18 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                 )}
                             />
 
+                             <FormField
+                                control={form.control}
+                                name="plate"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Placa (Opcional)</FormLabel>
+                                    <Input placeholder="Filtrar por placa" {...field} />
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+
                             <div className="flex items-end gap-2 lg:col-start-3">
                                 <Button onClick={handleClear} variant="outline" className="w-full">
                                     <XCircle className="mr-2 h-4 w-4" />
