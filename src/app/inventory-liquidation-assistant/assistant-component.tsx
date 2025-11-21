@@ -1,5 +1,4 @@
-
-"use client";
+'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,14 +6,14 @@ import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { DateRange } from 'react-day-picker';
-import { format, eachDayOfInterval, startOfDay, endOfDay } from 'date-fns';
+import { format, eachDayOfInterval, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle, Send, Info } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
 import type { ClientInfo } from '@/app/actions/clients';
 import type { ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-import { saveAssistantLiquidation, type AssistantLiquidationData } from './actions';
+import { saveAssistantLiquidation, type AssistantLiquidationData, findReceptionsWithoutContainer, type ReceptionWithoutContainer } from './actions';
 import { useAuth } from '@/hooks/use-auth';
 
 
@@ -76,6 +75,8 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
   const [clientSearch, setClientSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmSendOpen, setIsConfirmSendOpen] = useState(false);
+  const [receptionsWithoutContainer, setReceptionsWithoutContainer] = useState<ReceptionWithoutContainer[]>([]);
+  const [isCheckingReceptions, setIsCheckingReceptions] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -129,7 +130,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
   const { getValues, setValue } = form;
 
   const handleGenerateTable = useCallback(() => {
-    const { dateRange, initialBalance } = getValues();
+    const { dateRange, initialBalance, clientId } = getValues();
     if (!dateRange?.from || !dateRange?.to) {
       toast({ variant: 'destructive', title: 'Error', description: 'Por favor seleccione un rango de fechas.' });
       return;
@@ -155,7 +156,26 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     });
     
     replace(newDailyEntries);
-  }, [getValues, toast, replace]);
+    
+    // --- NUEVA LÓGICA DE ALERTA ---
+    const clientInfo = clients.find(c => c.id === clientId);
+    if(clientInfo) {
+      setIsCheckingReceptions(true);
+      findReceptionsWithoutContainer(
+        clientInfo.razonSocial,
+        format(dateRange.from, 'yyyy-MM-dd'),
+        format(dateRange.to, 'yyyy-MM-dd')
+      ).then(results => {
+        setReceptionsWithoutContainer(results);
+      }).catch(err => {
+        console.error("Error finding receptions:", err);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron buscar las recepciones sin contenedor.' });
+      }).finally(() => {
+        setIsCheckingReceptions(false);
+      });
+    }
+
+  }, [getValues, toast, replace, clients]);
   
   const liquidationSummary = useMemo(() => {
     if (!tariffs) return null;
@@ -468,6 +488,26 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                             <CardDescription>Ingrese las entradas y salidas de paletas para cada día. Los saldos se calcularán automáticamente.</CardDescription>
                         </CardHeader>
                         <CardContent>
+                             {isCheckingReceptions ? (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                                <Loader2 className="h-4 w-4 animate-spin"/> Buscando recepciones sin contenedor...
+                                </div>
+                            ) : receptionsWithoutContainer.length > 0 && (
+                                <Alert variant="default" className="mb-4 bg-yellow-50 border-yellow-300">
+                                    <AlertTriangle className="h-4 w-4 text-yellow-600"/>
+                                    <AlertTitle className="text-yellow-800 font-semibold">Recepciones Sin Contenedor Disponibles</AlertTitle>
+                                    <AlertDescription className="text-yellow-700">
+                                        Se encontraron las siguientes recepciones sin contenedor en este rango de fechas. Considere usar sus datos para liquidar.
+                                        <ul className="list-disc pl-5 mt-2 text-xs">
+                                        {receptionsWithoutContainer.map(r => (
+                                            <li key={r.id}>
+                                            Pedido <strong>{r.pedidoSislog}</strong> / Placa <strong>{r.placa}</strong> - <strong>{r.totalPaletas}</strong> paleta(s)
+                                            </li>
+                                        ))}
+                                        </ul>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                             <ScrollArea className="h-[400px] border rounded-md">
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-background z-10">

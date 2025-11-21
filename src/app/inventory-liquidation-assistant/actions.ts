@@ -1,9 +1,9 @@
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
+import { startOfDay, endOfDay } from 'date-fns';
 
 export interface DailyEntryData {
     date: string;
@@ -112,4 +112,86 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
         const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
         return { success: false, message: `Error del servidor: ${errorMessage}`, count: 0 };
     }
+}
+
+export interface ReceptionWithoutContainer {
+  id: string;
+  pedidoSislog: string;
+  placa: string;
+  totalPaletas: number;
+}
+
+const calculateTotalPallets = (formType: string, formData: any): number => {
+    const allItems = (formData.items || [])
+        .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
+        .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
+
+    if (formType.startsWith('fixed-weight-')) {
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
+    }
+    
+    if (formType.startsWith('variable-weight-')) {
+        const isSummaryFormat = allItems.some((p: any) => p && Number(p.paleta) === 0);
+        
+        if (isSummaryFormat) {
+            return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || 0), 0);
+        }
+        
+        const uniquePallets = new Set<number>();
+        allItems.forEach((item: any) => {
+            const paletaNum = Number(item.paleta);
+            if (!isNaN(paletaNum) && paletaNum > 0) {
+                uniquePallets.add(paletaNum);
+            }
+        });
+        return uniquePallets.size;
+    }
+
+    return 0;
+};
+
+
+export async function findReceptionsWithoutContainer(
+    clientName: string,
+    startDate: string,
+    endDate: string
+): Promise<ReceptionWithoutContainer[]> {
+    if (!firestore) {
+        throw new Error('El servidor no está configurado correctamente.');
+    }
+
+    const queryStart = startOfDay(new Date(startDate));
+    const queryEnd = endOfDay(new Date(endDate));
+
+    const submissionsRef = firestore.collection('submissions');
+    const querySnapshot = await submissionsRef
+        .where('formData.fecha', '>=', queryStart)
+        .where('formData.fecha', '<=', queryEnd)
+        .get();
+        
+    const results: ReceptionWithoutContainer[] = [];
+    
+    querySnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const { formData, formType } = data;
+
+        const docClientName = formData.cliente || formData.nombreCliente;
+        const isReception = formType.includes('recepcion') || formType.includes('reception');
+        const container = formData.contenedor?.trim().toUpperCase();
+        const hasNoContainer = !container || container === 'N/A' || container === 'NO APLICA';
+        
+        if (docClientName === clientName && isReception && hasNoContainer) {
+            const totalPaletas = calculateTotalPallets(formType, formData);
+            if (totalPaletas > 0) {
+                results.push({
+                    id: doc.id,
+                    pedidoSislog: formData.pedidoSislog,
+                    placa: formData.placa || 'Sin Placa',
+                    totalPaletas: totalPaletas
+                });
+            }
+        }
+    });
+
+    return results;
 }
