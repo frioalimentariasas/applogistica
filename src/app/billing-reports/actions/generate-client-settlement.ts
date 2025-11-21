@@ -465,7 +465,7 @@ async function generateSmylLiquidation(
               });
           }
           
-          const gracePeriodEndDate = addDays(receptionDate, 3);
+          const gracePeriodEndDate = addDays(receptionDate, 4);
           const relevantDailyBalances = dailyBalances.filter(day => {
               const dayDate = parseISO(day.date);
               return dayDate >= gracePeriodEndDate && dayDate >= queryStart && dayDate <= queryEnd;
@@ -522,10 +522,9 @@ async function processCargueAlmacenamiento(
             
             if (weightCondition(lotesEnRecepcion[loteId].peso)) {
                 const fechaRecepcion = new Date(recepcion.formData.fecha);
-                
                 const fechaRecepcionStr = format(fechaRecepcion, 'yyyy-MM-dd');
                 const fechaSiguienteStr = format(addDays(fechaRecepcion, 1), 'yyyy-MM-dd');
-
+                
                  const despachosRelevantes = allSubmissionsForClient.filter(op => {
                     if (op.formType !== 'variable-weight-despacho') return false;
                     
@@ -582,6 +581,53 @@ async function processCargueAlmacenamiento(
                     }
                 }
             }
+        }
+    }
+}
+
+async function processAvicolaMaquila(
+    concept: ClientBillingConcept,
+    allSubmissionsForClient: any[],
+    serverQueryStartDate: Date,
+    serverQueryEndDate: Date,
+    settlementRows: ClientSettlementRow[]
+) {
+    const recepcionesMaquila = allSubmissionsForClient.filter(op =>
+        isWithinInterval(new Date(op.formData.fecha), { start: serverQueryStartDate, end: serverQueryEndDate }) &&
+        (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
+        op.formData.tipoPedido === 'MAQUILA' &&
+        op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE CAJAS'
+    );
+    
+    for (const recepcion of recepcionesMaquila) {
+        let quantity = 0;
+        let unitOfMeasure = concept.unitOfMeasure;
+        
+        if (concept.conceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA') {
+            quantity = 1;
+        } else if (concept.conceptName === 'SERVICIO APOYO JORNAL') {
+            quantity = 3;
+            unitOfMeasure = 'UNIDAD';
+        }
+
+        if (quantity > 0) {
+            settlementRows.push({
+                date: recepcion.formData.fecha,
+                placa: recepcion.formData.placa || 'N/A',
+                container: recepcion.formData.contenedor || 'N/A',
+                camara: 'N/A',
+                totalPaletas: calculatePalletsForOperation(recepcion, 'AMBOS', new Map()),
+                operacionLogistica: 'Maquila',
+                pedidoSislog: recepcion.formData.pedidoSislog,
+                conceptName: concept.conceptName,
+                tipoVehiculo: 'N/A',
+                quantity,
+                unitOfMeasure: unitOfMeasure,
+                unitValue: concept.value || 0,
+                totalValue: quantity * (concept.value || 0),
+                horaInicio: recepcion.formData.horaInicio,
+                horaFin: recepcion.formData.horaFin,
+            });
         }
     }
 }
@@ -693,6 +739,18 @@ export async function generateClientSettlement(criteria: {
     const smylCargueAlmacenamientoVehiculoLivianoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoVehiculoLivianoConcept) {
         await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots);
+    }
+
+    const avicolaAlquilerConcept = selectedConcepts.find(c => c.conceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA');
+    const avicolaApoyoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO APOYO JORNAL');
+
+    if (clientName === 'AVICOLA EL MADROÑO S.A.') {
+        if (avicolaAlquilerConcept) {
+            await processAvicolaMaquila(avicolaAlquilerConcept, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows);
+        }
+        if (avicolaApoyoConcept) {
+             await processAvicolaMaquila(avicolaApoyoConcept, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows);
+        }
     }
     
     const operacionCargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN CARGUE');
@@ -912,7 +970,7 @@ export async function generateClientSettlement(criteria: {
                 placa: submission.formData.placa || 'N/A',
                 container: submission.formData.contenedor || 'N/A',
                 camara,
-                totalPaletas: totalPallets,
+                totalPallets: totalPallets,
                 operacionLogistica,
                 pedidoSislog: submission.formData.pedidoSislog,
                 conceptName: concept.conceptName,
@@ -1450,5 +1508,6 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 

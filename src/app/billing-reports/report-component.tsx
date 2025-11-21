@@ -309,7 +309,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 
                 const smylLotConcepts = [
                     'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-                    'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)'
+                    'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+                    'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)'
                 ];
                 
                 const filteredResults = results.filter(concept => !smylLotConcepts.includes(concept.conceptName));
@@ -2194,34 +2195,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             styles: { fontSize: 7, cellPadding: 1 },
             columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' },
-
-            didDrawPage: function (data) {
-            const doc = data.doc;
-            // No obtenemos el total de páginas aquí
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-
-            // Usamos un marcador de posición para el total de páginas
-            //const footerText = `Página ${data.pageNumber} de {totalPages}`;
-
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(150);
-
-            //doc.text(footerText, pageWidth / 2, pageHeight - 10, {
-            //align: 'center'
-            //});
+            didDrawPage: function (data: any) {
+                const totalPages = (doc as any).internal.getNumberOfPages();
+                for (let i = 1; i <= totalPages; i++) {
+                    doc.setPage(i);
+                    doc.text(doc.internal.getCurrentPageInfo().pageNumber + " de " + totalPages, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+                }
             },
-
-            });
-
-            // --- INICIO DE CÓDIGO A AGREGAR ---
-            const totalPages = (doc as any).internal.getNumberOfPages();
-            for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            doc.text(doc.internal.getCurrentPageInfo().pageNumber + " de " + totalPages, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
-}
-// --- FIN DE CÓDIGO A AGREGAR ---
+        });
 
         const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
