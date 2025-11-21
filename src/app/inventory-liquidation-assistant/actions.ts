@@ -110,6 +110,7 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
 
 export interface ReceptionWithoutContainer {
   id: string;
+  fecha: string;
   pedidoSislog: string;
   placa: string;
   totalPaletas: number;
@@ -180,6 +181,7 @@ export async function findReceptionsWithoutContainer(
             if (totalPaletas > 0) {
                 results.push({
                     id: doc.id,
+                    fecha: formData.fecha.toDate().toISOString(),
                     pedidoSislog: formData.pedidoSislog,
                     placa: formData.placa || 'Sin Placa',
                     totalPaletas: totalPaletas
@@ -187,6 +189,8 @@ export async function findReceptionsWithoutContainer(
             }
         }
     });
+
+    results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
     return results;
 }

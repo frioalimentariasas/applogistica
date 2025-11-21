@@ -498,7 +498,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                             <ul className="list-disc pl-5 mt-2 text-xs">
                             {receptionsWithoutContainer.map(r => (
                                 <li key={r.id}>
-                                Pedido <strong>{r.pedidoSislog}</strong> / Placa <strong>{r.placa}</strong> - <strong>{r.totalPaletas}</strong> paleta(s)
+                                <strong>Fecha:</strong> {format(new Date(r.fecha), 'dd/MM/yyyy')} / <strong>Pedido:</strong> {r.pedidoSislog} / <strong>Placa:</strong> {r.placa} - <strong>{r.totalPaletas}</strong> paleta(s)
                                 </li>
                             ))}
                             </ul>
