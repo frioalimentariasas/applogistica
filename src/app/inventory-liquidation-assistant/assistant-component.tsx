@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -96,6 +97,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
   });
 
   const watchedClientId = useWatch({ control: form.control, name: 'clientId' });
+  const watchedDateRange = useWatch({ control: form.control, name: 'dateRange' });
   const watchedDailyEntries = useWatch({ control: form.control, name: 'dailyEntries' });
 
   // Update tariffs when client changes
@@ -126,6 +128,31 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       setTariffs(null);
     }
   }, [watchedClientId, billingConcepts, clients, toast]);
+
+  useEffect(() => {
+    const checkReceptions = async () => {
+        const clientInfo = clients.find(c => c.id === watchedClientId);
+        if (clientInfo && watchedDateRange?.from && watchedDateRange?.to) {
+            setIsCheckingReceptions(true);
+            try {
+                const results = await findReceptionsWithoutContainer(
+                    clientInfo.razonSocial,
+                    format(watchedDateRange.from, 'yyyy-MM-dd'),
+                    format(watchedDateRange.to, 'yyyy-MM-dd')
+                );
+                setReceptionsWithoutContainer(results);
+            } catch (err) {
+                console.error("Error finding receptions:", err);
+                toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron buscar las recepciones sin contenedor.' });
+            } finally {
+                setIsCheckingReceptions(false);
+            }
+        } else {
+            setReceptionsWithoutContainer([]);
+        }
+    };
+    checkReceptions();
+  }, [watchedClientId, watchedDateRange, clients, toast]);
   
   const { getValues, setValue } = form;
 
@@ -156,26 +183,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     });
     
     replace(newDailyEntries);
-    
-    // --- NUEVA LÓGICA DE ALERTA ---
-    const clientInfo = clients.find(c => c.id === clientId);
-    if(clientInfo) {
-      setIsCheckingReceptions(true);
-      findReceptionsWithoutContainer(
-        clientInfo.razonSocial,
-        format(dateRange.from, 'yyyy-MM-dd'),
-        format(dateRange.to, 'yyyy-MM-dd')
-      ).then(results => {
-        setReceptionsWithoutContainer(results);
-      }).catch(err => {
-        console.error("Error finding receptions:", err);
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron buscar las recepciones sin contenedor.' });
-      }).finally(() => {
-        setIsCheckingReceptions(false);
-      });
-    }
-
-  }, [getValues, toast, replace, clients]);
+  }, [getValues, toast, replace]);
   
   const liquidationSummary = useMemo(() => {
     if (!tariffs) return null;
@@ -480,6 +488,28 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                     </CardContent>
                 </Card>
 
+                 {isCheckingReceptions ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground my-4">
+                    <Loader2 className="h-4 w-4 animate-spin"/> Buscando recepciones sin contenedor...
+                    </div>
+                ) : receptionsWithoutContainer.length > 0 && (
+                    <Alert variant="default" className="my-6 bg-yellow-50 border-yellow-300">
+                        <AlertTriangle className="h-4 w-4 text-yellow-600"/>
+                        <AlertTitle className="text-yellow-800 font-semibold">Recepciones Sin Contenedor Disponibles</AlertTitle>
+                        <AlertDescription className="text-yellow-700">
+                            Se encontraron las siguientes recepciones sin contenedor en este rango de fechas. Considere usar sus datos para liquidar.
+                            <ul className="list-disc pl-5 mt-2 text-xs">
+                            {receptionsWithoutContainer.map(r => (
+                                <li key={r.id}>
+                                Pedido <strong>{r.pedidoSislog}</strong> / Placa <strong>{r.placa}</strong> - <strong>{r.totalPaletas}</strong> paleta(s)
+                                </li>
+                            ))}
+                            </ul>
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+
                 {fields.length > 0 && (
                     <>
                     <Card>
@@ -488,26 +518,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                             <CardDescription>Ingrese las entradas y salidas de paletas para cada día. Los saldos se calcularán automáticamente.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                             {isCheckingReceptions ? (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                                <Loader2 className="h-4 w-4 animate-spin"/> Buscando recepciones sin contenedor...
-                                </div>
-                            ) : receptionsWithoutContainer.length > 0 && (
-                                <Alert variant="default" className="mb-4 bg-yellow-50 border-yellow-300">
-                                    <AlertTriangle className="h-4 w-4 text-yellow-600"/>
-                                    <AlertTitle className="text-yellow-800 font-semibold">Recepciones Sin Contenedor Disponibles</AlertTitle>
-                                    <AlertDescription className="text-yellow-700">
-                                        Se encontraron las siguientes recepciones sin contenedor en este rango de fechas. Considere usar sus datos para liquidar.
-                                        <ul className="list-disc pl-5 mt-2 text-xs">
-                                        {receptionsWithoutContainer.map(r => (
-                                            <li key={r.id}>
-                                            Pedido <strong>{r.pedidoSislog}</strong> / Placa <strong>{r.placa}</strong> - <strong>{r.totalPaletas}</strong> paleta(s)
-                                            </li>
-                                        ))}
-                                        </ul>
-                                    </AlertDescription>
-                                </Alert>
-                            )}
                             <ScrollArea className="h-[400px] border rounded-md">
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-background z-10">
