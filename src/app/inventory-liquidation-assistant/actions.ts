@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -20,7 +21,6 @@ export interface AssistantLiquidationData {
         from: string;
         to: string;
     };
-    plate?: string;
     dailyEntries: DailyEntryData[];
     createdBy: {
         uid: string;
@@ -53,7 +53,6 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     operationDate,
                     quantity: day.entries,
                     details: {
-                        plate: data.plate || '',
                     },
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
@@ -70,7 +69,6 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     operationDate,
                     quantity: day.exits,
                     details: {
-                        plate: data.plate || '',
                     },
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
@@ -87,7 +85,6 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     operationDate,
                     quantity: day.finalBalance, // Use final balance as per user request
                     details: {
-                        plate: data.plate || '',
                     },
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
@@ -176,8 +173,9 @@ export async function findReceptionsWithoutContainer(
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const container = formData.contenedor?.trim().toUpperCase();
         const hasNoContainer = !container || container === 'N/A' || container === 'NO APLICA';
+        const isGenericPedido = formData.tipoPedido === 'GENERICO';
         
-        if (docClientName === clientName && isReception && hasNoContainer) {
+        if (docClientName === clientName && isReception && hasNoContainer && isGenericPedido) {
             const totalPaletas = calculateTotalPallets(formType, formData);
             if (totalPaletas > 0) {
                 results.push({
