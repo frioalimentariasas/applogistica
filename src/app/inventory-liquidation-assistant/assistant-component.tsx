@@ -183,6 +183,17 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     replace(newDailyEntries);
   }, [getValues, toast, replace]);
   
+  const handleClear = () => {
+    form.reset({
+      clientId: '',
+      dateRange: undefined,
+      plate: '',
+      initialBalance: 0,
+      dailyEntries: [],
+    });
+    setReceptionsWithoutContainer([]);
+  };
+
   const liquidationSummary = useMemo(() => {
     if (!tariffs) return null;
 
@@ -255,7 +266,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
             from: values.dateRange.from.toISOString(),
             to: values.dateRange.to.toISOString(),
         },
-        plate: values.plate,
         dailyEntries: values.dailyEntries.map(d => ({
             date: d.date.toISOString(),
             initialBalance: d.initialBalance,
@@ -331,12 +341,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     const handleSearch = () => {
       // Dummy implementation to satisfy onClick, real logic is in parent component or elsewhere
       console.log("Search initiated");
-    };
-
-    const handleClear = () => {
-        setLotIds('');
-        setDateRange(undefined);
-        form.reset();
     };
 
     const activeClientsForAssistant = useMemo(() => {
@@ -454,22 +458,17 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                 </FormItem>
                                 )}
                             />
-                             <FormField
-                                control={form.control}
-                                name="plate"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Placa (Opcional)</FormLabel>
-                                    <Input placeholder="Ej: ABC123" {...field} />
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
 
-                            <Button onClick={handleGenerateTable} disabled={!watchedClientId || !form.getValues('dateRange.from')} className="lg:col-start-3">
-                                <Search className="mr-2 h-4 w-4" />
-                                Generar Tabla
-                            </Button>
+                            <div className="flex items-end gap-2 lg:col-start-3">
+                                <Button onClick={handleClear} variant="outline" className="w-full">
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Limpiar
+                                </Button>
+                                <Button onClick={handleGenerateTable} disabled={!watchedClientId || !form.getValues('dateRange.from')} className="w-full">
+                                    <Search className="mr-2 h-4 w-4" />
+                                    Generar Tabla
+                                </Button>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
