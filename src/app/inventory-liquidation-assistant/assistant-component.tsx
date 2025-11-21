@@ -391,121 +391,123 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                         <CardDescription>Seleccione el cliente, el rango de fechas e ingrese los datos generales.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                         <Alert className="mb-6 border-sky-500 bg-sky-50 text-sky-800 [&>svg]:text-sky-600">
-                            <Info className="h-4 w-4" />
-                            <AlertTitle className="text-sky-900 font-bold">Clientes Activos para este Asistente</AlertTitle>
-                            <AlertDescription>
-                                {activeClientsForAssistant.length > 0
-                                    ? `Actualmente, los siguientes clientes tienen los conceptos de almacenamiento y movimiento configurados: ${activeClientsForAssistant.join(', ')}.`
-                                    : "No se encontraron clientes con la configuración de tarifas completa para este asistente. Por favor, verifique los conceptos de liquidación."}
-                            </AlertDescription>
-                        </Alert>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                            <FormField
-                                control={form.control}
-                                name="clientId"
-                                render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Cliente</FormLabel>
-                                    <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
-                                        <DialogTrigger asChild>
-                                            <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                {field.value ? clients.find(c => c.id === field.value)?.razonSocial : "Seleccione un cliente..."}
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent>
-                                            <DialogHeader>
-                                                <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                                <Input placeholder="Buscar cliente..." value={clientSearch} onChange={e => setClientSearch(e.target.value)} className="mt-4" />
-                                            </DialogHeader>
-                                            <ScrollArea className="h-72 mt-4">
-                                                {filteredClients.map(c => <Button key={c.id} variant="ghost" className="w-full justify-start" onClick={() => { field.onChange(c.id); setClientDialogOpen(false); }}>{c.razonSocial}</Button>)}
-                                            </ScrollArea>
-                                        </DialogContent>
-                                    </Dialog>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="dateRange"
-                                render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Rango de Fechas</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value?.from && "text-muted-foreground")}>
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {field.value?.from ? (field.value.to ? (<>{format(field.value.from, "dd/MM/yy")} - {format(field.value.to, "dd/MM/yy")}</>) : format(field.value.from, "dd/MM/yy")) : (<span>Seleccione un rango</span>)}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={field.value} onSelect={field.onChange} numberOfMonths={2} locale={es} /></PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="initialBalance"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Saldo Inicial de Paletas</FormLabel>
-                                    <Input type="number" min="0" {...field} />
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
+                         <div className="space-y-4">
+                            <Alert className="mb-6 border-sky-500 bg-sky-50 text-sky-800 [&>svg]:text-sky-600">
+                                <Info className="h-4 w-4" />
+                                <AlertTitle className="text-sky-900 font-bold">Clientes Activos para este Asistente</AlertTitle>
+                                <AlertDescription>
+                                    {activeClientsForAssistant.length > 0
+                                        ? `Actualmente, los siguientes clientes tienen los conceptos de almacenamiento y movimiento configurados: ${activeClientsForAssistant.join(', ')}.`
+                                        : "No se encontraron clientes con la configuración de tarifas completa para este asistente. Por favor, verifique los conceptos de liquidación."}
+                                </AlertDescription>
+                            </Alert>
 
-                             <FormField
-                                control={form.control}
-                                name="plate"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Placa (Opcional)</FormLabel>
-                                    <Input placeholder="Filtrar por placa" {...field} />
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
+                            {isCheckingReceptions ? (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground my-4">
+                                <Loader2 className="h-4 w-4 animate-spin"/> Buscando recepciones sin contenedor...
+                                </div>
+                            ) : receptionsWithoutContainer.length > 0 && (
+                                <Alert variant="default" className="my-6 bg-yellow-50 border-yellow-300">
+                                    <AlertTriangle className="h-4 w-4 text-yellow-600"/>
+                                    <AlertTitle className="text-yellow-800 font-semibold">Recepciones Sin Contenedor Disponibles</AlertTitle>
+                                    <AlertDescription className="text-yellow-700">
+                                        Se encontraron las siguientes recepciones sin contenedor en este rango de fechas. Considere usar sus datos para liquidar.
+                                        <ul className="list-disc pl-5 mt-2 text-xs">
+                                        {receptionsWithoutContainer.map(r => (
+                                            <li key={r.id}>
+                                            <strong>Fecha:</strong> {format(new Date(r.fecha), 'dd/MM/yyyy')} / <strong>Pedido:</strong> {r.pedidoSislog} / <strong>Placa:</strong> {r.placa} - <strong>{r.totalPaletas}</strong> paleta(s)
+                                            </li>
+                                        ))}
+                                        </ul>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
 
-                            <div className="flex items-end gap-2 lg:col-start-3">
-                                <Button onClick={handleClear} variant="outline" className="w-full">
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Limpiar
-                                </Button>
-                                <Button onClick={handleGenerateTable} disabled={!watchedClientId || !form.getValues('dateRange.from')} className="w-full">
-                                    <Search className="mr-2 h-4 w-4" />
-                                    Generar Tabla
-                                </Button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                                <FormField
+                                    control={form.control}
+                                    name="clientId"
+                                    render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                        <FormLabel>Cliente</FormLabel>
+                                        <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                    {field.value ? clients.find(c => c.id === field.value)?.razonSocial : "Seleccione un cliente..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                                    <Input placeholder="Buscar cliente..." value={clientSearch} onChange={e => setClientSearch(e.target.value)} className="mt-4" />
+                                                </DialogHeader>
+                                                <ScrollArea className="h-72 mt-4">
+                                                    {filteredClients.map(c => <Button key={c.id} variant="ghost" className="w-full justify-start" onClick={() => { field.onChange(c.id); setClientDialogOpen(false); }}>{c.razonSocial}</Button>)}
+                                                </ScrollArea>
+                                            </DialogContent>
+                                        </Dialog>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="dateRange"
+                                    render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                        <FormLabel>Rango de Fechas</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value?.from && "text-muted-foreground")}>
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {field.value?.from ? (field.value.to ? (<>{format(field.value.from, "dd/MM/yy")} - {format(field.value.to, "dd/MM/yy")}</>) : format(field.value.from, "dd/MM/yy")) : (<span>Seleccione un rango</span>)}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={field.value} onSelect={field.onChange} numberOfMonths={2} locale={es} /></PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="initialBalance"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Saldo Inicial de Paletas</FormLabel>
+                                        <Input type="number" min="0" {...field} />
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="plate"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Placa (Opcional)</FormLabel>
+                                        <Input placeholder="Filtrar por placa" {...field} />
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+
+                                <div className="flex items-end gap-2 lg:col-start-3">
+                                    <Button onClick={handleClear} variant="outline" className="w-full">
+                                        <XCircle className="mr-2 h-4 w-4" />
+                                        Limpiar
+                                    </Button>
+                                    <Button onClick={handleGenerateTable} disabled={!watchedClientId || !form.getValues('dateRange.from')} className="w-full">
+                                        <Search className="mr-2 h-4 w-4" />
+                                        Generar Tabla
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
-
-                 {isCheckingReceptions ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground my-4">
-                    <Loader2 className="h-4 w-4 animate-spin"/> Buscando recepciones sin contenedor...
-                    </div>
-                ) : receptionsWithoutContainer.length > 0 && (
-                    <Alert variant="default" className="my-6 bg-yellow-50 border-yellow-300">
-                        <AlertTriangle className="h-4 w-4 text-yellow-600"/>
-                        <AlertTitle className="text-yellow-800 font-semibold">Recepciones Sin Contenedor Disponibles</AlertTitle>
-                        <AlertDescription className="text-yellow-700">
-                            Se encontraron las siguientes recepciones sin contenedor en este rango de fechas. Considere usar sus datos para liquidar.
-                            <ul className="list-disc pl-5 mt-2 text-xs">
-                            {receptionsWithoutContainer.map(r => (
-                                <li key={r.id}>
-                                <strong>Fecha:</strong> {format(new Date(r.fecha), 'dd/MM/yyyy')} / <strong>Pedido:</strong> {r.pedidoSislog} / <strong>Placa:</strong> {r.placa} - <strong>{r.totalPaletas}</strong> paleta(s)
-                                </li>
-                            ))}
-                            </ul>
-                        </AlertDescription>
-                    </Alert>
-                )}
-
 
                 {fields.length > 0 && (
                     <>
