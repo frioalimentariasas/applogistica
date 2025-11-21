@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -20,7 +21,6 @@ export interface AssistantLiquidationData {
         to: string;
     };
     plate?: string;
-    container?: string;
     dailyEntries: DailyEntryData[];
     createdBy: {
         uid: string;
@@ -54,7 +54,6 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     quantity: day.entries,
                     details: {
                         plate: data.plate || '',
-                        container: data.container || '',
                     },
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
@@ -72,7 +71,6 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     quantity: day.exits,
                     details: {
                         plate: data.plate || '',
-                        container: data.container || '',
                     },
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
@@ -90,7 +88,6 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     quantity: day.finalBalance, // Use final balance as per user request
                     details: {
                         plate: data.plate || '',
-                        container: data.container || '',
                     },
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,

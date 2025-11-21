@@ -55,7 +55,6 @@ const formSchema = z.object({
     to: z.date({ required_error: "La fecha de fin es requerida."}),
   }),
   plate: z.string().optional(),
-  container: z.string().optional(),
   initialBalance: z.coerce.number().int().min(0, "El saldo inicial no puede ser negativo.").default(0),
   dailyEntries: z.array(dailyEntrySchema),
 });
@@ -85,7 +84,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       clientId: '',
       dateRange: undefined,
       plate: '',
-      container: '',
       initialBalance: 0,
       dailyEntries: [],
     },
@@ -258,7 +256,6 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
             to: values.dateRange.to.toISOString(),
         },
         plate: values.plate,
-        container: values.container,
         dailyEntries: values.dailyEntries.map(d => ({
             date: d.date.toISOString(),
             initialBalance: d.initialBalance,
@@ -468,19 +465,8 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                 </FormItem>
                                 )}
                             />
-                            <FormField
-                                control={form.control}
-                                name="container"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Contenedor (Opcional)</FormLabel>
-                                    <Input placeholder="Ej: ZCSU1234567" {...field} />
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
 
-                            <Button onClick={handleGenerateTable} disabled={!watchedClientId || !form.getValues('dateRange.from')}>
+                            <Button onClick={handleGenerateTable} disabled={!watchedClientId || !form.getValues('dateRange.from')} className="lg:col-start-3">
                                 <Search className="mr-2 h-4 w-4" />
                                 Generar Tabla
                             </Button>
