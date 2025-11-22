@@ -98,7 +98,7 @@ export default function Home() {
     
     // Gestión y Liquidación Clientes
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-clientes', icon: DollarSign, permission: 'canManageClientLiquidationConcepts', group: 'Gestión y Liquidación Clientes' },
-    { label: 'Registro de Op. Manuales', href: '/operaciones-manuales-clientes', icon: Edit, permission: 'canManageClientManualOperations', group: 'Gestión y Liquidación Clientes' },
+    { label: 'Registro de Op. Manuales Clientes', href: '/operaciones-manuales-clientes', icon: Edit, permission: 'canManageClientManualOperations', group: 'Gestión y Liquidación Clientes' },
     { label: 'Informes de Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports', group: 'Gestión y Liquidación Clientes' },
     { label: 'Asistente de Liquidación SMYL', href: '/smyl-liquidation-assistant', icon: Package, permission: 'canViewSmylAssistant', group: 'Gestión y Liquidación Clientes' },
     { label: 'Asistente de Liquidación de Inventario', href: '/inventory-liquidation-assistant', icon: Calculator, permission: 'canViewInventoryAssistant', group: 'Gestión y Liquidación Clientes' },

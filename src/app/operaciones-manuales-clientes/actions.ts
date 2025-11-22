@@ -224,7 +224,7 @@ export async function addManualClientOperation(data: ManualClientOperationData):
             createdAt: new Date().toISOString(),
         };
 
-        const conceptsWithNumeroPersonas = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS', 'SERVICIO APOYO JORNAL'];
+        const conceptsWithNumeroPersonas = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS', 'SERVICIO DE APOYO JORNAL'];
         if (conceptsWithNumeroPersonas.includes(data.concept) && numeroPersonas !== undefined) {
             operationWithTimestamp.numeroPersonas = numeroPersonas;
         }

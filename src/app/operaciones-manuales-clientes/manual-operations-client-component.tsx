@@ -100,7 +100,7 @@ const manualOperationSchema = z.object({
       noDocumento: z.string().max(20, "Máximo 20 caracteres.").optional(),
   }).optional(),
 }).superRefine((data, ctx) => {
-    const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)' || data.concept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || data.concept === 'SERVICIO APOYO JORNAL';
+    const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)' || data.concept === 'ALQUILER DE AREA PARA EMPAQUE/DIA' || data.concept === 'SERVICIO DE APOYO JORNAL';
     const isTimeExtraMode = data.concept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
@@ -279,7 +279,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     }, [watchedConcept, setValue]);
 
     
-    const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || watchedConcept === 'SERVICIO APOYO JORNAL';
+    const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE AREA PARA EMPAQUE/DIA' || watchedConcept === 'SERVICIO DE APOYO JORNAL';
     const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
@@ -530,8 +530,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         const simpleBulkData: SimpleBulkOperationData = {
                             ...commonPayload,
                             dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
-                            quantity: data.concept === 'SERVICIO APOYO JORNAL' ? data.numeroPersonas || 0 : data.quantity!,
-                            ...(data.concept === 'SERVICIO APOYO JORNAL' && { numeroPersonas: data.numeroPersonas }),
+                            quantity: data.concept === 'SERVICIO DE APOYO JORNAL' ? data.numeroPersonas || 0 : data.quantity!,
+                            ...(data.concept === 'SERVICIO DE APOYO JORNAL' && { numeroPersonas: data.numeroPersonas }),
                         };
                         result = await addBulkSimpleOperation(simpleBulkData);
                     }
@@ -1110,7 +1110,7 @@ function BulkRolesSection({ form, dialogMode, conceptName }: { form: any; dialog
       name: "bulkRoles"
   });
   
-  const title = conceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' ? 'Asignación de Área' : 'Asignación de Personal';
+  const title = conceptName === 'ALQUILER DE AREA PARA EMPAQUE/DIA' ? 'Asignación de Área' : 'Asignación de Personal';
 
   return (
     <div className="space-y-4">
@@ -1296,8 +1296,8 @@ function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmZfpc, isArinZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isInspeccionZfpc, isLocationMode } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const showNumeroPersonas = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
-  const hideGeneralQuantityField = ['TIEMPO EXTRA FRIOAL (FIJO)', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL', LOCATION_STORAGE_CONCEPT_NAME].includes(watchedConcept);
+  const showNumeroPersonas = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS', 'SERVICIO DE APOYO JORNAL'].includes(watchedConcept);
+  const hideGeneralQuantityField = ['TIEMPO EXTRA FRIOAL (FIJO)', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO DE APOYO JORNAL', LOCATION_STORAGE_CONCEPT_NAME].includes(watchedConcept);
   const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
   
   return (

@@ -245,11 +245,48 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                     applicableConcepts.set(concept.id, concept);
                 }
             }
-        } else if (concept.calculationType === 'LÓGICA ESPECIAL') {
+
+            // ...
+            } else if (concept.calculationType === 'LÓGICA ESPECIAL') {
+            let isApplicable = false;
+  
+            // Lógica específica para AVICOLA EL MADROÑO (Maquila)
+            if (
+            (concept.conceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || concept.conceptName === 'SERVICIO APOYO JORNAL') &&
+            clientName === 'AVICOLA EL MADROÑO S.A.'
+            ) {
+            const hasMaquilaOperations = clientSubmissions.some(doc => {
+            const submission = serializeTimestamps(doc.data());
+            return (submission.formType === 'variable-weight-reception' || submission.formType === 'variable-weight-recepcion') &&
+                 submission.formData.tipoPedido === 'MAQUILA';
+          });
+            if (hasMaquilaOperations) {
+            isApplicable = true;
+          }
+        }
+          // Lógica para SMYL u otras lógicas especiales se mantendría aquí
+          // Por ahora, asumimos que cualquier otra LÓGICA ESPECIAL se muestra si está activa.
+        const smylConcepts = [
+      'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+      'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)'
+        ];
+
+        if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylConcepts.includes(concept.conceptName)) {
+        isApplicable = true; 
+        }
+
+        if (isApplicable && !applicableConcepts.has(concept.id)) {
+        applicableConcepts.set(concept.id, concept);
+        }
+      }
+      // ...
+
+
+        /*} else if (concept.calculationType === 'LÓGICA ESPECIAL') {
             if (!applicableConcepts.has(concept.id)) {
                 applicableConcepts.set(concept.id, concept);
             }
-        }
+        }*/
     }
     
     const sortedConcepts = Array.from(applicableConcepts.values());
