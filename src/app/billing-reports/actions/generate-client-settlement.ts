@@ -580,6 +580,13 @@ async function processAvicolaMaquila(
     serverQueryEndDate: Date,
     settlementRows: ClientSettlementRow[]
 ) {
+    // Normalizar nombres de conceptos a comparar
+    const alquilerConceptNameNormalized = 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
+    const apoyoConceptNameNormalized = 'SERVICIO APOYO JORNAL';
+    const currentConceptNameNormalized = concept.conceptName
+        .replace('AREA', 'ÁREA')
+        .toUpperCase();
+
     const recepcionesMaquila = allSubmissionsForClient.filter(op =>
         isWithinInterval(new Date(op.formData.fecha), { start: serverQueryStartDate, end: serverQueryEndDate }) &&
         (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
@@ -591,9 +598,9 @@ async function processAvicolaMaquila(
         let quantity = 0;
         let unitOfMeasure = concept.unitOfMeasure;
         
-        if (concept.conceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA') {
+        if (currentConceptNameNormalized === alquilerConceptNameNormalized) {
             quantity = 1;
-        } else if (concept.conceptName === 'SERVICIO APOYO JORNAL') {
+        } else if (currentConceptNameNormalized === apoyoConceptNameNormalized) {
             quantity = 3;
             unitOfMeasure = 'UNIDAD';
         }
@@ -729,7 +736,7 @@ export async function generateClientSettlement(criteria: {
         await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots);
     }
 
-    const avicolaAlquilerConcept = selectedConcepts.find(c => c.conceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA');
+    const avicolaAlquilerConcept = selectedConcepts.find(c => c.conceptName.toUpperCase().replace('AREA', 'ÁREA') === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA');
     const avicolaApoyoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO APOYO JORNAL');
 
     if (clientName === 'AVICOLA EL MADROÑO S.A.') {
@@ -1392,12 +1399,21 @@ export async function generateClientSettlement(criteria: {
         }
     }
 
+    // --- START: Normalization Logic ---
     settlementRows.forEach(row => {
+        // Normalize concept names with and without accent
+        const upperConceptName = row.conceptName.toUpperCase().replace('AREA', 'ÁREA');
+        if (upperConceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA') {
+            row.conceptName = 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
+        }
+
+        // Existing normalization for AVICOLA EL MADROÑO
         const op = allOperations.find(o => o.type === 'form' && o.data.formData.pedidoSislog === row.pedidoSislog);
         if (clientName === 'AVICOLA EL MADROÑO S.A.' && row.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)' && op && op.data.formData.tipoPedido === 'DESPACHO GENERICO') {
             row.camara = 'SE';
         }
     });
+    // --- END: Normalization Logic ---
     
     const conceptOrder = [
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
@@ -1442,7 +1458,8 @@ export async function generateClientSettlement(criteria: {
         if (dateA !== dateB) return dateA - dateB;
 
         const getSortOrder = (conceptName: string) => {
-            const index = conceptOrder.indexOf(conceptName);
+            const normalizedName = conceptName.toUpperCase().replace('AREA', 'ÁREA');
+            const index = conceptOrder.indexOf(normalizedName);
             return index === -1 ? Infinity : index;
         };
 
@@ -1496,6 +1513,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
