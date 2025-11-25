@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -119,8 +118,8 @@ async function isFmmNumberDuplicate(fmmNumber: string, concept: string, currentO
     const fmmConcepts = [
         'FMM DE INGRESO ZFPC (MANUAL)', 
         'FMM DE SALIDA ZFPC (MANUAL)',
-        'FMM DE INGRESO ZFPC (NACIONALIZADO)',
-        'FMM DE SALIDA ZFPC (NACIONALIZADO)'
+        'FMM DE INGRESO ZFPC NACIONAL',
+        'FMM DE SALIDA ZFPC NACIONAL'
     ];
 
     // Si el concepto actual no es uno de los que se deben validar, no es un duplicado.
@@ -158,8 +157,8 @@ async function isArinNumberDuplicate(arinNumber: string, concept: string, curren
     const arinConcepts = [
         'ARIN DE INGRESO ZFPC (MANUAL)',
         'ARIN DE SALIDA ZFPC (MANUAL)',
-        'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
-        'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
+        'ARIN DE INGRESO ZFPC NACIONAL',
+        'ARIN DE SALIDA ZFPC NACIONAL',
     ];
 
     if (!arinConcepts.includes(concept)) {
@@ -704,7 +703,7 @@ export async function deleteMultipleManualClientOperations(ids: string[]): Promi
 interface FmmRow {
   Fecha: Date | string | number;
   Cliente: string;
-  Concepto: 'FMM DE INGRESO ZFPC (MANUAL)' | 'FMM DE SALIDA ZFPC (MANUAL)';
+  Concepto: 'FMM DE INGRESO ZFPC (MANUAL)' | 'FMM DE SALIDA ZFPC (MANUAL)' | 'FMM DE INGRESO ZFPC NACIONAL' | 'FMM DE SALIDA ZFPC NACIONAL';
   Cantidad: number;
   Contenedor: string;
   'Op. Logística': 'CARGUE' | 'DESCARGUE';
@@ -762,8 +761,8 @@ export async function uploadFmmOperations(
             const fmmConcepts = [
                 'FMM DE INGRESO ZFPC (MANUAL)',
                 'FMM DE SALIDA ZFPC (MANUAL)',
-                'FMM DE INGRESO ZFPC (NACIONALIZADO)',
-                'FMM DE SALIDA ZFPC (NACIONALIZADO)'
+                'FMM DE INGRESO ZFPC NACIONAL',
+                'FMM DE SALIDA ZFPC NACIONAL'
             ];
             for (const chunk of fmmChunks) {
                 for (const concept of fmmConcepts) { // <-- Aquí está el bucle adicional
@@ -793,7 +792,7 @@ export async function uploadFmmOperations(
             // Validation Checks
             if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
             if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
-            if (!concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)', 'FMM DE INGRESO ZFPC (NACIONALIZADO)', 'FMM DE SALIDA ZFPC (NACIONALIZADO)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser un concepto de tipo FMM.`); errorCount++; continue; }
+            if (!concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)', 'FMM DE INGRESO ZFPC NACIONAL', 'FMM DE SALIDA ZFPC NACIONAL'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser un concepto de tipo FMM.`); errorCount++; continue; }
             if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
             if (!opLogistica || !['CARGUE', 'DESCARGUE'].includes(opLogistica)) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida. Debe ser 'CARGUE' o 'DESCARGUE'.`); errorCount++; continue; }
             if (!fmmNumber) { errors.push(`Fila ${rowIndex}: Falta el # FMM.`); errorCount++; continue; }
@@ -864,7 +863,7 @@ export async function uploadFmmOperations(
 interface ArinRow {
     Fecha: Date | string | number;
     Cliente: string;
-    Concepto: 'ARIN DE INGRESO ZFPC (MANUAL)' | 'ARIN DE SALIDA ZFPC (MANUAL)';
+    Concepto: 'ARIN DE INGRESO ZFPC (MANUAL)' | 'ARIN DE SALIDA ZFPC (MANUAL)' | 'ARIN DE INGRESO ZFPC NACIONAL' | 'ARIN DE SALIDA ZFPC NACIONAL' ;
     Cantidad: number;
     Contenedor: string;
     'Op. Logística': 'CARGUE' | 'DESCARGUE';
@@ -923,9 +922,8 @@ export async function uploadArinOperations(
             const arinConcepts = [
                 'ARIN DE INGRESO ZFPC (MANUAL)',
                 'ARIN DE SALIDA ZFPC (MANUAL)',
-                'ARIN DE INGRESO ZFPC (NACIONALIZADO)',
-                'ARIN DE SALIDA ZFPC (NACIONALIZADO)',
-                'INSPECCIÓN ZFPC'
+                'ARIN DE INGRESO ZFPC NACIONAL',
+                'ARIN DE SALIDA ZFPC NACIONAL',
             ];
             for (const chunk of arinChunks) {
                 for (const concept of arinConcepts) {
@@ -955,7 +953,7 @@ export async function uploadArinOperations(
             // Validation Checks
             if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
             if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
-            if (!concepto || !['ARIN DE INGRESO ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC (NACIONALIZADO)', 'ARIN DE SALIDA ZFPC (NACIONALIZADO)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido.`); errorCount++; continue; }
+            if (!concepto || !['ARIN DE INGRESO ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC NACIONAL', 'ARIN DE SALIDA ZFPC NACIONAL'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido.`); errorCount++; continue; }
             if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
             if (!opLogistica || !['CARGUE', 'DESCARGUE'].includes(opLogistica)) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida.`); errorCount++; continue; }
             if (!arinNumber) { errors.push(`Fila ${rowIndex}: Falta el # ARIN.`); errorCount++; continue; }

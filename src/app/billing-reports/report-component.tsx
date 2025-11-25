@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -42,7 +43,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -1474,36 +1475,90 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         workbook.created = new Date();
     
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
-            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-            'Servicio logístico Congelación (4 Días)', // Child
-            'Servicio de Manipulación', // Child
-            'OPERACIÓN DESCARGUE/TONELADAS',
-            'OPERACIÓN CARGUE/TONELADAS',
-            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC) POR CONTENEDOR',
-            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
-            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
-            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
-            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
-            'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
-            'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-            'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
-            'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
-            'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
-            'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
-            'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 
-            'TIEMPO EXTRA ZFPC',
-            'HORA EXTRA DIURNA',
-            'HORA EXTRA NOCTURNA',
-            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
-            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-            'ALIMENTACIÓN',
-            'TRANSPORTE EXTRAORDINARIO',
-            'TRANSPORTE DOMINICAL Y FESTIVO',
-            'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
-            'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
+'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
+'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
+'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+'POSICIONES FIJAS CÁMARA CONGELADOS',
+'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)',
+'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
+'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+'SERVICIO DE SECO -PALLET/DIA',
+'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
+'OPERACIÓN CARGUE',
+'OPERACIÓN CARGUE/TONELADAS',
+'OPERACIÓN DESCARGUE',
+'OPERACIÓN DESCARGUE/TONELADAS',
+'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (CONGELADO)',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/CONGELADO',
+'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
+'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/REFRIGERADO',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (SECO)',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET (CONGELADO)',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET/CONGELADO',
+'MOVIMIENTO SALIDA PRODUCTO - PALETA',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
+'MOVIMIENTO SALIDA PRODUCTOS PALLET',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET/REFRIGERADO',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)',
+'SERVICIO ALISTAMIENTO (UNIDAD)',
+'SERVICIO DE ALISTAMIENTO (UNIDAD)',
+'SERVICIO DE ALISTAMIENTO CAJAS',
+'TOMA DE PESOS POR ETIQUETA HRS',
+'REESTIBADO',
+'CONEXIÓN ELÉCTRICA CONTENEDOR',
+'ALQUILER DE AREA PARA EMPAQUE/DIA',
+'ALQUILER DE ÁREA PARA EMPAQUE/DIA',
+'SERVICIO APOYO JORNAL',
+'SERVICIO DE APOYO JORNAL',
+'SERVICIO EMPAQUE EN SACOS',
+'IMPRESIÓN FACTURAS',
+'TRANSBORDO CANASTILLA',
+'ALQUILER IMPRESORA ETIQUEDADO',
+'FMM DE INGRESO ZFPC',
+'FMM DE INGRESO ZFPC (MANUAL)',
+'FMM DE INGRESO ZFPC NACIONAL',
+'FMM DE SALIDA ZFPC',
+'FMM DE SALIDA ZFPC (MANUAL)',
+'FMM DE SALIDA ZFPC NACIONAL',
+'ARIN DE INGRESO ZFPC',
+'ARIN DE INGRESO ZFPC (MANUAL)',
+'ARIN DE INGRESO ZFPC NACIONAL',
+'ARIN DE SALIDA ZFPC',
+'ARIN DE SALIDA ZFPC (MANUAL)',
+'ARIN DE SALIDA ZFPC NACIONAL',
+'TIEMPO EXTRA ZFPC',
+'INSPECCIÓN ZFPC',
+'IN-HOUSE INSPECTOR ZFPC',
+'HORA EXTRA DIURNA',
+'HORA EXTRA NOCTURNA',
+'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+'ALIMENTACIÓN',
+'TRANSPORTE EXTRAORDINARIO',
+'TRANSPORTE DOMINICAL Y FESTIVO',
+'TIEMPO EXTRA FRIOAL (FIJO)',
+'TIEMPO EXTRA FRIOAL',
+'HORA EXTRA DIURNA (SUPERVISOR)',
+'HORA EXTRA DIURNA (MONTACARGUISTA NORMAL)',
+'HORA EXTRA DIURNA (OPERARIO)',
+'HORA EXTRA DIURNA (ASISTENTE)',
+'HORA EXTRA NOCTURNA (SUPERVISOR)',
+'HORA EXTRA NOCTURNA (MONTACARGUISTA NORMAL)',
+'HORA EXTRA NOCTURNA (OPERARIO)',
+'HORA EXTRA NOCTURNA (ASISTENTE)',
+'ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL',
+'ETIQUETADO POR CAJA/ UNIDAD',
+'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
+'ESTIBA MADERA RECICLADA',
+'SERVICIO DE INSPECCIÓN POR CAJA'
     ];
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
@@ -1691,7 +1746,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'HORA EXTRA NOCTURNA',
             'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
             'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-            'ALIMENTACION',
+            'ALIMENTACIÓN',
             'TRANSPORTE EXTRAORDINARIO',
             'TRANSPORTE DOMINICAL Y FESTIVO',
         ];
@@ -1847,37 +1902,91 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 14;
 
-        const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
-            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-            'Servicio logístico Congelación (4 Días)', // Child
-            'Servicio de Manipulación', // Child
-            'OPERACIÓN DESCARGUE/TONELADAS',
-            'OPERACIÓN CARGUE/TONELADAS',
-            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC) POR CONTENEDOR',
-            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
-            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
-            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
-            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
-            'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
-            'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-            'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
-            'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
-            'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
-            'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
-            'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 
-            'TIEMPO EXTRA ZFPC',
-            'HORA EXTRA DIURNA',
-            'HORA EXTRA NOCTURNA',
-            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
-            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-            'ALIMENTACIÓN',
-            'TRANSPORTE EXTRAORDINARIO',
-            'TRANSPORTE DOMINICAL Y FESTIVO',
-            'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
-            'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
+const conceptOrder = [
+'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
+'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
+'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+'POSICIONES FIJAS CÁMARA CONGELADOS',
+'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)',
+'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
+'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+'SERVICIO DE SECO -PALLET/DIA',
+'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
+'OPERACIÓN CARGUE',
+'OPERACIÓN CARGUE/TONELADAS',
+'OPERACIÓN DESCARGUE',
+'OPERACIÓN DESCARGUE/TONELADAS',
+'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (CONGELADO)',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/CONGELADO',
+'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
+'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/REFRIGERADO',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (SECO)',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET (CONGELADO)',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET/CONGELADO',
+'MOVIMIENTO SALIDA PRODUCTO - PALETA',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
+'MOVIMIENTO SALIDA PRODUCTOS PALLET',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET/REFRIGERADO',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)',
+'SERVICIO ALISTAMIENTO (UNIDAD)',
+'SERVICIO DE ALISTAMIENTO (UNIDAD)',
+'SERVICIO DE ALISTAMIENTO CAJAS',
+'TOMA DE PESOS POR ETIQUETA HRS',
+'REESTIBADO',
+'CONEXIÓN ELÉCTRICA CONTENEDOR',
+'ALQUILER DE AREA PARA EMPAQUE/DIA',
+'ALQUILER DE ÁREA PARA EMPAQUE/DIA',
+'SERVICIO APOYO JORNAL',
+'SERVICIO DE APOYO JORNAL',
+'SERVICIO EMPAQUE EN SACOS',
+'IMPRESIÓN FACTURAS',
+'TRANSBORDO CANASTILLA',
+'ALQUILER IMPRESORA ETIQUEDADO',
+'FMM DE INGRESO ZFPC',
+'FMM DE INGRESO ZFPC (MANUAL)',
+'FMM DE INGRESO ZFPC NACIONAL',
+'FMM DE SALIDA ZFPC',
+'FMM DE SALIDA ZFPC (MANUAL)',
+'FMM DE SALIDA ZFPC NACIONAL',
+'ARIN DE INGRESO ZFPC',
+'ARIN DE INGRESO ZFPC (MANUAL)',
+'ARIN DE INGRESO ZFPC NACIONAL',
+'ARIN DE SALIDA ZFPC',
+'ARIN DE SALIDA ZFPC (MANUAL)',
+'ARIN DE SALIDA ZFPC NACIONAL',
+'TIEMPO EXTRA ZFPC',
+'INSPECCIÓN ZFPC',
+'IN-HOUSE INSPECTOR ZFPC',
+'HORA EXTRA DIURNA',
+'HORA EXTRA NOCTURNA',
+'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+'ALIMENTACIÓN',
+'TRANSPORTE EXTRAORDINARIO',
+'TRANSPORTE DOMINICAL Y FESTIVO',
+'TIEMPO EXTRA FRIOAL (FIJO)',
+'TIEMPO EXTRA FRIOAL',
+'HORA EXTRA DIURNA (SUPERVISOR)',
+'HORA EXTRA DIURNA (MONTACARGUISTA NORMAL)',
+'HORA EXTRA DIURNA (OPERARIO)',
+'HORA EXTRA DIURNA (ASISTENTE)',
+'HORA EXTRA NOCTURNA (SUPERVISOR)',
+'HORA EXTRA NOCTURNA (MONTACARGUISTA NORMAL)',
+'HORA EXTRA NOCTURNA (OPERARIO)',
+'HORA EXTRA NOCTURNA (ASISTENTE)',
+'ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL',
+'ETIQUETADO POR CAJA/ UNIDAD',
+'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
+'ESTIBA MADERA RECICLADA',
+'SERVICIO DE INSPECCIÓN POR CAJA'
     ];
 
         const zfpcSubConceptOrder = [
@@ -2172,7 +2281,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -2260,10 +2369,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
             didDrawPage: function (data) {
                 const doc = data.doc;
-                const pageCount = (doc as any).internal.getNumberOfPages();
+                const totalPages = (doc as any).internal.getNumberOfPages();
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+    
                 doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
                 doc.setTextColor(150);
-                doc.text(`Página ${data.pageNumber} de ${pageCount}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+    
+                const footerText = `Página ${data.pageNumber} de ${totalPages}`;
+                doc.text(footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
             },
         });
 
@@ -2291,36 +2406,90 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     const settlementGroupedData = useMemo(() => {
         const conceptOrder = [
-           'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
-            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-            'Servicio logístico Congelación (4 Días)', // Child
-            'Servicio de Manipulación', // Child
-            'OPERACIÓN DESCARGUE/TONELADAS',
-            'OPERACIÓN CARGUE/TONELADAS',
-            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC) POR CONTENEDOR',
-            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
-            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
-            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
-            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
-            'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
-            'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-            'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
-            'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
-            'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
-            'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
-            'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 
-            'TIEMPO EXTRA ZFPC',
-            'HORA EXTRA DIURNA',
-            'HORA EXTRA NOCTURNA',
-            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
-            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-            'ALIMENTACIÓN',
-            'TRANSPORTE EXTRAORDINARIO',
-            'TRANSPORTE DOMINICAL Y FESTIVO',
-            'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
-            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
-            'MOVIMIENTO ENTRADA PRODUCTO - PALETA', 'MOVIMIENTO SALIDA PRODUCTO - PALETA'
+'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
+'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
+'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+'POSICIONES FIJAS CÁMARA CONGELADOS',
+'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)',
+'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
+'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+'SERVICIO DE SECO -PALLET/DIA',
+'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
+'OPERACIÓN CARGUE',
+'OPERACIÓN CARGUE/TONELADAS',
+'OPERACIÓN DESCARGUE',
+'OPERACIÓN DESCARGUE/TONELADAS',
+'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (CONGELADO)',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/CONGELADO',
+'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
+'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/REFRIGERADO',
+'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (SECO)',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET (CONGELADO)',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET/CONGELADO',
+'MOVIMIENTO SALIDA PRODUCTO - PALETA',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
+'MOVIMIENTO SALIDA PRODUCTOS PALLET',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET/REFRIGERADO',
+'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)',
+'SERVICIO ALISTAMIENTO (UNIDAD)',
+'SERVICIO DE ALISTAMIENTO (UNIDAD)',
+'SERVICIO DE ALISTAMIENTO CAJAS',
+'TOMA DE PESOS POR ETIQUETA HRS',
+'REESTIBADO',
+'CONEXIÓN ELÉCTRICA CONTENEDOR',
+'ALQUILER DE AREA PARA EMPAQUE/DIA',
+'ALQUILER DE ÁREA PARA EMPAQUE/DIA',
+'SERVICIO APOYO JORNAL',
+'SERVICIO DE APOYO JORNAL',
+'SERVICIO EMPAQUE EN SACOS',
+'IMPRESIÓN FACTURAS',
+'TRANSBORDO CANASTILLA',
+'ALQUILER IMPRESORA ETIQUEDADO',
+'FMM DE INGRESO ZFPC',
+'FMM DE INGRESO ZFPC (MANUAL)',
+'FMM DE INGRESO ZFPC NACIONAL',
+'FMM DE SALIDA ZFPC',
+'FMM DE SALIDA ZFPC (MANUAL)',
+'FMM DE SALIDA ZFPC NACIONAL',
+'ARIN DE INGRESO ZFPC',
+'ARIN DE INGRESO ZFPC (MANUAL)',
+'ARIN DE INGRESO ZFPC NACIONAL',
+'ARIN DE SALIDA ZFPC',
+'ARIN DE SALIDA ZFPC (MANUAL)',
+'ARIN DE SALIDA ZFPC NACIONAL',
+'TIEMPO EXTRA ZFPC',
+'INSPECCIÓN ZFPC',
+'IN-HOUSE INSPECTOR ZFPC',
+'HORA EXTRA DIURNA',
+'HORA EXTRA NOCTURNA',
+'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+'ALIMENTACIÓN',
+'TRANSPORTE EXTRAORDINARIO',
+'TRANSPORTE DOMINICAL Y FESTIVO',
+'TIEMPO EXTRA FRIOAL (FIJO)',
+'TIEMPO EXTRA FRIOAL',
+'HORA EXTRA DIURNA (SUPERVISOR)',
+'HORA EXTRA DIURNA (MONTACARGUISTA NORMAL)',
+'HORA EXTRA DIURNA (OPERARIO)',
+'HORA EXTRA DIURNA (ASISTENTE)',
+'HORA EXTRA NOCTURNA (SUPERVISOR)',
+'HORA EXTRA NOCTURNA (MONTACARGUISTA NORMAL)',
+'HORA EXTRA NOCTURNA (OPERARIO)',
+'HORA EXTRA NOCTURNA (ASISTENTE)',
+'ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL',
+'ETIQUETADO POR CAJA/ UNIDAD',
+'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
+'ESTIBA MADERA RECICLADA',
+'SERVICIO DE INSPECCIÓN POR CAJA'
         ];
         
         const zfpcSubConceptOrder = [
@@ -3052,7 +3221,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <Card className="mt-6">
                                     <CardHeader>
                                         <CardTitle>Exportar Inventario Detallado a Excel</CardTitle>
-                                        <CardDescription>Genere un archivo Excel con el detalle completo del inventario para un cliente y rango de fechas específico.</CardDescription>
+                                        <p className="text-sm text-muted-foreground">Genere un archivo Excel con el detalle completo del inventario para un cliente y rango de fechas específico.</p>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -3068,7 +3237,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <DialogContent className="sm:max-w-[425px]">
                                                         <DialogHeader>
                                                             <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
-                                                            <DialogDescription>Seleccione los clientes para la exportación detallada.</DialogDescription>
+                                                            <p className="text-sm text-muted-foreground">Seleccione los clientes para la exportación detallada.</p>
                                                         </DialogHeader>
                                                         <div className="p-4">
                                                             <Input
@@ -3143,7 +3312,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         <Card>
                              <CardHeader>
                                 <CardTitle>Filtros del Reporte Consolidado</CardTitle>
-                                <CardDescription>Seleccione cliente, rango de fechas y sesión para ver el informe consolidado.</CardDescription>
+                                <p className="text-sm text-muted-foreground">Seleccione cliente, rango de fechas y sesión para ver el informe consolidado.</p>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
@@ -3291,7 +3460,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                          <Card>
                              <CardHeader>
                                 <CardTitle>Liquidación de Servicios Clientes</CardTitle>
-                                <CardDescription>Genere un reporte de liquidación para los servicios prestados a un cliente.</CardDescription>
+                                <p className="text-sm text-muted-foreground">Genere un reporte de liquidación para los servicios prestados a un cliente.</p>
                             </CardHeader>
                             <CardContent>
                                 <Form {...settlementForm}>
@@ -3344,23 +3513,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
-                                        <div className="space-y-2 md:col-span-1">
-                                            <Label>No. Contenedor (Opcional)</Label>
-                                            <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
-                                        </div>
-                                        
-                                        {showSmylLotInput && (
-                                            <div className="space-y-2 md:col-span-2">
-                                                <Label>No. de Lote(s) para SMYL (Opcional)</Label>
-                                                <Textarea 
-                                                    placeholder="Para liquidación automática de SMYL. Separados por coma, espacio o salto de línea." 
-                                                    value={settlementLotIds} 
-                                                    onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} 
-                                                />
-                                            </div>
-                                        )}
-                                        <div className={cn("space-y-2", showSmylLotInput ? "md:col-span-3" : "md:col-span-2")}>
+                                    <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-6", showSmylLotInput ? 'md:grid-cols-3' : 'md:grid-cols-2')}>
+                                        <div className="space-y-2">
                                             <Label>Conceptos a Liquidar</Label>
                                             <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
                                                 <DialogTrigger asChild>
@@ -3373,7 +3527,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         {isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}
                                                     </Button>
                                                 </DialogTrigger>
-                                                <DialogContent><DialogHeader><DialogTitle>Seleccionar Conceptos</DialogTitle><DialogDescription>Marque los conceptos que desea incluir en la liquidación.</DialogDescription></DialogHeader>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Seleccionar Conceptos</DialogTitle>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Marque los conceptos a liquidar.
+                                                            {isConceptSelectorDisabled && <p className="text-destructive font-semibold mt-2">La selección está deshabilitada porque ha ingresado un lote de SMYL.</p>}
+                                                        </p>
+                                                    </DialogHeader>
                                                     <ScrollArea className="h-72 mt-4"><div className="space-y-2 pr-4">
                                                         {isLoadingAvailableConcepts ? (
                                                             <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -3381,30 +3542,37 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             <>
                                                                 <div className="flex items-center space-x-3 p-2 border-b">
                                                                     <Checkbox
-                                                                        id="select-all-concepts"
+                                                                        id="select-all-concepts-client"
                                                                         checked={availableConcepts.length > 0 && selectedConcepts.length === availableConcepts.length}
                                                                         onCheckedChange={(checked) => {
-                                                                            if (checked) {
-                                                                                setSelectedConcepts(availableConcepts.map(c => c.id));
-                                                                            } else {
-                                                                                setSelectedConcepts([]);
-                                                                            }
+                                                                            setSelectedConcepts(checked ? availableConcepts.map(c => c.id) : []);
                                                                         }}
                                                                     />
-                                                                    <Label htmlFor="select-all-concepts" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                                    <Label htmlFor="select-all-concepts-client" className="text-sm font-medium leading-none cursor-pointer">
                                                                         Seleccionar Todos
                                                                     </Label>
                                                                 </div>
-                                                                {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))}
+                                                                {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none cursor-pointer">{c.conceptName}</label></div>))}
                                                             </>
                                                         ) : (
-                                                            <p className="text-sm text-muted-foreground text-center py-10">No hay conceptos de liquidación aplicables para el cliente y fechas seleccionados.</p>
+                                                            <p className="text-sm text-muted-foreground text-center py-10">No hay conceptos aplicables para este cliente y rango de fechas.</p>
                                                         )}
                                                     </div></ScrollArea>
                                                 <DialogFooter><Button onClick={() => setIsSettlementConceptDialogOpen(false)}>Cerrar</Button></DialogFooter>
                                                 </DialogContent>
                                             </Dialog>
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label>No. Contenedor (Opcional)</Label>
+                                            <Input placeholder="Filtrar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
+                                        </div>
+                                        {showSmylLotInput && (
+                                            <div className="space-y-2 md:col-span-3">
+                                                <Label>Lote(s) de SMYL (Opcional)</Label>
+                                                <Textarea placeholder="Ingrese uno o más lotes, separados por comas o espacios" value={settlementLotIds} onChange={(e) => setSettlementLotIds(e.target.value.toUpperCase())} />
+                                                <p className="text-xs text-muted-foreground">Si ingresa un lote, solo se liquidarán los conceptos de manipulación y almacenamiento para ese lote.</p>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex gap-2">
                                         <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
@@ -3455,9 +3623,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <TableHead className="text-right text-xs p-2">Acciones</TableHead>
                                                 </TableRow>
                                             </TableHeader>
-                                            <TableBody>
+                                            
                                                 {isSettlementLoading ? (
-                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={18}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                    <TableBody>
+                                                    {Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={18}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)}
+                                                    </TableBody>
                                                 ) : Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
                                                         {Object.keys(settlementGroupedData).map(conceptName => {
@@ -3470,7 +3640,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             ].includes(conceptName);
                                                             
                                                             const renderGroup = (rows: ClientSettlementRow[], title: string, subtotalLabel: string) => (
-                                                                <React.Fragment key={title}>
+                                                                <tbody key={title}>
                                                                     {title && (
                                                                         <TableRow className="bg-muted hover:bg-muted/90">
                                                                             <TableCell colSpan={18} className="font-semibold text-primary text-sm p-2">{title}</TableCell>
@@ -3539,7 +3709,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                             <TableCell colSpan={2} className="text-right text-xs p-2">{rows.reduce((s, r) => s + r.totalValue, 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                                         </TableRow>
                                                                     )}
-                                                                </React.Fragment>
+                                                                </tbody>
                                                             );
                                                             
                                                             if (isContainerConcept) {
@@ -3564,17 +3734,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 return renderGroup(group.rows, conceptName, `Subtotal ${conceptName}:`);
                                                             }
                                                         })}
+                                                        <TableBody>
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
                                                             <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
                                                             <TableCell className="text-right p-2">{visibleSettlementData.reduce((sum, row) => sum + row.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                             <TableCell colSpan={2}></TableCell>
                                                             <TableCell className="text-right p-2" colSpan={2}>{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
+                                                        </TableBody>
                                                     </>
                                                 ) : (
+                                                    <TableBody>
                                                     <TableRow><TableCell colSpan={18} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                    </TableBody>
                                                 )}
-                                            </TableBody>
                                         </Table>
                                     </div>
                                     </>
@@ -3589,13 +3762,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>¿Está absolutamente seguro?</AlertDialogTitle>
-                        <AlertDialogDescription>
+                        <p className="text-sm text-muted-foreground">
                             Esta acción no se puede deshacer. Se eliminarán permanentemente los registros de inventario para el rango:
                             <br />
                             <strong className="text-foreground">
                                 {dateRangeToDelete?.from && format(dateRangeToDelete.from, "PPP", { locale: es })} - {dateRangeToDelete?.to && format(dateRangeToDelete.to, "PPP", { locale: es })}
                             </strong>.
-                        </AlertDialogDescription>
+                        </p>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
@@ -3656,7 +3829,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Editar Liquidación Manualmente</DialogTitle>
-                    <DialogDescription>Ajuste los valores para este registro. El cambio solo se aplicará a esta liquidación.</DialogDescription>
+                    <p className="text-sm text-muted-foreground">Ajuste los valores para este registro. El cambio solo se aplicará a esta liquidación.</p>
                 </DialogHeader>
                 <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto px-2">
                     <div className="grid grid-cols-2 gap-4">
@@ -3672,7 +3845,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
                                     <SelectItem value="Diurno">Diurno</SelectItem>
                                     <SelectItem value="Nocturno">Nocturno</SelectItem>
                                     <SelectItem value="Extra">Extra</SelectItem>
-                                    <SelectItem value="No Aplica">No Aplica</SelectItem>
+                                    <SelectItem value="N/A">No Aplica</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -3733,6 +3906,3 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-
-
-
