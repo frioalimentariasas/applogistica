@@ -167,7 +167,8 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
     }
 
     if (formType === 'fixed-weight-despacho') {
-        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0), 0);
+        // CORRECCIÓN: Sumar solo paletasCompletas para despachos de peso fijo.
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.paletasCompletas) || 0), 0);
     }
     
     if (formType.startsWith('variable-weight-')) {
@@ -427,3 +428,4 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
 }
 
     
+
