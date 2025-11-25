@@ -2360,7 +2360,7 @@ const conceptOrder = [
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
-            margin: { left: 20 },
+            margin: { left: 20, right: 10 },
             pageBreak: 'auto',
             headStyles: { fillColor: [26, 144, 200], fontSize: 7, cellPadding: 1 },
             styles: { fontSize: 7, cellPadding: 1 },
@@ -2369,18 +2369,23 @@ const conceptOrder = [
 
             didDrawPage: function (data) {
                 const doc = data.doc;
-                const totalPages = (doc as any).internal.getNumberOfPages();
+                // No obtenemos el total de páginas aquí
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
-    
+
                 doc.setFontSize(8);
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(150);
+                },
     
-                const footerText = `Página ${data.pageNumber} de ${totalPages}`;
-                doc.text(footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
-            },
-        });
+                });
+    
+                // --- INICIO DE CÓDIGO A AGREGAR ---
+                const totalPages = (doc as any).internal.getNumberOfPages();
+                for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.text(doc.internal.getCurrentPageInfo().pageNumber + " de " + totalPages, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+    }
 
         const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);

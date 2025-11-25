@@ -9,6 +9,7 @@ import * as z from 'zod';
 import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, endOfDay, differenceInMinutes, parse, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
+import * as ExcelJS from 'exceljs';
 
 
 import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations, uploadInspeccionOperations, uploadArinOperations, addDailyLocationOperation, type DailyLocationOperationData } from './actions';
@@ -40,6 +41,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
+
 
 const dailyLocationSchema = z.object({
   date: z.date(),
@@ -212,10 +215,23 @@ type DialogMode = 'add' | 'edit' | 'view';
 
 const LOCATION_STORAGE_CONCEPT_NAME = 'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)';
 
+const conceptosPermitidosParaPlanta = [
+  "INSPECCIÓN ZFPC",
+  "TIEMPO EXTRA ZFPC",
+  "ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA",
+  "MOVIMIENTO ENTRADA PRODUCTOS PALLET",
+  "MOVIMIENTO SALIDA PRODUCTOS PALLET",
+  "MOVIMIENTO ENTRADA PRODUCTO - PALETA",
+  "MOVIMIENTO SALIDA PRODUCTO - PALETA",
+  "ETIQUETADO POR CAJA/ UNIDAD",
+  "SERVICIO DE INSPECCIÓN POR CAJA",
+  "ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL"
+];
+
 export default function ManualOperationsClientComponent({ clients, billingConcepts }: ManualOperationsClientComponentProps) {
     const router = useRouter();
     const { toast } = useToast();
-    const { user, displayName } = useAuth();
+    const { user, displayName, email } = useAuth();
     const [allOperations, setAllOperations] = useState<any[]>([]);
     const [filteredOperations, setFilteredOperations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -258,7 +274,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 opLogistica: undefined, 
                 fmmNumber: '', 
                 pedidoSislog: '', 
-                noDocumento: '' },
+                noDocumento: '' 
+            },
             bulkRoles: [],
             excedentes: [],
             selectedDates: [],
@@ -270,6 +287,13 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const watchedConcept = watch('concept');
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
+    const conceptsForUser = useMemo(() => {
+        if (email === 'planta@frioalimentaria.com.co') {
+            return billingConcepts.filter(c => conceptosPermitidosParaPlanta.includes(c.conceptName));
+        }
+        return billingConcepts;
+    }, [billingConcepts, email]);
+
     useEffect(() => {
         if (watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE INGRESO ZFPC (NACIONALIZADO)') {
             setValue('details.opLogistica', 'DESCARGUE');
@@ -911,7 +935,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} isInspeccionZfpc={isInspeccionZfpc} isLocationMode={isLocationMode}/>
+                                        <ConceptFormBody form={form} clients={clients} billingConcepts={conceptsForUser} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} isInspeccionZfpc={isInspeccionZfpc} isLocationMode={isLocationMode}/>
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
