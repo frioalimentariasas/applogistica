@@ -167,7 +167,7 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
     }
 
     if (formType === 'fixed-weight-despacho') {
-        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0), 0);
     }
     
     if (formType.startsWith('variable-weight-')) {
