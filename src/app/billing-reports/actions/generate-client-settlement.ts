@@ -493,7 +493,6 @@ async function processCargueAlmacenamiento(
             op.formData.tipoPedido === 'GENERICO'
         );
     
-    // Find the sub-concepts for later use
     const congelacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (1 DÍA)');
     const manipulacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO DE MANIPULACIÓN');
 
@@ -572,64 +571,60 @@ async function processCargueAlmacenamiento(
                         const fechaDespachoFinalStr = format(fechaDespachoMasReciente, 'yyyy-MM-dd');
 
                         if (fechaRecepcionStr === fechaDespachoFinalStr) {
-                             // Cross-docking: Cargar solo manipulación con el valor total
-                            settlementRows.push({
-                                date: fechaRecepcionStr,
-                                placa: recepcion.formData.placa,
-                                container: recepcion.formData.contenedor,
-                                camara: 'CO',
-                                totalPaletas: totalPaletasRecepcion,
-                                operacionLogistica: 'Cross-Dock',
-                                pedidoSislog: recepcion.formData.pedidoSislog,
-                                conceptName: concept.conceptName,
-                                subConceptName: 'Servicio de Manipulación',
-                                tipoVehiculo: 'N/A',
-                                quantity: 1,
-                                unitOfMeasure: 'UNIDAD',
-                                unitValue: valorTotalConceptoPrincipal,
-                                totalValue: valorTotalConceptoPrincipal,
-                            });
-                        } else {
-                            // Almacenamiento + Manipulación
-                            const totalCongelacion = totalPaletasRecepcion * congelacionTariff;
-                            const totalManipulacion = valorTotalConceptoPrincipal - totalCongelacion;
-                            
-                            // Fila para congelación
-                            settlementRows.push({
-                                date: fechaRecepcionStr,
-                                placa: recepcion.formData.placa,
-                                container: recepcion.formData.contenedor,
-                                camara: 'CO',
-                                totalPaletas: totalPaletasRecepcion,
-                                operacionLogistica: 'Recepción',
-                                pedidoSislog: recepcion.formData.pedidoSislog,
-                                conceptName: concept.conceptName,
-                                subConceptName: 'Servicio logístico Congelación (1 día)',
-                                tipoVehiculo: 'N/A',
-                                quantity: totalPaletasRecepcion,
-                                unitOfMeasure: 'PALETA',
-                                unitValue: congelacionTariff,
-                                totalValue: totalCongelacion,
-                            });
-                            
-                            // Fila para manipulación
-                            settlementRows.push({
-                                date: fechaRecepcionStr,
-                                placa: recepcion.formData.placa,
-                                container: recepcion.formData.contenedor,
-                                camara: 'CO',
-                                totalPaletas: 0,
-                                operacionLogistica: 'Recepción',
-                                pedidoSislog: recepcion.formData.pedidoSislog,
-                                conceptName: concept.conceptName,
-                                subConceptName: 'Servicio de Manipulación',
-                                tipoVehiculo: 'N/A',
-                                quantity: 1,
-                                unitOfMeasure: 'UNIDAD',
-                                unitValue: totalManipulacion,
-                                totalValue: totalManipulacion,
-                            });
-                        }
+                           settlementRows.push({
+                               date: fechaRecepcionStr,
+                               placa: recepcion.formData.placa,
+                               container: recepcion.formData.contenedor,
+                               camara: 'CO',
+                               totalPaletas: totalPaletasRecepcion,
+                               operacionLogistica: 'Cross-Dock',
+                               pedidoSislog: recepcion.formData.pedidoSislog,
+                               conceptName: manipulacionConcept.conceptName,
+                               subConceptName: undefined,
+                               tipoVehiculo: 'N/A',
+                               quantity: 1,
+                               unitOfMeasure: 'UNIDAD',
+                               unitValue: valorTotalConceptoPrincipal,
+                               totalValue: valorTotalConceptoPrincipal,
+                           });
+                       } else {
+                           const totalCongelacion = totalPaletasRecepcion * congelacionTariff;
+                           const totalManipulacion = valorTotalConceptoPrincipal - totalCongelacion;
+                           
+                           settlementRows.push({
+                               date: fechaRecepcionStr,
+                               placa: recepcion.formData.placa,
+                               container: recepcion.formData.contenedor,
+                               camara: 'CO',
+                               totalPaletas: totalPaletasRecepcion,
+                               operacionLogistica: 'Recepción',
+                               pedidoSislog: recepcion.formData.pedidoSislog,
+                               conceptName: concept.conceptName,
+                               subConceptName: 'Servicio logístico Congelación (1 día)',
+                               tipoVehiculo: 'N/A',
+                               quantity: totalPaletasRecepcion,
+                               unitOfMeasure: 'PALETA',
+                               unitValue: congelacionTariff,
+                               totalValue: totalCongelacion,
+                           });
+                           
+                           settlementRows.push({
+                               date: fechaRecepcionStr,
+                               placa: recepcion.formData.placa,
+                               container: recepcion.formData.contenedor,
+                               camara: 'CO',
+                               totalPaletas: 0,
+                               operacionLogistica: 'Recepción',
+                               pedidoSislog: recepcion.formData.pedidoSislog,
+                               conceptName: concept.conceptName,
+                               subConceptName: 'Servicio de Manipulación',
+                               tipoVehiculo: 'N/A',
+                               quantity: 1,
+                               unitOfMeasure: 'UNIDAD',
+                               unitValue: totalManipulacion,
+                               totalValue: totalManipulacion,
+                           });
+                       }
                         processedCrossDockLots.add(loteId);
                     }
                 }
@@ -645,7 +640,6 @@ async function processAvicolaMaquila(
     serverQueryEndDate: Date,
     settlementRows: ClientSettlementRow[]
 ) {
-    // Normalizar nombres de conceptos a comparar
     const alquilerConceptNameNormalized = 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
     const apoyoConceptNameNormalized = 'SERVICIO APOYO JORNAL';
     const currentConceptNameNormalized = concept.conceptName
@@ -706,7 +700,6 @@ export async function generateClientSettlement(criteria: {
   const processedCrossDockLots = new Set<string>();
   const allConcepts = await getClientBillingConcepts();
 
-  // --- SPECIAL SMYL by LOT ID LOGIC ---
   if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotIds && lotIds.length > 0) {
       if (conceptIds.length > 0) {
           return { success: false, error: "No puede seleccionar conceptos manuales al liquidar por lote en SMYL." };
@@ -719,7 +712,6 @@ export async function generateClientSettlement(criteria: {
       }
   }
 
-  // --- STANDARD LOGIC FOR ALL OTHER CASES ---
   if (!firestore) {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
@@ -735,7 +727,6 @@ export async function generateClientSettlement(criteria: {
     const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
     const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
-    // Fetch all submissions for the client up to the end date
     const allSubmissionsSnapshot = await firestore.collection('submissions')
         .where('formData.fecha', '<=', serverQueryEndDate)
         .get();
@@ -822,7 +813,7 @@ export async function generateClientSettlement(criteria: {
 
         for (const op of canastasOps) {
             const opData = op.data;
-            const totalTons = opData.quantity; // Quantity from manual crew op is TONS for this case
+            const totalTons = opData.quantity; 
             
             const matchingTariff = findMatchingTariff(totalTons, operacionCargueConcept);
             if (matchingTariff) {
@@ -896,14 +887,12 @@ export async function generateClientSettlement(criteria: {
             
             let weightKg = calculateWeightForOperation(submission, concept.filterSesion, articleSessionMap, forceNetWeight);
             
-            //if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) continue;
-            //if (weightKg <= 0 && !(concept.calculationBase === 'NUMERO_OPERACIONES' || concept.calculationBase === 'NUMERO_CONTENEDORES' || concept.calculationBase?.includes('MAQUILA'))) {
                 const isWeightBased = concept.calculationBase === 'TONELADAS' || concept.calculationBase === 'KILOGRAMOS';
                 if (isWeightBased && weightKg <= 0) {
                 settlementRows.push({
                     isPending: true,
                     submissionId: submission.id,
-                    formType: submission.formType, // NUEVA LÍNEA
+                    formType: submission.formType, 
                     date: submission.formData.fecha,
                     placa: submission.formData.placa || 'N/A',
                     container: submission.formData.contenedor || 'N/A',
@@ -918,7 +907,7 @@ export async function generateClientSettlement(criteria: {
                     unitValue: 0,
                     totalValue: 0
                 });
-                continue; // Ahora sí, continuamos para no procesar el resto de la lógica para esta fila
+                continue; 
             }
             
             let finalWeightKg = weightKg;
@@ -1024,13 +1013,13 @@ export async function generateClientSettlement(criteria: {
             }
                 
             settlementRows.push({
-                submissionId: submission.id, // <-- Añadir esta línea
-                formType: submission.formType, // NUEVA LÍNEA
+                submissionId: submission.id, 
+                formType: submission.formType,
                 date: submission.formData.fecha,
                 placa: submission.formData.placa || 'N/A',
                 container: submission.formData.contenedor || 'N/A',
                 camara,
-                totalPallets: totalPallets,
+                totalPaletas: totalPallets,
                 operacionLogistica,
                 pedidoSislog: submission.formData.pedidoSislog,
                 conceptName: concept.conceptName,
@@ -1196,7 +1185,7 @@ export async function generateClientSettlement(criteria: {
             } else if (concept.tariffType === 'ESPECIFICA' && Array.isArray(opData.specificTariffs) && opData.specificTariffs.length > 0) {
                  opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number, numPersonas?: number }) => {
                     const specificTariffInfo = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
-                    if (!specificTariffInfo) return; // Skip if tariff info not found
+                    if (!specificTariffInfo) return; 
                     
                     const numPersonas = appliedTariff.numPersonas || opData.numeroPersonas;
                     let quantityForCalc = appliedTariff.quantity || 0;
@@ -1225,7 +1214,7 @@ export async function generateClientSettlement(criteria: {
                             placa: opData.details?.plate || 'N/A',
                             container: opData.details?.container || 'N/A',
                             totalPaletas: opData.details?.totalPallets || 0,
-                            camara: 'CO', // Hardcoded for this specific concept
+                            camara: 'CO', 
                             operacionLogistica: 'N/A',
                             pedidoSislog: opData.details?.pedidoSislog || 'Manual',
                             conceptName: concept.conceptName,
@@ -1244,7 +1233,7 @@ export async function generateClientSettlement(criteria: {
             } else if (concept.tariffType === 'ESPECIFICA' && concept.conceptName === 'TIEMPO EXTRA ZFPC') {
                 const quantityForCalc = opData.quantity || 1;
                 const numPersonas = opData.numeroPersonas || 1;
-                const specificTariffInfo = concept.specificTariffs?.[0]; // Assuming only one for this concept
+                const specificTariffInfo = concept.specificTariffs?.[0]; 
                 if (specificTariffInfo) {
                     const totalValue = quantityForCalc * (specificTariffInfo.value || 0) * numPersonas;
                     const valorUnitario = specificTariffInfo.value || 0;
@@ -1274,11 +1263,9 @@ export async function generateClientSettlement(criteria: {
                 let numeroPersonasParaReporte: number | string | undefined = opData.numeroPersonas;
                 
                 let operacionLogistica = 'N/A';
-                // AQUÍ EMPIEZA LA LÓGICA
                 if (opData.concept === 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)') {
                     operacionLogistica = 'Servicio Congelación';
                 }
-                // AQUÍ TERMINA
                 let containerValue = opData.details?.container || 'N/A';
                 const noDocumento = opData.details?.noDocumento;
             
@@ -1286,15 +1273,14 @@ export async function generateClientSettlement(criteria: {
                     operacionLogistica = opData.details?.opLogistica && opData.details?.fmmNumber
                         ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
                         : 'N/A';
-                    // containerValue mantiene el valor del contenedor
                 } else if (opData.concept.includes('ARIN')) {
                     operacionLogistica = opData.details?.opLogistica && opData.details?.arin
                     ? `${opData.details.opLogistica} - #${opData.details?.arin}`
                     : 'N/A';   
 
-                    containerValue = opData.details?.container || 'N/A'; // ARIN usa el número ARIN
+                    containerValue = opData.details?.container || 'N/A';
                 } else if (noDocumento) {
-                    containerValue = noDocumento; // Fallback para otros conceptos
+                    containerValue = noDocumento; 
                 }
 
 
@@ -1310,7 +1296,6 @@ export async function generateClientSettlement(criteria: {
                 } else {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
-                //Conceptos Que no queremos que tenga # personas en Liquidación de Clientes 
                 const conceptsToHideNumeroPersonas = [
                     'IN-HOUSE INSPECTOR ZFPC',
                     'FMM DE INGRESO ZFPC (MANUAL)',
@@ -1328,7 +1313,6 @@ export async function generateClientSettlement(criteria: {
                 
         
                 if (conceptsToHideNumeroPersonas.includes(concept.conceptName)) {
-                     //operacionLogistica = opData.comentarios || 'No Aplica';
                      numeroPersonasParaReporte = undefined;
                 }
 
@@ -1404,8 +1388,6 @@ export async function generateClientSettlement(criteria: {
                 const initialBalanceMovements = movementsForContainer.filter(m => isBefore(m.date, serverQueryStartDate));
                 let balance = initialBalanceMovements.reduce((acc, mov) => acc + (mov.type === 'entry' ? mov.pallets : -mov.pallets), 0);
                 
-                //const dateRangeArray = eachDayOfInterval({ start: serverQueryStartDate, end: serverQueryEndDate });
-                // Re-calculate the end date here to NOT include the extra day for this specific loop
                 const correctEndDate = new Date(`${endDate}T00:00:00-05:00`);
                 const dateRangeArray = eachDayOfInterval({ start: serverQueryStartDate, end: correctEndDate });
                 for (const date of dateRangeArray) {
@@ -1464,21 +1446,17 @@ export async function generateClientSettlement(criteria: {
         }
     }
 
-    // --- START: Normalization Logic ---
     settlementRows.forEach(row => {
-        // Normalize concept names with and without accent
         const upperConceptName = row.conceptName.toUpperCase().replace('AREA', 'ÁREA');
         if (upperConceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA') {
             row.conceptName = 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
         }
 
-        // Existing normalization for AVICOLA EL MADROÑO
         const op = allOperations.find(o => o.type === 'form' && o.data.formData.pedidoSislog === row.pedidoSislog);
         if (clientName === 'AVICOLA EL MADROÑO S.A.' && row.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)' && op && op.data.formData.tipoPedido === 'DESPACHO GENERICO') {
             row.camara = 'SE';
         }
     });
-    // --- END: Normalization Logic ---
     
     const conceptOrder = [
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
@@ -1527,7 +1505,7 @@ export async function generateClientSettlement(criteria: {
 'SERVICIO EMPAQUE EN SACOS',
 'IMPRESIÓN FACTURAS',
 'TRANSBORDO CANASTILLA',
-'ALQUILER IMPRESORA ETIQUEDADO',
+'ALQUILER IMPRESORA ETIQUETADO',
 'FMM DE INGRESO ZFPC',
 'FMM DE INGRESO ZFPC (MANUAL)',
 'FMM DE INGRESO ZFPC NACIONAL',
@@ -1628,7 +1606,6 @@ const minutesToTime = (minutes: number): string => {
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-
     
 
 
@@ -1638,3 +1615,8 @@ const minutesToTime = (minutes: number): string => {
 
 
 
+
+
+    
+
+    
