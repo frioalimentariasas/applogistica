@@ -312,41 +312,41 @@ export async function getSmylEligibleLots(
     if (!history) continue;
 
     const { initialReception, movements } = history;
-    let currentBalance = initialReception.pallets;
-    let isEligible = false;
-
-    const loopEndDate = addDays(queryEnd, 1);
-    const dateInterval = eachDayOfInterval({ start: startOfDay(initialReception.date), end: loopEndDate });
-
-    for (const [dayIndex, date] of dateInterval.entries()) {
-        const dateStr = format(date, 'yyyy-MM-dd');
-        const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
-        
-        const initialBalanceForDay = currentBalance;
-        let despachosHoy = 0;
-        let ingresosHoy = 0;
-
-        movementsToday.forEach(mov => {
-            if (mov.type === 'despacho') despachosHoy += mov.pallets;
-            else if (mov.type === 'ingreso_saldos') ingresosHoy += mov.pallets;
+    
+    // Check if any movement (including initial reception) is within the date range
+    const receptionDate = startOfDay(initialReception.date);
+    const hasMovementInDateRange = 
+        (receptionDate >= queryStart && receptionDate <= queryEnd) ||
+        movements.some(mov => {
+            const moveDate = startOfDay(mov.date);
+            return moveDate >= queryStart && moveDate <= queryEnd;
         });
 
-        currentBalance = initialBalanceForDay - despachosHoy + ingresosHoy;
-        
-        if (date >= queryStart && date <= queryEnd && currentBalance > 0) {
+    if (!hasMovementInDateRange) {
+        continue; // Skip lot if no movement happened in the selected range
+    }
+
+    let isEligible = false;
+    // If we've confirmed movement in range, we just need to check the grace/status filter now.
+    // We don't need to check for balance anymore for eligibility, only for grace period filtering.
+    if (graceFilter === 'all') {
+        isEligible = true;
+    } else {
+        const firstDayWithMovementInQuery = movements
+            .map(m => startOfDay(m.date))
+            .concat(receptionDate)
+            .filter(d => d >= queryStart && d <= queryEnd)
+            .sort((a,b) => a.getTime() - b.getTime())[0];
+
+        if (firstDayWithMovementInQuery) {
+            const dayIndex = Math.floor((firstDayWithMovementInQuery.getTime() - receptionDate.getTime()) / (1000 * 60 * 60 * 24));
             const isGracePeriod = dayIndex < 4;
 
-            if (graceFilter === 'all') {
-                isEligible = true;
-                break;
-            }
             if (graceFilter === 'in_grace' && isGracePeriod) {
                 isEligible = true;
-                break;
             }
             if (graceFilter === 'post_grace' && !isGracePeriod) {
-                 isEligible = true;
-                break;
+                isEligible = true;
             }
         }
     }
