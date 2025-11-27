@@ -484,13 +484,24 @@ async function processCargueAlmacenamiento(
     serverQueryStartDate: Date,
     serverQueryEndDate: Date,
     settlementRows: ClientSettlementRow[],
-    processedCrossDockLots: Set<string>
+    processedCrossDockLots: Set<string>,
+    allConcepts: ClientBillingConcept[]
 ) {
     const recepciones = allSubmissionsForClient
         .filter(op => 
             (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
             op.formData.tipoPedido === 'GENERICO'
         );
+    
+    // Find the sub-concepts for later use
+    const congelacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (1 DÍA)');
+    const manipulacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO DE MANIPULACIÓN');
+
+    if (!congelacionConcept || !manipulacionConcept) {
+        console.warn("Sub-conceptos para SMYL (Congelación o Manipulación) no encontrados. Saltando lógica.");
+        return;
+    }
+    const congelacionTariff = congelacionConcept.value || 8750;
 
     for (const recepcion of recepciones) {
         const lotesEnRecepcion: Record<string, { peso: number, paletas: Set<string> }> = (recepcion.formData.items || []).reduce((acc: any, item: any) => {
@@ -529,10 +540,16 @@ async function processCargueAlmacenamiento(
                 if (despachosRelevantes.length > 0) {
                     let totalPaletasDespachadas = 0;
                     const paletasContadas = new Set<string>();
+                    let fechaDespachoMasReciente = new Date(0);
 
                     despachosRelevantes.forEach(despacho => {
                         const allItemsDespacho = (despacho.formData.items || [])
                             .concat((despacho.formData.destinos || []).flatMap((d: any) => d.items || []));
+                        
+                        const fechaDespachoActual = new Date(despacho.formData.fecha);
+                        if(fechaDespachoActual > fechaDespachoMasReciente) {
+                            fechaDespachoMasReciente = fechaDespachoActual;
+                        }
 
                         allItemsDespacho.forEach((item: any) => {
                             if (item.lote === loteId && !item.esPicking && item.paleta) {
@@ -546,24 +563,73 @@ async function processCargueAlmacenamiento(
                     });
 
                     if (totalPaletasDespachadas > 0 && totalPaletasDespachadas === lotesEnRecepcion[loteId].paletas.size) {
-                         if (!isWithinInterval(fechaRecepcion, { start: serverQueryStartDate, end: serverQueryEndDate })) {
+                        if (!isWithinInterval(fechaRecepcion, { start: serverQueryStartDate, end: serverQueryEndDate })) {
                             continue;
                         }
-                        settlementRows.push({
-                            date: format(fechaRecepcion, 'yyyy-MM-dd'),
-                            placa: recepcion.formData.placa,
-                            container: recepcion.formData.contenedor,
-                            camara: 'CO',
-                            totalPaletas: totalPaletasDespachadas,
-                            operacionLogistica: 'N/A',
-                            pedidoSislog: recepcion.formData.pedidoSislog,
-                            conceptName: concept.conceptName,
-                            tipoVehiculo: 'N/A',
-                            quantity: 1,
-                            unitOfMeasure: concept.unitOfMeasure,
-                            unitValue: concept.value || 0,
-                            totalValue: concept.value || 0,
-                        });
+
+                        const totalPaletasRecepcion = lotesEnRecepcion[loteId].paletas.size;
+                        const valorTotalConceptoPrincipal = concept.value || 0;
+                        const fechaDespachoFinalStr = format(fechaDespachoMasReciente, 'yyyy-MM-dd');
+
+                        if (fechaRecepcionStr === fechaDespachoFinalStr) {
+                             // Cross-docking: Cargar solo manipulación con el valor total
+                            settlementRows.push({
+                                date: fechaRecepcionStr,
+                                placa: recepcion.formData.placa,
+                                container: recepcion.formData.contenedor,
+                                camara: 'CO',
+                                totalPaletas: totalPaletasRecepcion,
+                                operacionLogistica: 'Cross-Dock',
+                                pedidoSislog: recepcion.formData.pedidoSislog,
+                                conceptName: concept.conceptName,
+                                subConceptName: 'Servicio de Manipulación',
+                                tipoVehiculo: 'N/A',
+                                quantity: 1,
+                                unitOfMeasure: 'UNIDAD',
+                                unitValue: valorTotalConceptoPrincipal,
+                                totalValue: valorTotalConceptoPrincipal,
+                            });
+                        } else {
+                            // Almacenamiento + Manipulación
+                            const totalCongelacion = totalPaletasRecepcion * congelacionTariff;
+                            const totalManipulacion = valorTotalConceptoPrincipal - totalCongelacion;
+                            
+                            // Fila para congelación
+                            settlementRows.push({
+                                date: fechaRecepcionStr,
+                                placa: recepcion.formData.placa,
+                                container: recepcion.formData.contenedor,
+                                camara: 'CO',
+                                totalPaletas: totalPaletasRecepcion,
+                                operacionLogistica: 'Recepción',
+                                pedidoSislog: recepcion.formData.pedidoSislog,
+                                conceptName: concept.conceptName,
+                                subConceptName: 'Servicio logístico Congelación (1 día)',
+                                tipoVehiculo: 'N/A',
+                                quantity: totalPaletasRecepcion,
+                                unitOfMeasure: 'PALETA',
+                                unitValue: congelacionTariff,
+                                totalValue: totalCongelacion,
+                            });
+                            
+                            // Fila para manipulación
+                            settlementRows.push({
+                                date: fechaRecepcionStr,
+                                placa: recepcion.formData.placa,
+                                container: recepcion.formData.contenedor,
+                                camara: 'CO',
+                                totalPaletas: 0,
+                                operacionLogistica: 'Recepción',
+                                pedidoSislog: recepcion.formData.pedidoSislog,
+                                conceptName: concept.conceptName,
+                                subConceptName: 'Servicio de Manipulación',
+                                tipoVehiculo: 'N/A',
+                                quantity: 1,
+                                unitOfMeasure: 'UNIDAD',
+                                unitValue: totalManipulacion,
+                                totalValue: totalManipulacion,
+                            });
+                        }
                         processedCrossDockLots.add(loteId);
                     }
                 }
@@ -727,12 +793,12 @@ export async function generateClientSettlement(criteria: {
     
     const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts);
     }
 
     const smylCargueAlmacenamientoVehiculoLivianoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoVehiculoLivianoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts);
     }
 
     const avicolaAlquilerConcept = selectedConcepts.find(c => c.conceptName.toUpperCase().replace('AREA', 'ÁREA') === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA');
@@ -964,7 +1030,7 @@ export async function generateClientSettlement(criteria: {
                 placa: submission.formData.placa || 'N/A',
                 container: submission.formData.contenedor || 'N/A',
                 camara,
-                totalPaletas: totalPallets,
+                totalPallets: totalPallets,
                 operacionLogistica,
                 pedidoSislog: submission.formData.pedidoSislog,
                 conceptName: concept.conceptName,
@@ -1564,6 +1630,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
