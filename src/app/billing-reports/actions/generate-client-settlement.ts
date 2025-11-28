@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -485,13 +486,19 @@ async function processCargueAlmacenamiento(
     serverQueryEndDate: Date,
     settlementRows: ClientSettlementRow[],
     processedCrossDockLots: Set<string>,
-    allConcepts: ClientBillingConcept[]
+    allConcepts: ClientBillingConcept[],
+    containerNumber?: string // AGREGADO
 ) {
-    const recepciones = allSubmissionsForClient
+    let recepciones = allSubmissionsForClient
         .filter(op => 
             (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
             op.formData.tipoPedido === 'GENERICO'
         );
+
+    // FILTRO ADICIONAL POR CONTENEDOR SI SE PROPORCIONA
+    if (containerNumber) {
+        recepciones = recepciones.filter(op => op.formData.contenedor === containerNumber);
+    }
     
     const congelacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (1 DÍA)');
     const manipulacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO DE MANIPULACIÓN');
@@ -577,7 +584,7 @@ async function processCargueAlmacenamiento(
                                container: recepcion.formData.contenedor,
                                camara: 'CO',
                                totalPaletas: totalPaletasRecepcion,
-                               operacionLogistica: 'Cross-Dock',
+                               operacionLogistica: 'Cross-Docking',
                                pedidoSislog: recepcion.formData.pedidoSislog,
                                conceptName: manipulacionConcept.conceptName,
                                subConceptName: undefined,
@@ -784,12 +791,12 @@ export async function generateClientSettlement(criteria: {
     
     const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts, containerNumber);
     }
 
     const smylCargueAlmacenamientoVehiculoLivianoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoVehiculoLivianoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts, containerNumber);
     }
 
     const avicolaAlquilerConcept = selectedConcepts.find(c => c.conceptName.toUpperCase().replace('AREA', 'ÁREA') === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA');
@@ -1505,7 +1512,7 @@ export async function generateClientSettlement(criteria: {
 'SERVICIO EMPAQUE EN SACOS',
 'IMPRESIÓN FACTURAS',
 'TRANSBORDO CANASTILLA',
-'ALQUILER IMPRESORA ETIQUETADO',
+'ALQUILER IMPRESORA ETIQUEDADO',
 'FMM DE INGRESO ZFPC',
 'FMM DE INGRESO ZFPC (MANUAL)',
 'FMM DE INGRESO ZFPC NACIONAL',
