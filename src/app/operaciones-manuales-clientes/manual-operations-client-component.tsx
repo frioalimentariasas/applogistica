@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -87,16 +88,16 @@ const manualOperationSchema = z.object({
   numeroPosiciones: z.coerce.number().int().min(1, 'Debe ingresar al menos una posición.').optional(),
   comentarios: z.string().max(150, "Máximo 150 caracteres.").optional(),
   details: z.object({
-      startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM inválido.').optional().or(z.literal('')),
-      endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM inválido.').optional().or(z.literal('')),
+      startTime: z.string().optional().or(z.literal('')),
+      endTime: z.string().optional().or(z.literal('')),
       plate: z.string().optional(),
       container: z.string().optional(),
       totalPallets: z.coerce.number().int().min(0, 'Debe ser un número positivo.').optional(),
       arin: z.string().optional(),
       fechaArribo: z.date().optional(),
-      horaArribo: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM inválido.').optional().or(z.literal('')),
+      horaArribo: z.string().optional().or(z.literal('')),
       fechaSalida: z.date().optional(),
-      horaSalida: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM inválido.').optional().or(z.literal('')),
+      horaSalida: z.string().optional().or(z.literal('')),
       opLogistica: z.enum(['CARGUE', 'DESCARGUE']).optional(),
       fmmNumber: z.string().optional(),
       pedidoSislog: z.string().optional(),
@@ -126,7 +127,7 @@ const manualOperationSchema = z.object({
                ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Todas las fechas seleccionadas deben tener una cantidad mayor a 0.", path: ["dailyLocations"] });
           }
       }
-    } else { // Not bulk mode
+    } else { 
        if (!isElectricConnection && (!data.operationDate || isNaN(data.operationDate.getTime()))) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha es obligatoria.", path: ["operationDate"] });
        }
@@ -140,8 +141,8 @@ const manualOperationSchema = z.object({
     }
     
     if (isTimeExtraMode || isInspeccionZfpc) {
-      if (!data.details?.startTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es requerida.", path: ["details.startTime"] });
-      if (!data.details?.endTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es requerida.", path: ["details.endTime"] });
+      if (!data.details?.startTime || !data.details.startTime.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es requerida y debe tener formato HH:MM.", path: ["details.startTime"] });
+      if (!data.details?.endTime || !data.details.endTime.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es requerida y debe tener formato HH:MM.", path: ["details.endTime"] });
     }
     
     if(isTimeExtraMode) {
@@ -152,9 +153,9 @@ const manualOperationSchema = z.object({
 
     if (isElectricConnection) {
         if (!data.details?.fechaArribo) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha de arribo es obligatoria.", path: ["details.fechaArribo"] });
-        if (!data.details?.horaArribo) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de arribo es obligatoria.", path: ["details.horaArribo"] });
+        if (!data.details?.horaArribo || !data.details.horaArribo.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de arribo es obligatoria y debe tener formato HH:MM.", path: ["details.horaArribo"] });
         if (!data.details?.fechaSalida) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha de salida es obligatoria.", path: ["details.fechaSalida"] });
-        if (!data.details?.horaSalida) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de salida es obligatoria.", path: ["details.horaSalida"] });
+        if (!data.details?.horaSalida || !data.details.horaSalida.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de salida es obligatoria y debe tener formato HH:MM.", path: ["details.horaSalida"] });
         if (!data.details?.container?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
         }
@@ -906,7 +907,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <p className="text-muted-foreground">
                                                         {searched
                                                             ? "No hay operaciones manuales para los filtros seleccionados."
-                                                            : "Seleccione un rango de fechas y haga clic en 'Consultar' para ver los registros."}
+                                                            : "Seleccione una fecha y haga clic en 'Consultar' para ver los registros."}
                                                     </p>
                                                 </div>
                                             </TableCell>
