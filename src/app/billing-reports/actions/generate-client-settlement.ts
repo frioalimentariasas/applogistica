@@ -335,13 +335,15 @@ const calculateUnitsForOperation = (
   if (formType?.startsWith('fixed-weight')) {
     return items.reduce((sum: number, p: any) => {
       const quantity = Number(p.cajas) || 0;
-      // Caso especial GRUPO FRUTELLI: solo contar si es picking.
+      // Para Frutelli en despacho, sumar todo.
       if (isDispatch && isFrutelli) {
-          const paletasPicking = Number(p.paletasPicking) || 0;
-          return paletasPicking > 0 ? sum + quantity : sum;
+          return sum + quantity;
       }
-      // Caso general: contar siempre.
-      return sum + quantity;
+      // Para otros casos, mantener la lógica original.
+      if (!isFrutelli) {
+          return sum + quantity;
+      }
+      return sum;
     }, 0);
   }
 
@@ -351,19 +353,24 @@ const calculateUnitsForOperation = (
       return items.reduce((sum: number, i: any) => {
         const quantity = Number(i.totalCantidad) || 0;
         if (isDispatch && isFrutelli) {
-          const paletasPicking = Number(i.paletasPicking) || 0;
-          return paletasPicking > 0 ? sum + quantity : sum;
+            return sum + quantity;
         }
-        return sum + quantity;
+        if (!isFrutelli) {
+            return sum + quantity;
+        }
+        return sum;
       }, 0);
     }
     // Detailed variable weight
     return items.reduce((sum: number, i: any) => {
       const quantity = Number(i.cantidadPorPaleta) || 0;
       if (isDispatch && isFrutelli) {
-        return i.esPicking === true ? sum + quantity : sum;
+        return sum + quantity;
       }
-      return sum + quantity;
+      if (!isFrutelli) {
+          return sum + quantity;
+      }
+      return sum;
     }, 0);
   }
 
@@ -486,19 +493,13 @@ async function processCargueAlmacenamiento(
     serverQueryEndDate: Date,
     settlementRows: ClientSettlementRow[],
     processedCrossDockLots: Set<string>,
-    allConcepts: ClientBillingConcept[],
-    containerNumber?: string // AGREGADO
+    allConcepts: ClientBillingConcept[]
 ) {
-    let recepciones = allSubmissionsForClient
+    const recepciones = allSubmissionsForClient
         .filter(op => 
             (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
             op.formData.tipoPedido === 'GENERICO'
         );
-
-    // FILTRO ADICIONAL POR CONTENEDOR SI SE PROPORCIONA
-    if (containerNumber) {
-        recepciones = recepciones.filter(op => op.formData.contenedor === containerNumber);
-    }
     
     const congelacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (1 DÍA)');
     const manipulacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO DE MANIPULACIÓN');
@@ -703,7 +704,7 @@ export async function generateClientSettlement(criteria: {
   lotIds?: string[];
 }): Promise<ClientSettlementResult> {
   
-  const { clientName, startDate, endDate, conceptIds, lotIds, containerNumber } = criteria;
+  const { clientName, startDate, endDate, conceptIds, lotIds } = criteria;
   const processedCrossDockLots = new Set<string>();
   const allConcepts = await getClientBillingConcepts();
 
@@ -764,39 +765,20 @@ export async function generateClientSettlement(criteria: {
     
     const allOperations: BasicOperation[] = [];
 
-    operationsInDateRange.forEach(data => {
-        if (containerNumber && data.formData.contenedor !== containerNumber) {
-            return;
-        }
-        allOperations.push({ type: 'form', data });
-    });
-    
-    manualOpsSnapshot.docs.forEach(doc => {
-        const data = serializeTimestamps(doc.data());
-        if (containerNumber && data.details?.container !== containerNumber) {
-            return;
-        }
-        allOperations.push({ type: 'manual', data });
-    });
-
-    crewManualOpsSnapshot.docs.forEach(doc => {
-        const data = serializeTimestamps(doc.data());
-         if (containerNumber && data.container !== containerNumber) {
-            return;
-        }
-        allOperations.push({ type: 'crew_manual', data });
-    });
+    operationsInDateRange.forEach(data => allOperations.push({ type: 'form', data }));
+    manualOpsSnapshot.docs.forEach(doc => allOperations.push({ type: 'manual', data: serializeTimestamps(doc.data()) }));
+    crewManualOpsSnapshot.docs.forEach(doc => allOperations.push({ type: 'crew_manual', data: serializeTimestamps(doc.data()) }));
     
     let settlementRows: ClientSettlementRow[] = [];
     
     const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts, containerNumber);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts);
     }
 
     const smylCargueAlmacenamientoVehiculoLivianoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoVehiculoLivianoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts, containerNumber);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts);
     }
 
     const avicolaAlquilerConcept = selectedConcepts.find(c => c.conceptName.toUpperCase().replace('AREA', 'ÁREA') === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA');
@@ -1386,10 +1368,6 @@ export async function generateClientSettlement(criteria: {
             }, {});
     
             for (const container in containerMovements) {
-                if (containerNumber && container !== containerNumber) {
-                    continue;
-                }
-
                 const movementsForContainer = containerMovements[container];
                 
                 const initialBalanceMovements = movementsForContainer.filter(m => isBefore(m.date, serverQueryStartDate));
@@ -1627,3 +1605,4 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
