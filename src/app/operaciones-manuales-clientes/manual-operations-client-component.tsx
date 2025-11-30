@@ -87,6 +87,7 @@ const manualOperationSchema = z.object({
   numeroPersonas: z.coerce.number({ invalid_type_error: "Debe ser un número." }).min(0.1, "Debe ser mayor a 0.").optional(),
   numeroPosiciones: z.coerce.number().int().min(1, 'Debe ingresar al menos una posición.').optional(),
   comentarios: z.string().max(150, "Máximo 150 caracteres.").optional(),
+  opLogistica: z.enum(['CARGUE', 'DESCARGUE']).optional(),
   details: z.object({
       startTime: z.string().optional().or(z.literal('')),
       endTime: z.string().optional().or(z.literal('')),
@@ -98,7 +99,7 @@ const manualOperationSchema = z.object({
       horaArribo: z.string().optional().or(z.literal('')),
       fechaSalida: z.date().optional(),
       horaSalida: z.string().optional().or(z.literal('')),
-      opLogistica: z.enum(['CARGUE', 'DESCARGUE']).optional(),
+      //opLogistica: z.enum(['CARGUE', 'DESCARGUE']).optional(),
       fmmNumber: z.string().optional(),
       pedidoSislog: z.string().optional(),
       noDocumento: z.string().max(20, "Máximo 20 caracteres.").optional(),
@@ -175,10 +176,9 @@ const manualOperationSchema = z.object({
         }
     }
     
-    if (isFmmZfpc || isArinZfpc) {
-      if (!data.details?.opLogistica) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Op. Logística es obligatoria.", path: ["details.opLogistica"] });
+   if (isFmmZfpc || isArinZfpc) {
+      if (!data.opLogistica) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Op. Logística es obligatoria.", path: ["opLogistica"] });
     }
-    
     if (isFmmZfpc) {
       if (!data.details?.fmmNumber?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio.", path: ["details.fmmNumber"] });
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
@@ -296,9 +296,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
     useEffect(() => {
         if (watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE INGRESO ZFPC NACIONAL') {
-            setValue('details.opLogistica', 'DESCARGUE');
+            setValue('opLogistica', 'DESCARGUE');
         } else if (watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC NACIONAL') {
-            setValue('details.opLogistica', 'CARGUE');
+            setValue('opLogistica', 'CARGUE');
         }
     }, [watchedConcept, setValue]);
 
@@ -327,7 +327,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     useEffect(() => {
         if (isArinZfpc) {
             const opLogistica = (watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE INGRESO ZFPC NACIONAL') ? 'DESCARGUE' : 'CARGUE';
-            form.setValue('details.opLogistica', opLogistica);
+            form.setValue('opLogistica', opLogistica);
         }
     }, [watchedConcept, isArinZfpc, form]);
 
@@ -467,7 +467,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     ...op.details,
                     fechaArribo: op.details?.fechaArribo ? parseISO(op.details.fechaArribo) : undefined,
                     fechaSalida: op.details?.fechaSalida ? parseISO(op.details.fechaSalida) : undefined,
-                    opLogistica: op.details?.opLogistica,
+                    opLogistica: op.opLogistica,
                 },
                 comentarios: op.comentarios || '',
             });
@@ -1540,7 +1540,7 @@ function ConceptFormBody(props: any) {
                   <>
                 <FormField
                         control={form.control}
-                    name="details.opLogistica"
+                    name="opLogistica"
                         render={({ field }) => (
                 <FormItem>
                     <FormLabel>Op. Logística</FormLabel>

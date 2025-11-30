@@ -493,13 +493,20 @@ async function processCargueAlmacenamiento(
     serverQueryEndDate: Date,
     settlementRows: ClientSettlementRow[],
     processedCrossDockLots: Set<string>,
-    allConcepts: ClientBillingConcept[]
+    allConcepts: ClientBillingConcept[],
+    containerNumber?: string // <-- AÑADIR PARÁMETRO
 ) {
-    const recepciones = allSubmissionsForClient
+    let recepciones = allSubmissionsForClient
         .filter(op => 
             (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
             op.formData.tipoPedido === 'GENERICO'
         );
+    
+    // --- INICIO DE CÓDIGO A AGREGAR ---
+    if (containerNumber) {
+        recepciones = recepciones.filter(op => op.formData.contenedor === containerNumber);
+    }
+    // --- FIN DE CÓDIGO A AGREGAR ---
     
     const congelacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (1 DÍA)');
     const manipulacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO DE MANIPULACIÓN');
@@ -530,7 +537,7 @@ async function processCargueAlmacenamiento(
                 const fechaRecepcionStr = format(fechaRecepcion, 'yyyy-MM-dd');
                 const fechaSiguienteStr = format(addDays(fechaRecepcion, 1), 'yyyy-MM-dd');
                 
-                 const despachosRelevantes = allSubmissionsForClient.filter(op => {
+                 let despachosRelevantes = allSubmissionsForClient.filter(op => {
                     if (op.formType !== 'variable-weight-despacho') return false;
                     
                     const fechaDespachoStr = format(new Date(op.formData.fecha), 'yyyy-MM-dd');
@@ -543,6 +550,11 @@ async function processCargueAlmacenamiento(
                     return allItems.some((item: any) => item.lote === loteId);
                 });
 
+                // --- INICIO DE CÓDIGO A AGREGAR ---
+                if (containerNumber) {
+                    despachosRelevantes = despachosRelevantes.filter(op => op.formData.contenedor === containerNumber);
+                }
+                // --- FIN DE CÓDIGO A AGREGAR ---
 
                 if (despachosRelevantes.length > 0) {
                     let totalPaletasDespachadas = 0;
@@ -704,7 +716,7 @@ export async function generateClientSettlement(criteria: {
   lotIds?: string[];
 }): Promise<ClientSettlementResult> {
   
-  const { clientName, startDate, endDate, conceptIds, lotIds } = criteria;
+  const { clientName, startDate, endDate, conceptIds, lotIds, containerNumber } = criteria;
   const processedCrossDockLots = new Set<string>();
   const allConcepts = await getClientBillingConcepts();
 
@@ -773,12 +785,12 @@ export async function generateClientSettlement(criteria: {
     
     const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoConcept, peso => peso >= 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts, containerNumber);
     }
 
     const smylCargueAlmacenamientoVehiculoLivianoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoVehiculoLivianoConcept) {
-        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts);
+        await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts, containerNumber);
     }
 
     const avicolaAlquilerConcept = selectedConcepts.find(c => c.conceptName.toUpperCase().replace('AREA', 'ÁREA') === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA');
@@ -837,6 +849,10 @@ export async function generateClientSettlement(criteria: {
         for (const op of allOperations.filter(o => o.type === 'form')) {
             const submission = op.data;
 
+             if (containerNumber && submission.formData.contenedor !== containerNumber) {
+                continue;
+            }
+            
             const isRecepcion = submission.formType.includes('recepcion') || submission.formType.includes('reception');
             const isDespacho = submission.formType.includes('despacho');
             const opTypeMatch = concept.filterOperationType === 'ambos' ||
@@ -1033,6 +1049,10 @@ export async function generateClientSettlement(criteria: {
             );
             
             for (const op of relevantOps) {
+                 if (containerNumber && op.data.formData.contenedor !== containerNumber) {
+                    continue;
+                }
+
                 const obs = (op.data.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
                 const quantity = Number(obs?.quantity) || 0;
 
@@ -1062,7 +1082,11 @@ export async function generateClientSettlement(criteria: {
     const conceptsToProcessManually = selectedConcepts.filter(c => 
         c.calculationType === 'MANUAL'
     );
-    const manualOpsFiltered = allOperations.filter(op => op.type === 'manual' || op.type === 'crew_manual');
+    const manualOpsFiltered = allOperations.filter(op => {
+        if (op.type !== 'manual' && op.type !== 'crew_manual') return false;
+        if (containerNumber && op.data.details?.container !== containerNumber) return false;
+        return true;
+    });
 
     if (manualOpsFiltered.length > 0 && conceptsToProcessManually.length > 0) {
         for (const op of manualOpsFiltered) {
@@ -1259,12 +1283,12 @@ export async function generateClientSettlement(criteria: {
                 const noDocumento = opData.details?.noDocumento;
             
                 if (opData.concept.includes('FMM')) {
-                    operacionLogistica = opData.details?.opLogistica && opData.details?.fmmNumber
-                        ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
+                    operacionLogistica = opData.opLogistica && opData.details?.fmmNumber
+                        ? `${opData.opLogistica} - #${opData.details.fmmNumber}`
                         : 'N/A';
                 } else if (opData.concept.includes('ARIN')) {
-                    operacionLogistica = opData.details?.opLogistica && opData.details?.arin
-                    ? `${opData.details.opLogistica} - #${opData.details?.arin}`
+                    operacionLogistica = opData.opLogistica && opData.details?.arin
+                    ? `${opData.opLogistica} - #${opData.details?.arin}`
                     : 'N/A';   
 
                     containerValue = opData.details?.container || 'N/A';
@@ -1368,6 +1392,12 @@ export async function generateClientSettlement(criteria: {
             }, {});
     
             for (const container in containerMovements) {
+                // --- INICIO DE CÓDIGO A AGREGAR ---
+                if (containerNumber && container !== containerNumber) {
+                    continue; 
+                }
+                // --- FIN DE CÓDIGO A AGREGAR ---
+
                 const movementsForContainer = containerMovements[container];
                 
                 const initialBalanceMovements = movementsForContainer.filter(m => isBefore(m.date, serverQueryStartDate));
@@ -1605,4 +1635,5 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
 

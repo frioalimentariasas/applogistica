@@ -215,9 +215,10 @@ export async function addManualClientOperation(data: ManualClientOperationData):
             ...restOfData,
             clientName: data.clientName || 'No Aplica',
             comentarios: data.comentarios || '',
+            opLogistica: null,
             details: {
               ...(details || {}),
-              opLogistica: details?.opLogistica || null,
+              //opLogistica: null,
             },
             operationDate: operationDateToSave,
             createdAt: new Date().toISOString(),
@@ -613,9 +614,9 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
             clientName: data.clientName || 'No Aplica',
             comentarios: data.comentarios || '',
             specificTariffs: finalSpecificTariffs,
+            opLogistica: null,
             details: {
-                ...(details || {}),
-                opLogistica: details?.opLogistica || null,
+                ...(details || {}),    
             },
             operationDate: operationDateToSave,
         };
