@@ -328,16 +328,35 @@ const calculateUnitsForOperation = (
     const { formType, formData } = op;
     const palletTypeFilter = concept?.palletTypeFilter || 'ambas';
     const isDispatch = formType?.includes('despacho');
-    
-    // Unify all items into a single list first.
+
     let allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
 
-    // If it's a dispatch, we need to handle the pallet type filter.
-    if (isDispatch && concept?.calculationBase === 'CANTIDAD_CAJAS' && palletTypeFilter !== 'ambas') {
+    if (formType === 'fixed-weight-despacho' && palletTypeFilter !== 'ambas') {
+        const filteredProducts = formData.productos.filter((p: any) => {
+            const hasSession = sessionFilter === 'AMBOS' || articleSessionMap.get(p.codigo) === sessionFilter;
+            if (!hasSession) return false;
+
+            if (palletTypeFilter === 'completas') {
+                return (Number(p.paletasCompletas) || 0) > 0 && (Number(p.paletasPicking) || 0) === 0;
+            }
+            if (palletTypeFilter === 'picking') {
+                return (Number(p.paletasPicking) || 0) > 0 && (Number(p.paletasCompletas) || 0) === 0;
+            }
+            return false;
+        });
+        return filteredProducts.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+    }
+    
+    if (formType?.startsWith('fixed-weight')) {
+        return allItems.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+    }
+    
+    // --- Lógica para Despacho de Peso Variable ---
+    if (isDispatch && formType.startsWith('variable-weight-')) {
         const isDespachoPorDestino = formData.despachoPorDestino === true;
         const sourceItems = isDespachoPorDestino ? (formData.destinos || []).flatMap((d: any) => d.items || []) : (formData.items || []);
         
-        allItems = sourceItems.filter((item: any) => {
+        const itemsToProcess = sourceItems.filter((item: any) => {
             const hasSession = sessionFilter === 'AMBOS' || articleSessionMap.get(item.codigo) === sessionFilter;
             if (!hasSession) return false;
             
@@ -347,27 +366,24 @@ const calculateUnitsForOperation = (
             if (palletTypeFilter === 'picking') {
                 return item.esPicking === true;
             }
-            return false; // Should not happen if filter is not 'ambas'
+            return true; // para 'ambas'
         });
-    }
 
-    if (allItems.length === 0) return 0;
-    
-    const isSummary = allItems.some((i: any) => Number(i.paleta) === 0);
-
-    if (formType?.startsWith('fixed-weight')) {
-        return allItems.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
-    }
-
-    if (formType?.startsWith('variable-weight')) {
+        const isSummary = itemsToProcess.some((i: any) => Number(i.paleta) === 0);
         if (isSummary) {
-            return allItems.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
+            return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
         }
-        return allItems.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
+        return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
     }
 
-    return 0;
+    // --- Lógica para Recepción de Peso Variable (y fallback) ---
+    const isSummary = allItems.some((i: any) => Number(i.paleta) === 0);
+    if (isSummary) {
+        return allItems.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
+    }
+    return allItems.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
 };
+
 
 
 const formatTime12Hour = (timeStr: string | undefined): string => {
@@ -588,7 +604,7 @@ async function processCargueAlmacenamiento(
                                totalPaletas: totalPaletasRecepcion,
                                operacionLogistica: 'Cross-Docking',
                                pedidoSislog: recepcion.formData.pedidoSislog,
-                               conceptName: manipulacionConcept.conceptName,
+                               conceptName: "SERVICIO DE MANIPULACIÓN",
                                subConceptName: undefined,
                                tipoVehiculo: 'N/A',
                                quantity: 1,

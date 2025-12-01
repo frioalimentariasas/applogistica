@@ -939,7 +939,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
     if (!lastItem) {
-        append({ ...originalDefaultValues.items![0], esPicking: false });
+        append({ ...originalDefaultValues.items![0] });
         return;
     }
     
@@ -1261,8 +1261,14 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                     <Checkbox
                                         checked={field.value}
                                         onCheckedChange={(checked) => {
-                                            field.onChange(checked)
-                                            if (checked) form.setValue('items', []); else form.setValue('destinos', []);
+                                            const isChecked = checked === true;
+                                            field.onChange(isChecked);
+                                            // Reset the other array to avoid validation conflicts
+                                            if (isChecked) {
+                                                form.setValue('items', []);
+                                            } else {
+                                                form.setValue('destinos', []);
+                                            }
                                         }}
                                     />
                                     </FormControl>
@@ -1291,7 +1297,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         render={({ field }) => (
                                             <FormItem className="mb-4">
                                                 <FormLabel>Nombre del Destino</FormLabel>
-                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -1843,7 +1849,7 @@ function ProductSelectorDialog({
                                        <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
                                    </div>
                                    <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
-                               </Button>                                  
+                               </Button>                               
                                 ))}
                             </div>
                         </ScrollArea>
@@ -2205,7 +2211,7 @@ function ItemFields({ control, itemIndex, handleProductDialogOpening, remove, is
                             <FormControl>
                                 <Checkbox
                                     checked={field.value}
-                                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                                    onCheckedChange={field.onChange}
                                 />
                             </FormControl>
                             <div className="space-y-1 leading-none">
