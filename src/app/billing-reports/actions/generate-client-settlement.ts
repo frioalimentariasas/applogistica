@@ -320,62 +320,48 @@ const calculatePalletsForOperation = (
 };
 
 const calculateUnitsForOperation = (
-  op: any,
-  sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
-  articleSessionMap: Map<string, string>
+    op: any,
+    sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
+    articleSessionMap: Map<string, string>,
+    concept?: ClientBillingConcept
 ): number => {
-  const { formType, formData } = op;
-  const items = getFilteredItems(op, sessionFilter, articleSessionMap);
-  if (items.length === 0) return 0;
-  
-  const clientName = formData.cliente || formData.nombreCliente;
-  const isFrutelli = clientName === 'GRUPO FRUTELLI SAS';
-  const isDispatch = formType?.includes('despacho');
+    const { formType, formData } = op;
+    const allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
+    if (allItems.length === 0) return 0;
 
-  if (formType?.startsWith('fixed-weight')) {
-    return items.reduce((sum: number, p: any) => {
-      const quantity = Number(p.cajas) || 0;
-      // Para Frutelli en despacho, sumar todo.
-      if (isDispatch && isFrutelli) {
-          return sum + quantity;
-      }
-      // Para otros casos, mantener la lógica original.
-      if (!isFrutelli) {
-          return sum + quantity;
-      }
-      return sum;
-    }, 0);
-  }
+    const palletTypeFilter = concept?.palletTypeFilter || 'ambas';
+    const clientName = formData.cliente || formData.nombreCliente;
+    const isFrutelli = clientName === 'GRUPO FRUTELLI SAS';
+    const isDispatch = formType?.includes('despacho');
+    const isSummary = allItems.some((i: any) => Number(i.paleta) === 0);
 
-  if (formType?.startsWith('variable-weight')) {
-    const isSummary = items.some((i: any) => Number(i.paleta) === 0);
-    if (isSummary) {
-      return items.reduce((sum: number, i: any) => {
-        const quantity = Number(i.totalCantidad) || 0;
-        if (isDispatch && isFrutelli) {
-            return sum + quantity;
+    let itemsToProcess = allItems;
+
+    // For dispatches, filter items based on pallet type if the calculation is per box/unit
+    if (isDispatch && concept?.calculationBase === 'CANTIDAD_CAJAS') {
+        if (palletTypeFilter === 'completas') {
+            itemsToProcess = allItems.filter((item: any) => !item.esPicking);
+        } else if (palletTypeFilter === 'picking') {
+            itemsToProcess = allItems.filter((item: any) => item.esPicking === true);
         }
-        if (!isFrutelli) {
-            return sum + quantity;
-        }
-        return sum;
-      }, 0);
+        // 'ambas' uses all items, so no filtering needed
     }
-    // Detailed variable weight
-    return items.reduce((sum: number, i: any) => {
-      const quantity = Number(i.cantidadPorPaleta) || 0;
-      if (isDispatch && isFrutelli) {
-        return sum + quantity;
-      }
-      if (!isFrutelli) {
-          return sum + quantity;
-      }
-      return sum;
-    }, 0);
-  }
 
-  return 0;
+    if (formType?.startsWith('fixed-weight')) {
+        return itemsToProcess.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+    }
+
+    if (formType?.startsWith('variable-weight')) {
+        if (isSummary) {
+            return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
+        }
+        // Detailed variable weight
+        return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
+    }
+
+    return 0;
 };
+
 
 const formatTime12Hour = (timeStr: string | undefined): string => {
     if (!timeStr) return 'N/A';
@@ -502,11 +488,9 @@ async function processCargueAlmacenamiento(
             op.formData.tipoPedido === 'GENERICO'
         );
     
-    // --- INICIO DE CÓDIGO A AGREGAR ---
     if (containerNumber) {
         recepciones = recepciones.filter(op => op.formData.contenedor === containerNumber);
     }
-    // --- FIN DE CÓDIGO A AGREGAR ---
     
     const congelacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (1 DÍA)');
     const manipulacionConcept = allConcepts.find(c => c.conceptName === 'SERVICIO DE MANIPULACIÓN');
@@ -550,11 +534,9 @@ async function processCargueAlmacenamiento(
                     return allItems.some((item: any) => item.lote === loteId);
                 });
 
-                // --- INICIO DE CÓDIGO A AGREGAR ---
                 if (containerNumber) {
                     despachosRelevantes = despachosRelevantes.filter(op => op.formData.contenedor === containerNumber);
                 }
-                // --- FIN DE CÓDIGO A AGREGAR ---
 
                 if (despachosRelevantes.length > 0) {
                     let totalPaletasDespachadas = 0;
@@ -924,7 +906,7 @@ export async function generateClientSettlement(criteria: {
                 case 'TONELADAS': quantity = finalWeightKg / 1000; break;
                 case 'KILOGRAMOS': quantity = finalWeightKg; break;
                 case 'CANTIDAD_PALETAS': quantity = calculatePalletsForOperation(submission, concept.filterSesion, articleSessionMap, concept); break;
-                case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(submission, concept.filterSesion, articleSessionMap); break;
+                case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(submission, concept.filterSesion, articleSessionMap, concept); break;
                 case 'NUMERO_OPERACIONES': quantity = 1; break;
                 case 'NUMERO_CONTENEDORES': quantity = submission.formData.contenedor ? 1 : 0; break;
                 case 'PALETAS_SALIDA_MAQUILA_CONGELADOS':
@@ -945,7 +927,7 @@ export async function generateClientSettlement(criteria: {
                     break;
                 case 'CANTIDAD_SACOS_MAQUILA':
                     if ((submission.formType.includes('reception') || submission.formType.includes('recepcion')) && submission.formData.tipoPedido === 'MAQUILA' && submission.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
-                        quantity = calculateUnitsForOperation(submission, concept.filterSesion, articleSessionMap);
+                        quantity = calculateUnitsForOperation(submission, concept.filterSesion, articleSessionMap, concept);
                     } else {
                         quantity = 0;
                     }
@@ -1392,11 +1374,9 @@ export async function generateClientSettlement(criteria: {
             }, {});
     
             for (const container in containerMovements) {
-                // --- INICIO DE CÓDIGO A AGREGAR ---
                 if (containerNumber && container !== containerNumber) {
                     continue; 
                 }
-                // --- FIN DE CÓDIGO A AGREGAR ---
 
                 const movementsForContainer = containerMovements[container];
                 
@@ -1637,3 +1617,6 @@ const minutesToTime = (minutes: number): string => {
     
 
 
+
+
+    

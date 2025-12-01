@@ -45,7 +45,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Switch } from '@/components/ui/switch';
@@ -657,7 +657,7 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
   const watchedCalculationType = useWatch({ control: form.control, name: 'calculationType' });
   const watchedTariffType = useWatch({ control: form.control, name: 'tariffType' });
   const watchedConceptName = useWatch({ control: form.control, name: 'conceptName' });
-  const watchedCalculationBase = useWatch({ control: form.control, name: "calculationBase" }); // NUEVA LÍNEA
+  const watchedCalculationBase = useWatch({ control: form.control, name: "calculationBase" });
   
   return (
       <div className="space-y-4">
@@ -695,7 +695,7 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
                       <SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem>
                       <SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem>
                   </SelectContent></Select><FormMessage /></FormItem>)}/>
-                  {watchedCalculationBase === 'CANTIDAD_PALETAS' && (
+                  {(watchedCalculationBase === 'CANTIDAD_PALETAS' || watchedCalculationBase === 'CANTIDAD_CAJAS') && (
                     <FormField
                       control={form.control}
                       name="palletTypeFilter"
@@ -1119,3 +1119,6 @@ function PedidoTypeMultiSelect({
 }
 
 
+
+
+    
