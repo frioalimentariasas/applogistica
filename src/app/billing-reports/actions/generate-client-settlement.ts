@@ -330,21 +330,17 @@ const calculateUnitsForOperation = (
     if (allItems.length === 0) return 0;
 
     const palletTypeFilter = concept?.palletTypeFilter || 'ambas';
-    const clientName = formData.cliente || formData.nombreCliente;
-    const isFrutelli = clientName === 'GRUPO FRUTELLI SAS';
     const isDispatch = formType?.includes('despacho');
     const isSummary = allItems.some((i: any) => Number(i.paleta) === 0);
 
     let itemsToProcess = allItems;
 
-    // For dispatches, filter items based on pallet type if the calculation is per box/unit
     if (isDispatch && concept?.calculationBase === 'CANTIDAD_CAJAS') {
         if (palletTypeFilter === 'completas') {
             itemsToProcess = allItems.filter((item: any) => !item.esPicking);
         } else if (palletTypeFilter === 'picking') {
             itemsToProcess = allItems.filter((item: any) => item.esPicking === true);
         }
-        // 'ambas' uses all items, so no filtering needed
     }
 
     if (formType?.startsWith('fixed-weight')) {
@@ -355,7 +351,6 @@ const calculateUnitsForOperation = (
         if (isSummary) {
             return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
         }
-        // Detailed variable weight
         return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
     }
 
@@ -480,7 +475,7 @@ async function processCargueAlmacenamiento(
     settlementRows: ClientSettlementRow[],
     processedCrossDockLots: Set<string>,
     allConcepts: ClientBillingConcept[],
-    containerNumber?: string // <-- AÑADIR PARÁMETRO
+    containerNumber?: string 
 ) {
     let recepciones = allSubmissionsForClient
         .filter(op => 
