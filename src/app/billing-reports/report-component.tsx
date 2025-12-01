@@ -2281,7 +2281,7 @@ const conceptOrder = [
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -2586,14 +2586,8 @@ const conceptOrder = [
             <div className="max-w-screen-2xl mx-auto">
                 <header className="mb-8">
                     <div className="relative flex items-center justify-center">
-                         <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="absolute left-0 top-1/2 -translate-y-1/2" 
-                            onClick={() => router.push('/')}
-                            aria-label="Volver a la página principal"
-                        >
-                            <ArrowLeft className="mr-2 h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
+                            <ArrowLeft className="h-6 w-6" />
                         </Button>
                         <div className="text-center">
                             <div className="flex items-center justify-center gap-2">

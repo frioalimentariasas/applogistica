@@ -455,7 +455,7 @@ async function generateSmylLiquidation(
                   unitOfMeasure: 'PALETA',
                   unitValue: dailyPalletRate,
                   totalValue: freezingTotal,
-                  placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Recepción', 
+                  placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Servicio Logístico', 
                   pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialReception.pallets,
               });
   
@@ -464,7 +464,7 @@ async function generateSmylLiquidation(
                   conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
                   subConceptName: 'Servicio de Manipulación',
                   quantity: 1, unitOfMeasure: 'UNIDAD', unitValue: manipulationTotal, totalValue: manipulationTotal,
-                  placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Recepción', 
+                  placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Servicio Logístico', 
                   pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: 0,
               });
           }
@@ -622,7 +622,7 @@ async function processCargueAlmacenamiento(
                                container: recepcion.formData.contenedor,
                                camara: 'CO',
                                totalPaletas: totalPaletasRecepcion,
-                               operacionLogistica: 'Recepción',
+                               operacionLogistica: 'Servicio Logístico',
                                pedidoSislog: recepcion.formData.pedidoSislog,
                                conceptName: concept.conceptName,
                                subConceptName: 'Servicio logístico Congelación (1 día)',
@@ -639,7 +639,7 @@ async function processCargueAlmacenamiento(
                                container: recepcion.formData.contenedor,
                                camara: 'CO',
                                totalPaletas: 0,
-                               operacionLogistica: 'Recepción',
+                               operacionLogistica: 'Servicio Logístico',
                                pedidoSislog: recepcion.formData.pedidoSislog,
                                conceptName: concept.conceptName,
                                subConceptName: 'Servicio de Manipulación',

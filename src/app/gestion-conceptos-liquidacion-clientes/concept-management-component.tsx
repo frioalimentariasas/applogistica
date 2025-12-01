@@ -430,7 +430,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
           <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
               <div className="max-w-xl mx-auto text-center">
                   <AccessDenied />
-                  <Button onClick={() => router.push('/billing-reports')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver</Button>
+                  <Button onClick={() => router.push('/')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Menú Principal</Button>
               </div>
           </div>
       );

@@ -11,6 +11,7 @@ import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import ManualOperationsClientComponent from './manual-operations-client-component';
 
+
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
         <div className="rounded-full bg-destructive/10 p-4">

@@ -269,7 +269,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 endTime: '', 
                 plate: '', 
                 container: '', 
-                totalPallets: null, 
+                totalPallets: undefined, 
                 arin: '', 
                 opLogistica: undefined, 
                 fmmNumber: '', 
@@ -467,7 +467,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     ...op.details,
                     fechaArribo: op.details?.fechaArribo ? parseISO(op.details.fechaArribo) : undefined,
                     fechaSalida: op.details?.fechaSalida ? parseISO(op.details.fechaSalida) : undefined,
-                    opLogistica: op.opLogistica,
                 },
                 comentarios: op.comentarios || '',
             });
@@ -485,7 +484,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     endTime: '', 
                     plate: '', 
                     container: '', 
-                    totalPallets: null, 
+                    totalPallets: undefined, 
                     arin: '', 
                     opLogistica: undefined, 
                     fmmNumber: '', 
@@ -766,12 +765,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                          <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/billing-reports')}>
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
-                        <div>
-                            <div className="flex items-center justify-center gap-2">
-                                <Edit className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Clientes</h1>
+                        <div className="text-center">
+                            <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
+                                <ArrowLeft className="h-6 w-6" />
+                            </Button>
+                            <div>
+                                <div className="flex items-center justify-center gap-2">
+                                    <Edit className="h-8 w-8 text-primary" />
+                                    <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Clientes</h1>
+                                </div>
+                                <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales de facturación a clientes.</p>
                             </div>
-                             <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales de facturación a clientes.</p>
                         </div>
                     </div>
                 </header>
@@ -1647,3 +1651,4 @@ function ExtraHoursDialog({
     );
 }
 // --- FIN DEL NUEVO COMPONENTE DIALOG ---
+
