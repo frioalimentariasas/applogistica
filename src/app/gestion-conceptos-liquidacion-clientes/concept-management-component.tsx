@@ -22,7 +22,7 @@ import type { PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator, ListChecks, Search, Eye, Warehouse, Sparkles, Download } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator, ListChecks, Search, Eye, Warehouse, Sparkles, Download, Home } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
@@ -430,7 +430,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
           <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
               <div className="max-w-xl mx-auto text-center">
                   <AccessDenied />
-                  <Button onClick={() => router.push('/')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Menú Principal</Button>
+                  <Button onClick={() => router.push('/')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Inicio</Button>
               </div>
           </div>
       );
@@ -452,10 +452,14 @@ export default function ConceptManagementClientComponent({ initialClients, initi
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
           <div className="relative flex items-center justify-center text-center">
-            <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/billing-reports')}>
+            <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.back()}>
               <ArrowLeft className="h-6 w-6" />
             </Button>
             <div>
+              <Button variant="ghost" className="mb-2" onClick={() => router.push('/')}>
+                <Home className="mr-2 h-4 w-4" />
+                Ir al Inicio
+              </Button>
               <div className="flex items-center justify-center gap-2">
                 <DollarSign className="h-8 w-8 text-primary" />
                 <h1 className="text-2xl font-bold text-primary">Gestión de Conceptos de Liquidación Clientes</h1>
@@ -1122,3 +1126,4 @@ function PedidoTypeMultiSelect({
 
 
     
+

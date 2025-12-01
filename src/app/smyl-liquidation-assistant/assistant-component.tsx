@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { format, addDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Calculator, CalendarIcon, ChevronsUpDown, DollarSign, FolderSearch, Loader2, RefreshCw, Search, XCircle, Package, AlertTriangle, CheckCircle, Clock, Home } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
 import { getSmylLotAssistantReport, type AssistantReport, getSmylEligibleLots, type EligibleLot, GraceFilter, LotStatusFilter, toggleLotStatus } from './actions';
@@ -177,10 +177,14 @@ export function SmylLiquidationAssistantComponent() {
             <div className="max-w-5xl mx-auto">
                 <header className="mb-8">
                     <div className="relative flex items-center justify-center text-center">
-                        <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
+                        <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.back()}>
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
                         <div>
+                            <Button variant="ghost" className="mb-2" onClick={() => router.push('/')}>
+                                <Home className="mr-2 h-4 w-4" />
+                                Ir al Inicio
+                            </Button>
                             <div className="flex items-center justify-center gap-2">
                                 <Package className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Asistente de Liquidación SMYL</h1>
