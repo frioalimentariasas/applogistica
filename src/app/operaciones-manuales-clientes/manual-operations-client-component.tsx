@@ -27,7 +27,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign, ChevronsUpDown, Check, FileUp, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign, ChevronsUpDown, Check, FileUp, AlertTriangle, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -1336,6 +1336,10 @@ function ConceptFormBody(props: any) {
           name="concept"
           render={({ field }) => (
               <FormItem>
+                <Button variant="ghost" className="mb-2" onClick={() => router.push('/')}>
+                <Home className="mr-2 h-4 w-4" />
+                Ir al Inicio
+                </Button>
               <FormLabel>Concepto de Liquidación</FormLabel>
               <Dialog open={isConceptDialogOpen} onOpenChange={setConceptDialogOpen}>
                   <DialogTrigger asChild>

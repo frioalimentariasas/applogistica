@@ -2380,7 +2380,7 @@ const conceptOrder = [
     
                 });
     
-                // --- INICIO DE CÓDIGO A AGREGAR ---
+                // --- INICIO DEL CÓDIGO A AGREGAR ---
                 const totalPages = (doc as any).internal.getNumberOfPages();
                 for (let i = 1; i <= totalPages; i++) {
                 doc.setPage(i);
