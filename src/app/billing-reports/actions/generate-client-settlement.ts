@@ -97,7 +97,7 @@ const findMatchingTemperatureTariff = (temp: number, concept: ClientBillingConce
 
 const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "N/A" => {
     const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO", "ALISTAMIENTO POR UNIDAD", "FMM DE INGRESO ZFPC", "FMM DE SALIDA ZFPC", "FMM ZFPC", "TIEMPO EXTRA FRIOAL (FIJO)", "TIEMPO EXTRA FRIOAL", "SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA"];
-    if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
+    if (specialConcepts.some(c => concept.conceptName.toUpperCase().includes(c))) {
       return "N/A";
     }
 
@@ -269,7 +269,13 @@ const calculatePalletsForOperation = (
   }
   
   if (formType?.startsWith('fixed-weight')) {
-      return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
+      const filteredProducts = allItems.filter((p: any) => {
+          if (palletTypeFilter === 'ambas') return true;
+          if (palletTypeFilter === 'completas') return (Number(p.paletasCompletas) || 0) > 0;
+          if (palletTypeFilter === 'picking') return (Number(p.paletasPicking) || 0) > 0;
+          return false;
+      });
+      return filteredProducts.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0)), 0);
   }
 
   if (formType?.startsWith('variable-weight')) {
@@ -332,8 +338,8 @@ const calculateUnitsForOperation = (
     if (formType.startsWith('fixed-weight-despacho')) {
         const filteredProducts = allItems.filter((p: any) => {
             if (palletTypeFilter === 'ambas') return true;
-            if (palletTypeFilter === 'completas') return (Number(p.paletasCompletas) || 0) > 0;
-            if (palletTypeFilter === 'picking') return (Number(p.paletasPicking) || 0) > 0;
+            if (palletTypeFilter === 'completas') return (Number(p.paletasCompletas) || 0) > 0 && !(Number(p.paletasPicking) > 0);
+            if (palletTypeFilter === 'picking') return (Number(p.paletasPicking) || 0) > 0 && !(Number(p.paletasCompletas) > 0);
             return false;
         });
         return filteredProducts.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
@@ -345,7 +351,10 @@ const calculateUnitsForOperation = (
     
     // --- Lógica para Despacho de Peso Variable ---
     if (formType.startsWith('variable-weight-despacho')) {
-        const itemsToProcess = allItems.filter((item: any) => {
+        const allDespatchItems = (formData.items || [])
+            .concat((formData.destinos || []).flatMap((d: any) => d.items || []));
+        
+        const itemsToProcess = allDespatchItems.filter((item: any) => {
             if (palletTypeFilter === 'completas') return !item.esPicking;
             if (palletTypeFilter === 'picking') return item.esPicking === true;
             return true; // para 'ambas'
@@ -1082,23 +1091,22 @@ export async function generateClientSettlement(criteria: {
             if (!concept) continue;
 
             const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
-            let operacionLogistica = 'N/A';
-            let containerValue = opData.details?.container || 'N/A';
-            const noDocumento = opData.details?.noDocumento;
             
+            let operacionLogistica = 'N/A';
             if (opData.concept.includes('FMM')) {
-                operacionLogistica = opData.opLogistica && opData.details?.fmmNumber
-                    ? `${opData.opLogistica} - #${opData.details.fmmNumber}`
-                    : 'N/A';
+                const opType = String(opData.concept).includes('INGRESO') ? 'DESCARGUE' : 'CARGUE';
+                operacionLogistica = opData.details?.fmmNumber ? `${opType} - #${opData.details.fmmNumber}` : opType;
             } else if (opData.concept.includes('ARIN')) {
-                operacionLogistica = opData.opLogistica && opData.details?.arin
-                ? `${opData.opLogistica} - #${opData.details?.arin}`
-                : 'N/A';
-                containerValue = opData.details?.container || 'N/A';
-            } else if (noDocumento) {
-                containerValue = noDocumento; 
+                const opType = String(opData.concept).includes('INGRESO') ? 'DESCARGUE' : 'CARGUE';
+                operacionLogistica = opData.details?.arin ? `${opType} - #${opData.details.arin}` : opType;
             } else if (opData.concept === 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)') {
                 operacionLogistica = 'Servicio Congelación';
+            }
+
+            let containerValue = opData.details?.container || 'N/A';
+            const noDocumento = opData.details?.noDocumento;
+            if (noDocumento) {
+                containerValue = noDocumento; 
             }
             
              if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
@@ -1624,4 +1632,5 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
