@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -1047,7 +1046,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), Math.round(row.average)]);
                 const foot = [
                     ['TOTALES', ...yearTotals.columnTotals.map((t: number) => Math.round(t).toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO'), Math.round(yearTotals.grandAverage).toLocaleString('es-CO')],
-                    ['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round(yearTotals.totalCustomerOccupation)}%`, '']
+                    ['(%) Ocupación', ...yearTotals.columnTotals.map(t => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round(yearTotals.totalCustomerOccupation)}%`, '']
                 ];
                 
                 autoTable(doc, {
@@ -1521,7 +1520,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 'SERVICIO EMPAQUE EN SACOS',
 'IMPRESIÓN FACTURAS',
 'TRANSBORDO CANASTILLA',
-'ALQUILER IMPRESORA ETIQUEDADO',
+'ALQUILER IMPRESORA ETIQUETADO',
 'FMM DE INGRESO ZFPC',
 'FMM DE INGRESO ZFPC (MANUAL)',
 'FMM DE INGRESO ZFPC NACIONAL',
@@ -1949,7 +1948,7 @@ const conceptOrder = [
 'SERVICIO EMPAQUE EN SACOS',
 'IMPRESIÓN FACTURAS',
 'TRANSBORDO CANASTILLA',
-'ALQUILER IMPRESORA ETIQUEDADO',
+'ALQUILER IMPRESORA ETIQUETADO',
 'FMM DE INGRESO ZFPC',
 'FMM DE INGRESO ZFPC (MANUAL)',
 'FMM DE INGRESO ZFPC NACIONAL',
@@ -2281,7 +2280,7 @@ const conceptOrder = [
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -2586,8 +2585,9 @@ const conceptOrder = [
             <div className="max-w-screen-2xl mx-auto">
                 <header className="mb-8">
                     <div className="relative flex items-center justify-center">
-                        <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
-                            <ArrowLeft className="h-6 w-6" />
+                        <Button variant="ghost" className="absolute left-0" onClick={() => router.push('/')}>
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Volver
                         </Button>
                         <div className="text-center">
                             <Button variant="ghost" className="mb-2" onClick={() => router.push('/')}>
