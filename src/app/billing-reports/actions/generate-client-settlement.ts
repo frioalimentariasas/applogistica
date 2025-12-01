@@ -326,32 +326,44 @@ const calculateUnitsForOperation = (
     concept?: ClientBillingConcept
 ): number => {
     const { formType, formData } = op;
-    const allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
-    if (allItems.length === 0) return 0;
-
     const palletTypeFilter = concept?.palletTypeFilter || 'ambas';
     const isDispatch = formType?.includes('despacho');
-    const isSummary = allItems.some((i: any) => Number(i.paleta) === 0);
+    
+    // Unify all items into a single list first.
+    let allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
 
-    let itemsToProcess = allItems;
-
-    if (isDispatch && concept?.calculationBase === 'CANTIDAD_CAJAS') {
-        if (palletTypeFilter === 'completas') {
-            itemsToProcess = allItems.filter((item: any) => !item.esPicking);
-        } else if (palletTypeFilter === 'picking') {
-            itemsToProcess = allItems.filter((item: any) => item.esPicking === true);
-        }
+    // If it's a dispatch, we need to handle the pallet type filter.
+    if (isDispatch && concept?.calculationBase === 'CANTIDAD_CAJAS' && palletTypeFilter !== 'ambas') {
+        const isDespachoPorDestino = formData.despachoPorDestino === true;
+        const sourceItems = isDespachoPorDestino ? (formData.destinos || []).flatMap((d: any) => d.items || []) : (formData.items || []);
+        
+        allItems = sourceItems.filter((item: any) => {
+            const hasSession = sessionFilter === 'AMBOS' || articleSessionMap.get(item.codigo) === sessionFilter;
+            if (!hasSession) return false;
+            
+            if (palletTypeFilter === 'completas') {
+                return !item.esPicking;
+            }
+            if (palletTypeFilter === 'picking') {
+                return item.esPicking === true;
+            }
+            return false; // Should not happen if filter is not 'ambas'
+        });
     }
 
+    if (allItems.length === 0) return 0;
+    
+    const isSummary = allItems.some((i: any) => Number(i.paleta) === 0);
+
     if (formType?.startsWith('fixed-weight')) {
-        return itemsToProcess.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+        return allItems.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
     }
 
     if (formType?.startsWith('variable-weight')) {
         if (isSummary) {
-            return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
+            return allItems.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
         }
-        return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
+        return allItems.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
     }
 
     return 0;
@@ -1612,6 +1624,9 @@ const minutesToTime = (minutes: number): string => {
     
 
 
+
+
+    
 
 
     
