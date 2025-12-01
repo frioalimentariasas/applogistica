@@ -327,21 +327,13 @@ const calculateUnitsForOperation = (
 ): number => {
     const { formType, formData } = op;
     const palletTypeFilter = concept?.palletTypeFilter || 'ambas';
-    const isDispatch = formType?.includes('despacho');
+    const allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
 
-    let allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
-
-    if (formType === 'fixed-weight-despacho' && palletTypeFilter !== 'ambas') {
-        const filteredProducts = formData.productos.filter((p: any) => {
-            const hasSession = sessionFilter === 'AMBOS' || articleSessionMap.get(p.codigo) === sessionFilter;
-            if (!hasSession) return false;
-
-            if (palletTypeFilter === 'completas') {
-                return (Number(p.paletasCompletas) || 0) > 0 && (Number(p.paletasPicking) || 0) === 0;
-            }
-            if (palletTypeFilter === 'picking') {
-                return (Number(p.paletasPicking) || 0) > 0 && (Number(p.paletasCompletas) || 0) === 0;
-            }
+    if (formType.startsWith('fixed-weight-despacho')) {
+        const filteredProducts = allItems.filter((p: any) => {
+            if (palletTypeFilter === 'ambas') return true;
+            if (palletTypeFilter === 'completas') return (Number(p.paletasCompletas) || 0) > 0;
+            if (palletTypeFilter === 'picking') return (Number(p.paletasPicking) || 0) > 0;
             return false;
         });
         return filteredProducts.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
@@ -352,20 +344,10 @@ const calculateUnitsForOperation = (
     }
     
     // --- Lógica para Despacho de Peso Variable ---
-    if (isDispatch && formType.startsWith('variable-weight-')) {
-        const isDespachoPorDestino = formData.despachoPorDestino === true;
-        const sourceItems = isDespachoPorDestino ? (formData.destinos || []).flatMap((d: any) => d.items || []) : (formData.items || []);
-        
-        const itemsToProcess = sourceItems.filter((item: any) => {
-            const hasSession = sessionFilter === 'AMBOS' || articleSessionMap.get(item.codigo) === sessionFilter;
-            if (!hasSession) return false;
-            
-            if (palletTypeFilter === 'completas') {
-                return !item.esPicking;
-            }
-            if (palletTypeFilter === 'picking') {
-                return item.esPicking === true;
-            }
+    if (formType.startsWith('variable-weight-despacho')) {
+        const itemsToProcess = allItems.filter((item: any) => {
+            if (palletTypeFilter === 'completas') return !item.esPicking;
+            if (palletTypeFilter === 'picking') return item.esPicking === true;
             return true; // para 'ambas'
         });
 
@@ -1100,6 +1082,24 @@ export async function generateClientSettlement(criteria: {
             if (!concept) continue;
 
             const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
+            let operacionLogistica = 'N/A';
+            let containerValue = opData.details?.container || 'N/A';
+            const noDocumento = opData.details?.noDocumento;
+            
+            if (opData.concept.includes('FMM')) {
+                operacionLogistica = opData.opLogistica && opData.details?.fmmNumber
+                    ? `${opData.opLogistica} - #${opData.details.fmmNumber}`
+                    : 'N/A';
+            } else if (opData.concept.includes('ARIN')) {
+                operacionLogistica = opData.opLogistica && opData.details?.arin
+                ? `${opData.opLogistica} - #${opData.details?.arin}`
+                : 'N/A';
+                containerValue = opData.details?.container || 'N/A';
+            } else if (noDocumento) {
+                containerValue = noDocumento; 
+            } else if (opData.concept === 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)') {
+                operacionLogistica = 'Servicio Congelación';
+            }
             
              if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                 if (!concept.fixedTimeConfig || !concept.specificTariffs) continue;
@@ -1280,28 +1280,6 @@ export async function generateClientSettlement(criteria: {
                 let totalValue;
                 let numeroPersonasParaReporte: number | string | undefined = opData.numeroPersonas;
                 
-                let operacionLogistica = 'N/A';
-                if (opData.concept === 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)') {
-                    operacionLogistica = 'Servicio Congelación';
-                }
-                let containerValue = opData.details?.container || 'N/A';
-                const noDocumento = opData.details?.noDocumento;
-            
-                if (opData.concept.includes('FMM')) {
-                    operacionLogistica = opData.opLogistica && opData.details?.fmmNumber
-                        ? `${opData.opLogistica} - #${opData.details.fmmNumber}`
-                        : 'N/A';
-                } else if (opData.concept.includes('ARIN')) {
-                    operacionLogistica = opData.opLogistica && opData.details?.arin
-                    ? `${opData.opLogistica} - #${opData.details?.arin}`
-                    : 'N/A';   
-
-                    containerValue = opData.details?.container || 'N/A';
-                } else if (noDocumento) {
-                    containerValue = noDocumento; 
-                }
-
-
                 if (concept.conceptName === 'INSPECCIÓN ZFPC') {
                     numeroPersonasParaReporte = opData.numeroPersonas;
                     totalValue = quantityForCalc * (concept.value || 0) * (numeroPersonasParaReporte || 1);
@@ -1523,7 +1501,7 @@ export async function generateClientSettlement(criteria: {
 'SERVICIO EMPAQUE EN SACOS',
 'IMPRESIÓN FACTURAS',
 'TRANSBORDO CANASTILLA',
-'ALQUILER IMPRESORA ETIQUEDADO',
+'ALQUILER IMPRESORA ETIQUETADO',
 'FMM DE INGRESO ZFPC',
 'FMM DE INGRESO ZFPC (MANUAL)',
 'FMM DE INGRESO ZFPC NACIONAL',
@@ -1646,3 +1624,4 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+

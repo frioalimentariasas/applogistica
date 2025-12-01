@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -81,6 +82,7 @@ export interface ManualClientOperationData {
     quantity?: number; // Kept for simple manual concepts
     numeroPersonas?: number;
     numeroPosiciones?: number;
+    opLogistica?: 'CARGUE' | 'DESCARGUE';
     details?: {
         startTime?: string; // HH:mm
         endTime?: string; // HH:mm
@@ -92,7 +94,6 @@ export interface ManualClientOperationData {
         horaArribo?: string; // HH:mm
         fechaSalida?: string; // ISO string
         horaSalida?: string; // HH:mm
-        opLogistica?: 'CARGUE' | 'DESCARGUE';
         fmmNumber?: string;
         pedidoSislog?: string;
         noDocumento?: string;
@@ -215,10 +216,9 @@ export async function addManualClientOperation(data: ManualClientOperationData):
             ...restOfData,
             clientName: data.clientName || 'No Aplica',
             comentarios: data.comentarios || '',
-            opLogistica: null,
+            opLogistica: data.opLogistica || null,
             details: {
               ...(details || {}),
-              //opLogistica: null,
             },
             operationDate: operationDateToSave,
             createdAt: new Date().toISOString(),
@@ -614,7 +614,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
             clientName: data.clientName || 'No Aplica',
             comentarios: data.comentarios || '',
             specificTariffs: finalSpecificTariffs,
-            opLogistica: null,
+            opLogistica: data.opLogistica || null,
             details: {
                 ...(details || {}),    
             },
@@ -829,9 +829,10 @@ export async function uploadFmmOperations(
                 concept: concepto,
                 operationDate: admin.firestore.Timestamp.fromDate(operationDate),
                 quantity: Number(row.Cantidad),
+                opLogistica: opLogistica,
                 details: {
                     container: row.Contenedor || '',
-                    opLogistica: opLogistica,
+                    
                     fmmNumber: fmmNumber,
                     plate: row.Placa || ''
                 },
@@ -990,9 +991,9 @@ export async function uploadArinOperations(
                 concept: concepto,
                 operationDate: admin.firestore.Timestamp.fromDate(operationDate),
                 quantity: Number(row.Cantidad),
+                opLogistica: opLogistica,
                 details: {
                     container: row.Contenedor || '',
-                    opLogistica: opLogistica,
                     arin: arinNumber,
                     fmmNumber: String(row['# FMM'] || ''),
                     plate: row.Placa || ''
