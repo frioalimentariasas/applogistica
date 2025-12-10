@@ -2281,7 +2281,8 @@ const conceptOrder = [
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            //const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });

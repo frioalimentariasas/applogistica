@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 export interface StandardObservation {
   id: string;
   name: string;
-  quantityType: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA';
+  quantityType: 'KILOS' | 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA';
 }
 
 export async function getStandardObservations(): Promise<StandardObservation[]> {
