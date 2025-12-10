@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -766,6 +765,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <ArrowLeft className="h-6 w-6" />
                             </Button>
                             <div>
+                            <Button variant="ghost" className="mb-2" onClick={() => router.push('/')}>
+                            <Home className="mr-2 h-4 w-4" />
+                            Ir al Inicio
+                            </Button>
                                 <div className="flex items-center justify-center gap-2">
                                     <Edit className="h-8 w-8 text-primary" />
                                     <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Clientes</h1>
@@ -1332,10 +1335,6 @@ function ConceptFormBody(props: any) {
           name="concept"
           render={({ field }) => (
               <FormItem>
-                <Button variant="ghost" className="mb-2" onClick={() => router.push('/')}>
-                <Home className="mr-2 h-4 w-4" />
-                Ir al Inicio
-                </Button>
               <FormLabel>Concepto de Liquidación</FormLabel>
               <Dialog open={isConceptDialogOpen} onOpenChange={setConceptDialogOpen}>
                   <DialogTrigger asChild>

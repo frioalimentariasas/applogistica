@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -42,7 +43,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -976,7 +977,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    const fileName = `Reporte_Inventario_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+    const fileName = `Reporte_Ocupación_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
     link.download = fileName;
     link.click();
 };
@@ -1081,7 +1082,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         isFirstPage = false;
     });
 
-    const fileName = `Reporte_Inventario_Acumulado_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+    const fileName = `Reporte_Ocupación_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
     doc.save(fileName);
 };
 
@@ -1948,7 +1949,7 @@ const conceptOrder = [
 'SERVICIO EMPAQUE EN SACOS',
 'IMPRESIÓN FACTURAS',
 'TRANSBORDO CANASTILLA',
-'ALQUILER IMPRESORA ETIQUETADO',
+'ALQUILER IMPRESORA ETIQUEDADO',
 'FMM DE INGRESO ZFPC',
 'FMM DE INGRESO ZFPC (MANUAL)',
 'FMM DE INGRESO ZFPC NACIONAL',
@@ -2280,7 +2281,7 @@ const conceptOrder = [
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
