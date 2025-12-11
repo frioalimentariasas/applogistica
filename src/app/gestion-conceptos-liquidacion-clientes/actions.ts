@@ -67,6 +67,9 @@ export interface ClientBillingConcept {
   // For 'SALDO_INVENTARIO' or 'SALDO_CONTENEDOR'
   inventorySource?: 'POSICIONES_ALMACENADAS';
   inventorySesion?: 'CO' | 'RE' | 'SE';
+  filterByArticleCodes?: string;
+  excludeArticleCodes?: boolean;
+
 
   // Tariff Rules
   tariffType: 'UNICA' | 'RANGOS' | 'ESPECIFICA' | 'POR_TEMPERATURA';
@@ -319,6 +322,9 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         associatedObservation: data.associatedObservation,
         inventorySource: data.inventorySource,
         inventorySesion: data.inventorySesion,
+        filterByArticleCodes: data.filterByArticleCodes || '',
+        excludeArticleCodes: data.excludeArticleCodes || false,
+
 
         tariffType: data.tariffType || 'UNICA',
         value: data.value,

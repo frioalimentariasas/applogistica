@@ -108,6 +108,9 @@ const conceptSchema = z.object({
   // Inventory Rule (for SALDO_INVENTARIO or SALDO_CONTENEDOR)
   inventorySource: z.enum(['POSICIONES_ALMACENADAS']).optional(),
   inventorySesion: z.enum(['CO', 'RE', 'SE']).optional(),
+  filterByArticleCodes: z.string().optional(),
+  excludeArticleCodes: z.boolean().default(false),
+
 
   // Tariff Rules
   tariffType: z.enum(['UNICA', 'RANGOS', 'ESPECIFICA', 'POR_TEMPERATURA'], { required_error: "Debe seleccionar un tipo de tarifa."}),
@@ -194,6 +197,8 @@ const addFormDefaultValues: ConceptFormValues = {
   associatedObservation: undefined,
   inventorySource: undefined,
   inventorySesion: undefined,
+  filterByArticleCodes: '',
+  excludeArticleCodes: false,
   tariffType: 'UNICA',
   value: 0,
   billingPeriod: 'DIARIO',
@@ -763,6 +768,37 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
                     <FormField control={form.control} name="inventorySource" render={({ field }) => (<FormItem><FormLabel>Fuente del Dato</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione fuente..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="POSICIONES_ALMACENADAS">Posiciones Almacenadas (Consolidado)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                   )}
                   <FormField control={form.control} name="inventorySesion" render={({ field }) => (<FormItem><FormLabel>Sesión de Inventario</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione sesión..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="CO">Congelado (CO)</SelectItem><SelectItem value="RE">Refrigerado (RE)</SelectItem><SelectItem value="SE">Seco (SE)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                  
+                  {watchedCalculationType === 'SALDO_INVENTARIO' && (
+                    <>
+                      <FormField control={form.control} name="filterByArticleCodes" render={({ field }) => (<FormItem>
+                          <FormLabel>Filtrar por Códigos de Artículo (Opcional)</FormLabel>
+                          <FormControl><Input placeholder="Ej: 03, 10-A, 25B" {...field} /></FormControl>
+                          <FormDescription>Separe múltiples códigos con comas.</FormDescription>
+                          <FormMessage />
+                      </FormItem>)}/>
+                      <FormField
+                          control={form.control}
+                          name="excludeArticleCodes"
+                          render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                              <FormControl>
+                              <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                              />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                              <FormLabel>Excluir estos artículos</FormLabel>
+                              <FormDescription>
+                                  Si se marca, el cálculo aplicará a todos los artículos EXCEPTO los listados.
+                              </FormDescription>
+                              </div>
+                          </FormItem>
+                          )}
+                      />
+                    </>
+                  )}
               </div>
           )}
           <Separator />
@@ -1126,4 +1162,5 @@ function PedidoTypeMultiSelect({
 
 
     
+
 
