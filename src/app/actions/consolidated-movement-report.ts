@@ -14,6 +14,8 @@ export interface ConsolidatedReportCriteria {
   startDate: string;
   endDate: string;
   sesion: 'CO' | 'RE' | 'SE'; // Keep session here as the final report is for ONE session
+  filterByArticleCodes?: string;
+  excludeArticleCodes?: boolean;
 }
 
 export interface ConsolidatedReportRow {
@@ -41,6 +43,8 @@ export async function getConsolidatedMovementReport(
     endDate: criteria.endDate,
   });
 
+  const articleFilterCodes = criteria.filterByArticleCodes?.split(',').map(c => c.trim()).filter(Boolean);
+
   // 2. Get daily inventory stock for the period for the specific session (LOGIC REPLACED)
   const inventorySnapshot = await firestore.collection('dailyInventories')
       .where(admin.firestore.FieldPath.documentId(), '>=', criteria.startDate)
@@ -62,6 +66,14 @@ export async function getConsolidatedMovementReport(
                   row && row.SE !== undefined && row.SE !== null &&
                   String(row.SE).trim().toLowerCase() === criteria.sesion.trim().toLowerCase()
               );
+          }
+
+          if (articleFilterCodes && articleFilterCodes.length > 0) {
+            relevantRows = relevantRows.filter(row => {
+              const articleCode = String(row.ARTICUL || '').trim();
+              const hasCode = articleFilterCodes.includes(articleCode);
+              return criteria.excludeArticleCodes ? !hasCode : hasCode;
+            });
           }
           
           const uniquePallets = new Set<string>();
@@ -99,6 +111,14 @@ export async function getConsolidatedMovementReport(
                     row && row.SE !== undefined && row.SE !== null &&
                     String(row.SE).trim().toLowerCase() === criteria.sesion.trim().toLowerCase()
                 );
+            }
+            
+            if (articleFilterCodes && articleFilterCodes.length > 0) {
+              relevantRows = relevantRows.filter(row => {
+                const articleCode = String(row.ARTICUL || '').trim();
+                const hasCode = articleFilterCodes.includes(articleCode);
+                return criteria.excludeArticleCodes ? !hasCode : hasCode;
+              });
             }
 
             const pallets = new Set<string>();

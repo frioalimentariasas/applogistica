@@ -1092,7 +1092,7 @@ export async function generateClientSettlement(criteria: {
 
             const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
             
-            let operacionLogistica = 'N/A';
+            let operacionLogistica = opData.opLogistica || 'N/A'; // Usar valor existente o N/A
             if (opData.concept.includes('FMM')) {
                 const opType = String(opData.concept).includes('INGRESO') ? 'DESCARGUE' : 'CARGUE';
                 operacionLogistica = opData.details?.fmmNumber ? `${opType} - #${opData.details.fmmNumber}` : opType;
@@ -1426,6 +1426,8 @@ export async function generateClientSettlement(criteria: {
                 startDate: startDate,
                 endDate: endDate,
                 sesion: concept.inventorySesion,
+                filterByArticleCodes: concept.filterByArticleCodes,
+                excludeArticleCodes: concept.excludeArticleCodes
             });
     
             for (const dayData of consolidatedReport) {
@@ -1632,5 +1634,6 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
