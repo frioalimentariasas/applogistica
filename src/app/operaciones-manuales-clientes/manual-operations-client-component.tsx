@@ -41,6 +41,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { DatePickerDialog } from '@/components/ui/date-picker-dialog';
 
 
 
@@ -761,10 +762,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
                         <div className="text-center">
-                            <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
-                                <ArrowLeft className="h-6 w-6" />
-                            </Button>
-                            <div>
                             <Button variant="ghost" className="mb-2" onClick={() => router.push('/')}>
                             <Home className="mr-2 h-4 w-4" />
                             Ir al Inicio
@@ -774,7 +771,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                     <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Clientes</h1>
                                 </div>
                                 <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales de facturación a clientes.</p>
-                            </div>
                         </div>
                     </div>
                 </header>
@@ -1390,20 +1386,20 @@ function ConceptFormBody(props: any) {
           {isElectricConnection ? (
               <div className='p-4 border rounded-md'>
                   <div className="grid grid-cols-2 gap-4">
-                      <FormField control={form.control} name="details.fechaArribo" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Arribo</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                      <FormField control={form.control} name="details.fechaArribo" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Arribo</FormLabel><DatePickerDialog value={field.value} onChange={field.onChange} disabled={dialogMode === 'view'} calendarProps={{initialFocus: true}} /><FormMessage /></FormItem> )} />
                       <FormField control={form.control} name="details.horaArribo" render={({ field }) => (<FormItem><FormLabel>Hora Arribo</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.horaArribo')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="details.fechaSalida" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Salida</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => { const fechaArribo = form.getValues('details.fechaArribo'); return fechaArribo ? date < fechaArribo : false; }} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                      <FormField control={form.control} name="details.fechaSalida" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Salida</FormLabel><DatePickerDialog value={field.value} onChange={field.onChange} disabled={dialogMode === 'view'} calendarProps={{initialFocus: true}} /><FormMessage /></FormItem> )} />
                       <FormField control={form.control} name="details.horaSalida" render={({ field }) => (<FormItem><FormLabel>Hora Salida</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.horaSalida')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                   </div>
               </div>
           ) : (
-              <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><DatePickerDialog value={field.value} onChange={field.onChange} disabled={dialogMode === 'view'} calendarProps={{initialFocus: true}} /><FormMessage /></FormItem> )} />
           )}
           </>
       )}
 
       {isElectricConnection ? (
-          <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación (para búsqueda) <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+          <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación (para búsqueda) <span className="text-destructive">*</span></FormLabel><DatePickerDialog value={field.value} onChange={field.onChange} disabled={dialogMode === 'view'} calendarProps={{initialFocus: true}} /><FormMessage /></FormItem> )} />
       ) : null}
 
       {(isTimeExtraMode || isInspeccionZfpc || watchedConcept === 'TIEMPO EXTRA ZFPC') && calculatedDuration ? (
@@ -1650,4 +1646,3 @@ function ExtraHoursDialog({
     );
 }
 // --- FIN DEL NUEVO COMPONENTE DIALOG ---
-

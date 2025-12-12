@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -17,7 +16,7 @@ import type { ManualOperationData } from '@/app/crew-performance-report/actions'
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
-import type { BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
+import type { BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -34,6 +33,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePickerDialog } from '@/components/ui/date-picker-dialog';
 
 
 const manualOperationSchema = z.object({
@@ -93,17 +93,14 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     });
     
     const watchedConcept = form.watch('concept');
-    const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
 
     const fetchAllOperations = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await getAllManualOperations();
             setAllOperations(data);
-            return data;
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
-            return [];
         } finally {
             setIsLoading(false);
         }
@@ -217,7 +214,10 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             setIsDialogOpen(false);
             form.reset();
             await fetchAllOperations();
-            handleSearch();
+            // Re-run search if a search has been made to keep the view updated
+            if (searched && dateRange) {
+                 handleSearch();
+            }
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -285,18 +285,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                     <PopoverTrigger asChild>
                                         <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateRange?.from ? (
-                                                dateRange.to ? (
-                                                <>
-                                                    {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
-                                                    {format(dateRange.to, "LLL dd, y", { locale: es })}
-                                                </>
-                                                ) : (
-                                                format(dateRange.from, "LLL dd, y", { locale: es })
-                                                )
-                                            ) : (
-                                                <span>Seleccione un rango</span>
-                                            )}
+                                            {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus numberOfMonths={2} /></PopoverContent>
@@ -399,7 +388,21 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                         {watchedConcept !== 'APOYO DE MONTACARGAS' && (
                                             <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
                                         )}
-                                        <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                        <FormField
+                                            control={form.control}
+                                            name="operationDate"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-col">
+                                                    <FormLabel>Fecha de Operación</FormLabel>
+                                                    <DatePickerDialog
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        disabled={dialogMode === 'view'}
+                                                    />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
                                         <div className="grid grid-cols-2 gap-4">
                                             <FormField control={form.control} name="startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                             <FormField control={form.control} name="endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
