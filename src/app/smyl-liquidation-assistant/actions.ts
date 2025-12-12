@@ -1,10 +1,9 @@
 
-
 'use server';
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import { startOfDay, endOfDay, eachDayOfInterval, format, parseISO, addDays } from 'date-fns';
+import { startOfDay, endOfDay, eachDayOfInterval, format, parseISO, addDays, isWithinInterval } from 'date-fns';
 
 interface Movement {
     date: Date;
@@ -211,9 +210,8 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
             
             const queryStart = startOfDay(parseISO(queryStartDate));
             const queryEnd = endOfDay(parseISO(queryEndDate));
-            //const queryStart = new Date(`${queryStartDate}T00:00:00-05:00`);
-            //const queryEnd = new Date(`${queryEndDate}T23:59:59.999-05:00`);
-            if (date >= queryStart && date <= queryEnd) {
+
+            if (isWithinInterval(date, { start: queryStart, end: queryEnd })) {
                 dailyBalances.push({
                     date: dateStr,
                     dayNumber: Math.ceil(dayIndex + 1), // Start from Day 1
@@ -312,43 +310,45 @@ export async function getSmylEligibleLots(
     if (!history) continue;
 
     const { initialReception, movements } = history;
-    
-    // Check if any movement (including initial reception) is within the date range
     const receptionDate = startOfDay(initialReception.date);
-    const hasMovementInDateRange = 
-        (receptionDate >= queryStart && receptionDate <= queryEnd) ||
-        movements.some(mov => {
-            const moveDate = startOfDay(mov.date);
-            return moveDate >= queryStart && moveDate <= queryEnd;
+    const gracePeriodEndDate = addDays(receptionDate, 4);
+
+    let hasActivityInGrace = false;
+    let hasActivityPostGrace = false;
+    let hasBalancePostGrace = false;
+
+    // Check if grace period overlaps with query range
+    const graceInterval = { start: receptionDate, end: addDays(receptionDate, 3) };
+    if (isWithinInterval(queryStart, graceInterval) || isWithinInterval(queryEnd, graceInterval) || isWithinInterval(graceInterval.start, { start: queryStart, end: queryEnd })) {
+        hasActivityInGrace = true;
+    }
+
+    // Check if post-grace period overlaps and has balance
+    let currentBalance = initialReception.pallets;
+    const allDates = eachDayOfInterval({ start: receptionDate, end: addDays(queryEnd, 1) }); // Extend to ensure we capture the end date's balance change
+    for (const [index, date] of allDates.entries()) {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
+        movementsToday.forEach(mov => {
+            currentBalance += mov.type === 'ingreso_saldos' ? mov.pallets : -mov.pallets;
         });
 
-    if (!hasMovementInDateRange) {
-        continue; // Skip lot if no movement happened in the selected range
+        const isPostGrace = date >= gracePeriodEndDate;
+        const isInQueryRange = isWithinInterval(date, { start: queryStart, end: queryEnd });
+        
+        if (isPostGrace && isInQueryRange && currentBalance > 0) {
+            hasActivityPostGrace = true;
+            hasBalancePostGrace = true;
+        }
     }
 
     let isEligible = false;
-    // If we've confirmed movement in range, we just need to check the grace/status filter now.
-    // We don't need to check for balance anymore for eligibility, only for grace period filtering.
     if (graceFilter === 'all') {
-        isEligible = true;
-    } else {
-        const firstDayWithMovementInQuery = movements
-            .map(m => startOfDay(m.date))
-            .concat(receptionDate)
-            .filter(d => d >= queryStart && d <= queryEnd)
-            .sort((a,b) => a.getTime() - b.getTime())[0];
-
-        if (firstDayWithMovementInQuery) {
-            const dayIndex = Math.floor((firstDayWithMovementInQuery.getTime() - receptionDate.getTime()) / (1000 * 60 * 60 * 24));
-            const isGracePeriod = dayIndex < 4;
-
-            if (graceFilter === 'in_grace' && isGracePeriod) {
-                isEligible = true;
-            }
-            if (graceFilter === 'post_grace' && !isGracePeriod) {
-                isEligible = true;
-            }
-        }
+        isEligible = hasActivityInGrace || hasActivityPostGrace;
+    } else if (graceFilter === 'in_grace') {
+        isEligible = hasActivityInGrace;
+    } else if (graceFilter === 'post_grace') {
+        isEligible = hasActivityPostGrace && hasBalancePostGrace;
     }
 
     if (isEligible) {
@@ -391,3 +391,4 @@ export async function toggleLotStatus(lotId: string): Promise<{ success: boolean
     
 
     
+
