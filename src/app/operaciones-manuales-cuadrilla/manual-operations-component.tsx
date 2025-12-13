@@ -93,6 +93,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     });
     
     const watchedConcept = form.watch('concept');
+    const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
 
     const fetchAllOperations = useCallback(async () => {
         setIsLoading(true);
@@ -214,10 +215,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             setIsDialogOpen(false);
             form.reset();
             await fetchAllOperations();
-            // Re-run search if a search has been made to keep the view updated
-            if (searched && dateRange) {
-                 handleSearch();
-            }
+            handleSearch();
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -471,3 +469,5 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         </div>
     );
 }
+
+    
