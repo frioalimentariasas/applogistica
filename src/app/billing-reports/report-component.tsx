@@ -930,9 +930,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const grandTotal = yearData.clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
                 const grandTotalAverage = yearData.clientRows.reduce((sum: number, row: any) => sum + row.average, 0);
                 const capacityKey = table.sessionKey as keyof typeof STORAGE_CAPACITY;
-                const denominator = (STORAGE_CAPACITY[capacityKey] || 0) * 365;
-                const totalCustomerOccupation = denominator > 0 ? (grandTotal / denominator) * 100 : 0;
-
+                const totalCustomerOccupation = grandTotal > 0 ? (grandTotal / (STORAGE_CAPACITY[capacityKey] * 365) * 100) : 0;
+                
                 return { year: yearData.year, columnTotals, grandTotal, grandAverage: grandTotalAverage, occupationPercentage: 0, totalCustomerOccupation };
             });
         }
@@ -3350,7 +3349,7 @@ const conceptOrder = [
                                                     </Card>
                                                 ))}
 
-                                                {pivotedTunelData && (
+                                                {pivotedTunelData && pivotedTunelData.data && (
                                                      <Card>
                                                         <CardHeader>
                                                             <CardTitle>{pivotedTunelData.title}</CardTitle>
@@ -4080,3 +4079,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
