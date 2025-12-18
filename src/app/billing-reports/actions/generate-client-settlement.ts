@@ -848,11 +848,12 @@ export async function generateClientSettlement(criteria: {
         for (const op of allOperations.filter(o => o.type === 'form')) {
             const submission = op.data;
             
-            // --- INICIO DE EXCEPCIÓN FRUTELLI ---
+            const submissionClientName = submission.formData?.cliente || submission.formData?.nombreCliente;
+
             if (
                 concept.calculationType === 'REGLAS' &&
                 (concept.conceptName === 'ARIN DE INGRESO ZFPC' || concept.conceptName === 'ARIN DE SALIDA ZFPC') &&
-                submission.formData?.cliente === 'GRUPO FRUTELLI SAS'
+                submissionClientName === 'GRUPO FRUTELLI SAS'
             ) {
                 const formType = submission.formType || '';
                 const allItems = [
@@ -861,18 +862,16 @@ export async function generateClientSettlement(criteria: {
                     ...((submission.formData.destinos || []).flatMap((d: any) => d.items || [])),
                     ...((submission.formData.placas || []).flatMap((p: any) => p.items || []))
                 ];
-
-                if (
-                    // Condición 1: El formulario es de peso variable
-                    (formType.includes('variable-weight')) ||
-                    // Condición 2: El formulario solo tiene el producto 'MAQUINA'
-                    (allItems.length === 1 && allItems[0].codigo === 'MAQUINA')
-                ) {
+                
+                if (formType.includes('variable-weight')) {
+                    continue; 
+                }
+                
+                if (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') {
                     continue; 
                 }
             }
-            // --- FIN DE EXCEPCIÓN FRUTELLI ---
-
+            
 
              if (containerNumber && submission.formData.contenedor !== containerNumber) {
                 continue;
@@ -1136,11 +1135,12 @@ export async function generateClientSettlement(criteria: {
                         ...((relatedSubmission.formData.placas || []).flatMap((p: any) => p.items || []))
                     ];
 
-                    if (
-                        (formType.includes('variable-weight')) ||
-                        (allItems.length === 1 && allItems[0].codigo === 'MAQUINA')
-                    ) {
-                        continue; 
+                    if (formType.includes('variable-weight')) {
+                        continue;
+                    }
+
+                    if (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') {
+                        continue;
                     }
                 }
             }
@@ -1693,6 +1693,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
