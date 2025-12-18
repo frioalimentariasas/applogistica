@@ -516,7 +516,7 @@ export async function getTunelWeightReport(
 
         snapshot.docs.forEach(doc => {
             const data = doc.data();
-            const clientName = data.formData.cliente;
+            const clientName = data.formData.cliente || data.formData.nombreCliente;
 
             if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(clientName)) {
                 return;
@@ -556,7 +556,7 @@ export async function getTunelWeightReport(
     } catch (error) {
         console.error('Error generando el reporte de Túnel:', error);
          if (error instanceof Error && (error.message.includes('needs an index') || error.message.includes('requires an index'))) {
-             throw new Error('La consulta para el reporte de Túnel requiere un índice en Firestore. Revise la consola del servidor para ver el enlace.');
+             throw error;
         }
         throw new Error('No se pudo generar el reporte de Túnel.');
     }
@@ -565,6 +565,8 @@ export async function getTunelWeightReport(
     
 
     
+
+
 
 
 
