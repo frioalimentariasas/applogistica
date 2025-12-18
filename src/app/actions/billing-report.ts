@@ -166,12 +166,13 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             };
 
             if (formType === 'fixed-weight-recepcion' || formType === 'fixed-weight-reception') {
+                if (submission.formData.tipoPedido !== 'TUNEL DE CONGELACIÓN') {
                 productos.forEach((p: any) => {
                     const session = getSessionForProduct(p.codigo, p.descripcion);
                     const paletas = Number(p.totalPaletas ?? p.paletas ?? 0);
                     incrementPallets(session, 'recibidas', paletas);
                 });
-
+                }
             } else if (formType === 'fixed-weight-despacho') {
                 productos.forEach((p: any) => {
                     const session = getSessionForProduct(p.codigo, p.descripcion);

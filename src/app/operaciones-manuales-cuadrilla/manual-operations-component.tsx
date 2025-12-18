@@ -228,10 +228,14 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         const result = await deleteManualOperation(opToDelete.id);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            const updatedOps = await fetchAllOperations();
-            if (searched && dateRange) {
+            // --- INICIO DE LAS LÍNEAS A AGREGAR ---
+            setAllOperations(prev => prev.filter(op => op.id !== opToDelete.id));
+            setFilteredOperations(prev => prev.filter(op => op.id !== opToDelete.id));
+            // --- FIN DE LAS LÍNEAS A AGREGAR ---
+            //const updatedOps = await fetchAllOperations();
+            /*if (searched && dateRange) {
                 handleSearch();
-            }
+            }*/
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }

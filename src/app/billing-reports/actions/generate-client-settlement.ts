@@ -339,7 +339,7 @@ const calculateUnitsForOperation = (
         const filteredProducts = allItems.filter((p: any) => {
             if (palletTypeFilter === 'ambas') return true;
             if (palletTypeFilter === 'completas') return (Number(p.paletasCompletas) || 0) > 0 && !(Number(p.paletasPicking) > 0);
-            if (palletTypeFilter === 'picking') return (Number(p.paletasPicking) || 0) > 0 && !(Number(p.paletasCompletas) > 0);
+            if (palletTypeFilter === 'picking') return (Number(p.paletasPicking) || 0) > 0 && !(Number(p.completas) > 0);
             return false;
         });
         return filteredProducts.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
@@ -844,6 +844,23 @@ export async function generateClientSettlement(criteria: {
             
         for (const op of allOperations.filter(o => o.type === 'form')) {
             const submission = op.data;
+
+            // --- INICIO DEL CÓDIGO PARA LA EXCEPCIÓN DE FRUTELLI ---
+             if (
+                concept.calculationType === 'REGLAS' &&
+                (concept.conceptName === 'ARIN DE INGRESO ZFPC' || concept.conceptName === 'ARIN DE SALIDA ZFPC') &&
+                submission.formData?.cliente === 'GRUPO FRUTELLI SAS'
+            ) {
+                const allItems = (submission.formData.productos || [])
+                    .concat(submission.formData.items || [])
+                    .concat((submission.formData.destinos || []).flatMap((d: any) => d.items || []))
+                    .concat((submission.formData.placas || []).flatMap((p: any) => p.items || []));
+    
+                if (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') {
+                    continue; 
+                }
+            }
+            // --- FIN DEL CÓDIGO PARA LA EXCEPCIÓN DE FRUTELLI ---
 
              if (containerNumber && submission.formData.contenedor !== containerNumber) {
                 continue;
@@ -1634,6 +1651,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
