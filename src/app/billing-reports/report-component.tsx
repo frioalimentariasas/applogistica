@@ -1079,7 +1079,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     link.click();
 };
 
-    
+
     const handleInventoryExportPDF = () => {
         if ((!pivotedInventoryData && !pivotedTunelData) || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
 
@@ -4081,4 +4081,3 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     );
 }
 
-```
