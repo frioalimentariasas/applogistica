@@ -848,6 +848,7 @@ export async function generateClientSettlement(criteria: {
 
             // --- INICIO DE LA NUEVA EXCEPCIÓN DE FRUTELLI ---
             if (
+                concept.calculationType === 'REGLAS' &&
                 (concept.conceptName === 'ARIN DE INGRESO ZFPC' || concept.conceptName === 'ARIN DE SALIDA ZFPC') &&
                 submission.formData?.cliente === 'GRUPO FRUTELLI SAS'
             ) {
@@ -1685,6 +1686,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
