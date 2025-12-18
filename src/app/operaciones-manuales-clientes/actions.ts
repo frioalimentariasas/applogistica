@@ -5,11 +5,35 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { getDaysInMonth, startOfDay, addDays, format, isBefore, isEqual, parseISO, getDay, isSaturday, isSunday, eachDayOfInterval, differenceInMinutes, parse, differenceInHours } from 'date-fns';
-import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-import * as ExcelJS from 'exceljs';
+import { getDaysInMonth, startOfDay, endOfDay, parseISO, differenceInHours, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, isEqual } from 'date-fns';
+import type { ArticuloData } from '@/app/actions/articulos';
+import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
+import { processTunelCongelacionData } from '@/lib/report-utils';
+import { getSmylLotAssistantReport, type AssistantReport } from '@/app/smyl-liquidation-assistant/actions';
+import { getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 
-// --- INICIO DE LA NUEVA FUNCIÓN (NO EXPORTADA) ---
+const assistantConcepts = [
+    'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+    'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
+    'MOVIMIENTO SALIDA PRODUCTO - PALETA'
+];
+
+export interface AssistantGeneratedOperation {
+    id: string;
+    clientName: string;
+    operationDate: string;
+    concept: string;
+    quantity: number;
+    details?: {
+        plate?: string;
+        pedidoSislog?: string;
+    };
+    createdBy?: {
+        displayName: string;
+    };
+}
+
+
 /**
  * Calculates extra hours for an inspection based on specific business rules.
  * @returns An object with the calculated hours and the start/end times of the extra period.
@@ -63,8 +87,66 @@ function calculateExtraHoursForInspeccion(operationDate: Date, startTime: string
         extraEndTime: format(overlapEnd, 'HH:mm'),
     };
 }
-// --- FIN DE LA NUEVA FUNCIÓN ---
 
+
+export async function getAssistantGeneratedOperations(criteria: {
+    clientName?: string;
+    startDate?: string;
+    endDate?: string;
+    plate?: string;
+    pedidoSislog?: string;
+}): Promise<AssistantGeneratedOperation[]> {
+    if (!firestore) {
+        throw new Error('Firestore no está inicializado.');
+    }
+
+    let query: admin.firestore.Query = firestore.collection('manual_client_operations');
+
+    query = query.where('concept', 'in', assistantConcepts);
+
+    if (criteria.clientName) {
+        query = query.where('clientName', '==', criteria.clientName);
+    }
+    if (criteria.startDate) {
+        query = query.where('operationDate', '>=', startOfDay(parseISO(criteria.startDate)));
+    }
+    if (criteria.endDate) {
+        query = query.where('operationDate', '<=', endOfDay(parseISO(criteria.endDate)));
+    }
+    if (criteria.plate) {
+        query = query.where('details.plate', '==', criteria.plate);
+    }
+    if (criteria.pedidoSislog) {
+        query = query.where('details.pedidoSislog', '==', criteria.pedidoSislog);
+    }
+
+    try {
+        const snapshot = await query.orderBy('operationDate', 'desc').get();
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                clientName: data.clientName,
+                operationDate: (data.operationDate as admin.firestore.Timestamp).toDate().toISOString(),
+                concept: data.concept,
+                quantity: data.quantity,
+                details: {
+                    plate: data.details?.plate,
+                    pedidoSislog: data.details?.pedidoSislog,
+                },
+                createdBy: {
+                    displayName: data.createdBy?.displayName,
+                },
+            };
+        });
+    } catch (e: any) {
+        if (e.message?.includes('requires an index')) {
+            throw new Error(e.message); // Re-throw to be caught by the client
+        }
+        console.error("Error fetching assistant-generated operations:", e);
+        throw new Error("Ocurrió un error al buscar las operaciones.");
+    }
+}
 
 
 export interface ExcedentEntry {
@@ -233,8 +315,8 @@ export async function addManualClientOperation(data: ManualClientOperationData):
 
         revalidatePath('/billing-reports');
         revalidatePath('/operaciones-manuales-clientes');
+        revalidatePath('/inventory-liquidation-assistant');
 
-       // Bloque de código NUEVO
         let extraHoursData;
         if (data.concept === 'INSPECCIÓN ZFPC' && data.operationDate && data.details?.startTime && data.details?.endTime) {
             const { hours, extraStartTime, extraEndTime } = calculateExtraHoursForInspeccion(new Date(data.operationDate), data.details.startTime, data.details.endTime);
@@ -536,6 +618,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                 if (role.numPersonas > 0) {
                     const startMinutes = timeToMinutes(baseStartTimeStr);
                     const endMinutes = timeToMinutes(baseEndTimeStr);
+                    
                     const excedentMinutes = excedentHours * 60;
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
@@ -631,6 +714,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         
         revalidatePath('/billing-reports');
         revalidatePath('/operaciones-manuales-clientes');
+        revalidatePath('/inventory-liquidation-assistant');
         
         let extraHoursData;
         if (data.concept === 'INSPECCIÓN ZFPC' && data.operationDate && data.details?.startTime && data.details?.endTime) {
@@ -665,6 +749,7 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         await firestore.collection('manual_client_operations').doc(id).delete();
         revalidatePath('/billing-reports');
         revalidatePath('/operaciones-manuales-clientes');
+        revalidatePath('/inventory-liquidation-assistant');
         return { success: true, message: 'Operación manual de cliente eliminada con éxito.' };
     } catch (error) {
         console.error(`Error al eliminar operación manual de cliente ${id}:`, error);
@@ -692,6 +777,7 @@ export async function deleteMultipleManualClientOperations(ids: string[]): Promi
         
         revalidatePath('/billing-reports');
         revalidatePath('/operaciones-manuales-clientes');
+        revalidatePath('/inventory-liquidation-assistant');
         return { success: true, message: `${ids.length} operación(es) eliminada(s) con éxito.` };
     } catch (error) {
         console.error('Error al eliminar operaciones en lote:', error);
@@ -702,14 +788,14 @@ export async function deleteMultipleManualClientOperations(ids: string[]): Promi
 
 
 interface FmmRow {
-  Fecha: Date | string | number;
-  Cliente: string;
-  Concepto: 'FMM DE INGRESO ZFPC (MANUAL)' | 'FMM DE SALIDA ZFPC (MANUAL)' | 'FMM DE INGRESO ZFPC NACIONAL' | 'FMM DE SALIDA ZFPC NACIONAL';
-  Cantidad: number;
-  Contenedor: string;
-  'Op. Logística': 'CARGUE' | 'DESCARGUE';
-  '# FMM': string;
-  Placa: string;
+    Fecha: Date | string | number;
+    Cliente: string;
+    Concepto: 'FMM DE INGRESO ZFPC (MANUAL)' | 'FMM DE SALIDA ZFPC (MANUAL)' | 'FMM DE INGRESO ZFPC NACIONAL' | 'FMM DE SALIDA ZFPC NACIONAL';
+    Cantidad: number;
+    Contenedor: string;
+    'Op. Logística': 'CARGUE' | 'DESCARGUE';
+    '# FMM': string;
+    Placa: string;
 }
 
 export async function uploadFmmOperations(

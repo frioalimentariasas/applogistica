@@ -5,7 +5,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
 export interface DailyEntryData {
     date: string;
@@ -21,8 +21,8 @@ export interface AssistantLiquidationData {
         from: string;
         to: string;
     };
-    plate?: string; // Nuevo campo
-    pedidoSislog?: string; // Nuevo campo
+    plate?: string;
+    pedidoSislog?: string;
     dailyEntries: DailyEntryData[];
     createdBy: {
         uid: string;
@@ -59,7 +59,7 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     concept: ENTRY_CONCEPT_NAME,
                     operationDate,
                     quantity: day.entries,
-                    details: details, // Guardar placa y pedido
+                    details: details,
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
                 });
@@ -74,7 +74,7 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     concept: EXIT_CONCEPT_NAME,
                     operationDate,
                     quantity: day.exits,
-                    details: details, // Guardar placa y pedido
+                    details: details,
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
                 });
@@ -88,8 +88,8 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     clientName: data.clientName,
                     concept: STORAGE_CONCEPT_NAME,
                     operationDate,
-                    quantity: day.finalBalance, // Use final balance as per user request
-                    details: details, // Guardar placa y pedido
+                    quantity: day.finalBalance,
+                    details: details,
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
                 });
@@ -102,6 +102,8 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
         }
 
         revalidatePath('/billing-reports');
+        revalidatePath('/inventory-liquidation-assistant');
+        revalidatePath('/operaciones-manuales-clientes');
 
         return { success: true, message: `Se crearon ${operationCount} registros de liquidación.`, count: operationCount };
 
@@ -159,8 +161,8 @@ export async function findReceptionsWithoutContainer(
         throw new Error('El servidor no está configurado correctamente.');
     }
 
-    const queryStart = startOfDay(new Date(startDate));
-    const queryEnd = endOfDay(new Date(endDate));
+    const queryStart = startOfDay(parseISO(startDate));
+    const queryEnd = endOfDay(parseISO(endDate));
 
     const submissionsRef = firestore.collection('submissions');
     const querySnapshot = await submissionsRef
