@@ -844,10 +844,10 @@ export async function generateClientSettlement(criteria: {
             
         for (const op of allOperations.filter(o => o.type === 'form')) {
             const submission = op.data;
+            const formType = submission.formType || '';
 
-            // --- INICIO DEL CÓDIGO PARA LA EXCEPCIÓN DE FRUTELLI ---
-             if (
-                concept.calculationType === 'REGLAS' &&
+            // --- INICIO DE LA NUEVA EXCEPCIÓN DE FRUTELLI ---
+            if (
                 (concept.conceptName === 'ARIN DE INGRESO ZFPC' || concept.conceptName === 'ARIN DE SALIDA ZFPC') &&
                 submission.formData?.cliente === 'GRUPO FRUTELLI SAS'
             ) {
@@ -856,11 +856,17 @@ export async function generateClientSettlement(criteria: {
                     .concat((submission.formData.destinos || []).flatMap((d: any) => d.items || []))
                     .concat((submission.formData.placas || []).flatMap((p: any) => p.items || []));
     
-                if (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') {
+                if (
+                    // Condición 1: El formulario solo tiene el producto 'MAQUINA'
+                    (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') ||
+                    // Condición 2: El formulario es de peso variable
+                    (formType.includes('variable-weight'))
+                ) {
                     continue; 
                 }
             }
-            // --- FIN DEL CÓDIGO PARA LA EXCEPCIÓN DE FRUTELLI ---
+            // --- FIN DE LA NUEVA EXCEPCIÓN DE FRUTELLI ---
+
 
              if (containerNumber && submission.formData.contenedor !== containerNumber) {
                 continue;
@@ -1104,6 +1110,34 @@ export async function generateClientSettlement(criteria: {
     if (manualOpsFiltered.length > 0 && conceptsToProcessManually.length > 0) {
         for (const op of manualOpsFiltered) {
             const opData = op.data;
+
+            // --- INICIO DE EXCEPCIÓN FRUTELLI PARA OPERACIONES MANUALES ---
+            if (
+                (opData.concept === 'ARIN DE INGRESO ZFPC' || opData.concept === 'ARIN DE SALIDA ZFPC') &&
+                opData.clientName === 'GRUPO FRUTELLI SAS' &&
+                opData.details?.pedidoSislog
+            ) {
+                const relatedSubmission = allSubmissionsForClient.find(
+                    s => s.formData.pedidoSislog === opData.details.pedidoSislog
+                );
+
+                if (relatedSubmission) {
+                    const formType = relatedSubmission.formType || '';
+                    const allItems = (relatedSubmission.formData.productos || [])
+                        .concat(relatedSubmission.formData.items || [])
+                        .concat((relatedSubmission.formData.destinos || []).flatMap((d: any) => d.items || []))
+                        .concat((relatedSubmission.formData.placas || []).flatMap((p: any) => p.items || []));
+
+                    if (
+                        (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') ||
+                        (formType.includes('variable-weight'))
+                    ) {
+                        continue; // Salta esta operación manual si está vinculada a un formulario de solo dispensador o es de peso variable.
+                    }
+                }
+            }
+            // --- FIN DE EXCEPCIÓN FRUTELLI PARA OPERACIONES MANUALES ---
+
             const concept = conceptsToProcessManually.find(c => c.conceptName === opData.concept);
             if (!concept) continue;
 
@@ -1651,6 +1685,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
