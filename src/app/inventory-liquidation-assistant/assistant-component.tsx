@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -56,6 +55,7 @@ const formSchema = z.object({
     to: z.date({ required_error: "La fecha de fin es requerida."}),
   }),
   plate: z.string().optional(),
+  pedidoSislog: z.string().optional(), // Nuevo campo
   initialBalance: z.coerce.number().int().min(0, "El saldo inicial no puede ser negativo.").default(0),
   dailyEntries: z.array(dailyEntrySchema),
 });
@@ -85,6 +85,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       clientId: '',
       dateRange: undefined,
       plate: '',
+      pedidoSislog: '', // Valor inicial
       initialBalance: 0,
       dailyEntries: [],
     },
@@ -189,6 +190,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
       clientId: '',
       dateRange: undefined,
       plate: '',
+      pedidoSislog: '',
       initialBalance: 0,
       dailyEntries: [],
     });
@@ -267,6 +269,8 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
             from: values.dateRange.from.toISOString(),
             to: values.dateRange.to.toISOString(),
         },
+        plate: values.plate,
+        pedidoSislog: values.pedidoSislog,
         dailyEntries: values.dailyEntries.map(d => ({
             date: d.date.toISOString(),
             initialBalance: d.initialBalance,
@@ -428,7 +432,7 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                 </Alert>
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                                 <FormField
                                     control={form.control}
                                     name="clientId"
@@ -486,20 +490,30 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
                                     </FormItem>
                                     )}
                                 />
-
                                 <FormField
                                     control={form.control}
                                     name="plate"
                                     render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Placa (Opcional)</FormLabel>
-                                        <Input placeholder="Filtrar por placa" {...field} />
+                                        <Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())}/>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="pedidoSislog"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Pedido SISLOG (Opcional)</FormLabel>
+                                        <Input placeholder="Número de pedido" {...field} />
                                         <FormMessage />
                                     </FormItem>
                                     )}
                                 />
 
-                                <div className="flex items-end gap-2 lg:col-start-3">
+                                <div className="flex items-end gap-2 lg:col-start-3 lg:col-span-2">
                                     <Button onClick={handleClear} variant="outline" className="w-full">
                                         <XCircle className="mr-2 h-4 w-4" />
                                         Limpiar
@@ -695,4 +709,3 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
     </div>
   );
 }
-

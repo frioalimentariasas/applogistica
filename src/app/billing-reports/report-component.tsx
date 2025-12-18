@@ -2502,6 +2502,15 @@ const conceptOrder = [
             const sortedRowsForGroup = group.rows.sort((a, b) => {
                 const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
                 if (dateComparison !== 0) return dateComparison;
+                
+                    // Custom sort logic for TIEMPO EXTRA ZFPC
+                    if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
+                        const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
+                        const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
+                        const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
+                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
+                        if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
+                    }
                 return (a.subConceptName || '').localeCompare(b.subConceptName || '');
             });
             

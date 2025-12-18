@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -21,6 +20,8 @@ export interface AssistantLiquidationData {
         from: string;
         to: string;
     };
+    plate?: string; // Nuevo campo
+    pedidoSislog?: string; // Nuevo campo
     dailyEntries: DailyEntryData[];
     createdBy: {
         uid: string;
@@ -41,6 +42,11 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
         const batch = firestore.batch();
         let operationCount = 0;
         
+        const details = {
+            plate: data.plate || '',
+            pedidoSislog: data.pedidoSislog || '',
+        };
+
         for (const day of data.dailyEntries) {
             const operationDate = admin.firestore.Timestamp.fromDate(new Date(day.date));
 
@@ -52,8 +58,7 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     concept: ENTRY_CONCEPT_NAME,
                     operationDate,
                     quantity: day.entries,
-                    details: {
-                    },
+                    details: details, // Guardar placa y pedido
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
                 });
@@ -68,8 +73,7 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     concept: EXIT_CONCEPT_NAME,
                     operationDate,
                     quantity: day.exits,
-                    details: {
-                    },
+                    details: details, // Guardar placa y pedido
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
                 });
@@ -84,8 +88,7 @@ export async function saveAssistantLiquidation(data: AssistantLiquidationData): 
                     concept: STORAGE_CONCEPT_NAME,
                     operationDate,
                     quantity: day.finalBalance, // Use final balance as per user request
-                    details: {
-                    },
+                    details: details, // Guardar placa y pedido
                     createdAt: new Date().toISOString(),
                     createdBy: data.createdBy,
                 });
