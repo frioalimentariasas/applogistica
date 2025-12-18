@@ -190,7 +190,7 @@ export interface InventoryPivotReport {
 
 
 export async function getInventoryReport(
-    criteria: { clientNames?: string[]; startDate: string; endDate: string; sesion?: string }
+    criteria: { clientNames?: string[]; startDate: string; endDate: string; }
 ): Promise<InventoryPivotReport> {
     if (!firestore) {
         throw new Error('Error de configuración del servidor.');
@@ -286,18 +286,10 @@ export async function getInventoryReport(
                     const fixedPositions = 150;
                     countCO = Math.max(0, fixedPositions - countRE);
                 }
-
-                 if (criteria.sesion) {
-                    let total = 0;
-                    if (criteria.sesion === 'CO') total = countCO;
-                    if (criteria.sesion === 'RE') total = countRE;
-                    if (criteria.sesion === 'SE') total = countSE;
-                     clientData[clientName] = { total: total, CO: countCO, RE: countRE, SE: countSE };
-                } else {
-                    const uniquePallets = new Set([...(clientName === 'GRUPO ATLANTIC' ? [] : sets.CO), ...sets.RE, ...sets.SE]);
-                    const total = (clientName === 'GRUPO ATLANTIC' ? countCO : uniquePallets.size);
-                    clientData[clientName] = { total: total, CO: countCO, RE: countRE, SE: countSE };
-                }
+                
+                const uniquePallets = new Set([...(clientName === 'GRUPO ATLANTIC' ? [] : sets.CO), ...sets.RE, ...sets.SE]);
+                const total = (clientName === 'GRUPO ATLANTIC' ? countCO : uniquePallets.size);
+                clientData[clientName] = { total: total, CO: countCO, RE: countRE, SE: countSE };
             }
             
             pivotRows.push({ date, clientData });
@@ -478,10 +470,102 @@ export async function getDetailedInventoryForExport(
         throw new Error('No se pudo generar el reporte de inventario detallado.');
     }
 }
+
+export interface TunelWeightPivotRow {
+  date: string;
+  clientData: Record<string, number>;
+}
+
+export interface TunelWeightReport {
+  clientHeaders: string[];
+  rows: TunelWeightPivotRow[];
+}
+
+
+const calculateTotalPesoBrutoKg = (formType: string, formData: any): number => {
+    if (formType.startsWith('fixed-weight')) {
+        return Number(formData.totalPesoBrutoKg) || 0;
+    }
+    if (formType.startsWith('variable-weight')) {
+         const allItems = (formData.items || [])
+            .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
+        const totalPesoBruto = allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
+        return totalPesoBruto;
+    }
+    return 0;
+};
+
+
+export async function getTunelWeightReport(
+    criteria: { clientNames: string[]; startDate: string; endDate: string; }
+): Promise<TunelWeightReport> {
+    if (!firestore) throw new Error('Error de configuración del servidor.');
+    if (!criteria.startDate || !criteria.endDate) return { clientHeaders: [], rows: [] };
+    
+    try {
+        const query = firestore.collection('submissions')
+            .where('formData.fecha', '>=', new Date(criteria.startDate + 'T00:00:00-05:00'))
+            .where('formData.fecha', '<=', new Date(criteria.endDate + 'T23:59:59.999-05:00'))
+            .where('formData.tipoPedido', '==', 'TUNEL DE CONGELACIÓN');
+            
+        const snapshot = await query.get();
+        if (snapshot.empty) return { clientHeaders: [], rows: [] };
+
+        const resultsByDate = new Map<string, Map<string, number>>();
+        const allClientsFound = new Set<string>();
+
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const clientName = data.formData.cliente;
+
+            if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(clientName)) {
+                return;
+            }
+
+            allClientsFound.add(clientName);
+            const dateStr = format(data.formData.fecha.toDate(), 'yyyy-MM-dd');
+            
+            if (!resultsByDate.has(dateStr)) {
+                resultsByDate.set(dateStr, new Map<string, number>());
+            }
+            const dateData = resultsByDate.get(dateStr)!;
+            
+            const currentWeight = dateData.get(clientName) || 0;
+            const newWeight = calculateTotalPesoBrutoKg(data.formType, data.formData);
+            dateData.set(clientName, currentWeight + newWeight);
+        });
+        
+        const sortedClientHeaders = Array.from(allClientsFound).sort();
+        const pivotRows: TunelWeightPivotRow[] = [];
+        const sortedDates = Array.from(resultsByDate.keys()).sort();
+
+        for (const date of sortedDates) {
+            const clientWeightMap = resultsByDate.get(date)!;
+            const clientData: Record<string, number> = {};
+            for (const clientName of sortedClientHeaders) {
+                clientData[clientName] = clientWeightMap.get(clientName) || 0;
+            }
+            pivotRows.push({ date, clientData });
+        }
+        
+        return {
+            clientHeaders: sortedClientHeaders,
+            rows: pivotRows,
+        };
+
+    } catch (error) {
+        console.error('Error generando el reporte de Túnel:', error);
+         if (error instanceof Error && (error.message.includes('needs an index') || error.message.includes('requires an index'))) {
+             throw new Error('La consulta para el reporte de Túnel requiere un índice en Firestore. Revise la consola del servidor para ver el enlace.');
+        }
+        throw new Error('No se pudo generar el reporte de Túnel.');
+    }
+}
     
     
 
     
+
 
 
 

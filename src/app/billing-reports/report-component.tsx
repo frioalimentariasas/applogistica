@@ -17,7 +17,7 @@ import * as ExcelJS from 'exceljs';
 import Link from 'next/link';
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
-import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail } from '@/app/actions/inventory-report';
+import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
 import { findApplicableConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
@@ -227,7 +227,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [inventoryClients, setInventoryClients] = useState<string[]>([]);
     const [inventoryDateRange, setInventoryDateRange] = useState<DateRange | undefined>(undefined);
     const [selectedYear, setSelectedYear] = useState<string>('');
-    const [inventorySesion, setInventorySesion] = useState<string>('');
     const [inventoryReportData, setInventoryReportData] = useState<InventoryPivotReport | null>(null);
     const [inventorySearched, setInventorySearched] = useState(false);
     const [isInventoryClientDialogOpen, setIsInventoryClientDialogOpen] = useState(false);
@@ -235,6 +234,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [availableInventoryClients, setAvailableInventoryClients] = useState<string[]>([]);
     const [isLoadingInventoryClients, setIsLoadingInventoryClients] = useState(false);
     const [inventoryGroupType, setInventoryGroupType] = useState<InventoryGroupType>('daily');
+    const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
+    const [isSessionDialogOpen, setIsSessionDialogOpen] = useState(false);
+    const [tunelReportData, setTunelReportData] = useState<TunelWeightReport | null>(null);
 
 
     // State for consolidated report
@@ -737,20 +739,43 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             toast({ variant: 'destructive', title: 'Clientes no seleccionados', description: 'Por favor, seleccione al menos un cliente para la consulta.' });
             return;
         }
+
+        if (selectedSessions.length === 0) {
+            toast({ variant: 'destructive', title: 'Sesión no seleccionada', description: 'Por favor, seleccione al menos una sesión para la consulta.' });
+            return;
+        }
     
         setIsQuerying(true);
         setInventorySearched(true);
         setInventoryReportData(null);
+        setTunelReportData(null);
     
         try {
-            const results = await getInventoryReport({
-                clientNames: inventoryClients,
-                startDate: format(inventoryDateRange.from, 'yyyy-MM-dd'),
-                endDate: format(inventoryDateRange.to, 'yyyy-MM-dd'),
-                sesion: inventorySesion === 'TODAS' ? undefined : inventorySesion,
-            });
-            setInventoryReportData(results);
-            if (results.rows.length === 0) {
+            const hasTunel = selectedSessions.includes('Tunel');
+            const otherSessions = selectedSessions.filter(s => s !== 'Tunel');
+
+            const inventoryPromise = otherSessions.length > 0
+                ? getInventoryReport({
+                    clientNames: inventoryClients,
+                    startDate: format(inventoryDateRange.from, 'yyyy-MM-dd'),
+                    endDate: format(inventoryDateRange.to, 'yyyy-MM-dd'),
+                })
+                : Promise.resolve(null);
+            
+            const tunelPromise = hasTunel 
+                ? getTunelWeightReport({
+                    clientNames: inventoryClients,
+                    startDate: format(inventoryDateRange.from, 'yyyy-MM-dd'),
+                    endDate: format(inventoryDateRange.to, 'yyyy-MM-dd'),
+                })
+                : Promise.resolve(null);
+            
+            const [inventoryResults, tunelResults] = await Promise.all([inventoryPromise, tunelPromise]);
+
+            if (inventoryResults) setInventoryReportData(inventoryResults);
+            if (tunelResults) setTunelReportData(tunelResults);
+
+            if (!inventoryResults?.rows.length && !tunelResults?.rows.length) {
                 toast({ title: 'Sin Resultados', description: 'No se encontró inventario para los criterios seleccionados.' });
             }
         } catch (error) {
@@ -765,9 +790,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     if (!inventoryReportData || inventoryReportData.rows.length === 0 || !inventoryDateRange?.from || !inventoryDateRange?.to) return null;
 
     const allClients = inventoryReportData.clientHeaders;
-    const sessions: (keyof Omit<ClientInventoryDetail, 'total'>)[] = inventorySesion === 'TODAS'
-        ? ['CO', 'RE', 'SE']
-        : [inventorySesion as 'CO' | 'RE' | 'SE'];
+    const sessions = selectedSessions.filter(s => s !== 'Tunel') as (keyof Omit<ClientInventoryDetail, 'total'>)[];
     
     const tables = sessions.map(session => {
         const getGroupedData = (groupType: InventoryGroupType) => {
@@ -852,8 +875,36 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     return { type: inventoryGroupType, tables };
 
-}, [inventoryReportData, inventoryDateRange, inventoryGroupType, inventorySesion]);
+}, [inventoryReportData, inventoryDateRange, inventoryGroupType, selectedSessions]);
 
+    const pivotedTunelData = useMemo(() => {
+        if (!tunelReportData || tunelReportData.rows.length === 0 || !inventoryDateRange?.from || !inventoryDateRange?.to) return null;
+        
+        const getGroupedData = (groupType: InventoryGroupType) => {
+             if (groupType === 'daily') {
+                const dateHeaders = eachDayOfInterval({ start: inventoryDateRange.from!, end: inventoryDateRange.to! }).map(d => format(d, 'yyyy-MM-dd'));
+                const clientRows = tunelReportData.clientHeaders.map(client => {
+                    const dateData: Record<string, number> = {};
+                    let total = 0;
+                    dateHeaders.forEach(date => {
+                        const rowForDate = tunelReportData.rows.find(r => r.date === date);
+                        const value = rowForDate?.clientData[client] || 0;
+                        dateData[date] = value;
+                        total += value;
+                    });
+                    return { clientName: client, data: dateData, total };
+                }).filter(row => row.total > 0);
+                return { headers: dateHeaders.map(d => format(parseISO(d), 'dd/MM')), clientRows };
+            }
+            return null; // Grouping by month/consolidated not implemented for weight
+        }
+
+        return {
+            title: 'Túnel (kg)',
+            sessionKey: 'Tunel',
+            data: getGroupedData(inventoryGroupType)
+        };
+    }, [tunelReportData, inventoryDateRange, inventoryGroupType]);
     
     const inventoryTotals = useMemo(() => {
         if (!pivotedInventoryData || !pivotedInventoryData.tables) {
@@ -873,7 +924,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     });
                     const grandTotal = yearData.clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
                     const grandTotalAverage = yearData.clientRows.reduce((sum, row) => sum + row.average, 0);
-                    const totalCustomerOccupation = grandTotal > 0 ? (grandTotal / 66402) * 100 : 0;
+                    const totalCustomerOccupation = grandTotal > 0 ? (grandTotal / (STORAGE_CAPACITY[table.sessionKey as keyof typeof STORAGE_CAPACITY] * 365)) * 100 : 0;
                     
                     return { year: yearData.year, columnTotals, grandTotal, grandAverage: grandTotalAverage, occupationPercentage: 0, totalCustomerOccupation };
                 });
@@ -889,80 +940,118 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
             const grandTotal = clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
             const grandTotalAverage = clientRows.reduce((sum, row) => sum + row.average, 0);
-            const totalCustomerOccupation = grandTotal > 0 ? (grandTotal / 66402) * 100 : 0;
+
             const totalOccupationSum = columnTotals.reduce((a, b) => a + b, 0);
-            const occupationDenominator = STORAGE_CAPACITY[table.sessionKey] * columnTotals.length;
+            const capacityKey = table.sessionKey as keyof typeof STORAGE_CAPACITY;
+            const occupationDenominator = STORAGE_CAPACITY[capacityKey] * columnTotals.length;
             const occupationPercentage = occupationDenominator > 0 ? (totalOccupationSum / occupationDenominator) * 100 : 0;
-            
+            const totalCustomerOccupation = occupationDenominator > 0 ? (grandTotal / occupationDenominator) * 100 : 0;
             return { columnTotals, grandTotal, grandAverage: grandTotalAverage, occupationPercentage, totalCustomerOccupation };
         });
     }, [pivotedInventoryData]);
+
+    const tunelTotals = useMemo(() => {
+        if (!pivotedTunelData?.data) return { columnTotals: [], grandTotal: 0 };
+        const { clientRows, headers } = pivotedTunelData.data;
+
+        const columnTotals = headers.map((_, colIndex) =>
+            clientRows.reduce((sum, row) => sum + (Number(Object.values(row.data)[colIndex]) || 0), 0)
+        );
+        const grandTotal = clientRows.reduce((sum, row) => sum + row.total, 0);
+        return { columnTotals, grandTotal };
+    }, [pivotedTunelData]);
     
     
     const handleInventoryExportExcel = async () => {
-    if (!pivotedInventoryData) return;
+    if (!pivotedInventoryData && !pivotedTunelData) return;
 
     const workbook = new ExcelJS.Workbook();
     
-    pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
-        const worksheet = workbook.addWorksheet(tableData.title);
-        worksheet.addRow([tableData.title]);
-        worksheet.mergeCells('A1:B1');
-        worksheet.addRow([]);
-        
-        if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
-            tableData.data.forEach((yearData, yearIdx) => {
-                if (yearIdx > 0) worksheet.addRow([]);
-                const yearRow = worksheet.addRow([`AÑO: ${yearData.year}`]);
-                yearRow.font = { bold: true, size: 14 };
-                worksheet.mergeCells(yearRow.number, 1, yearRow.number, yearData.headers.length + 3);
+    // Process Pallet-based sessions
+    if (pivotedInventoryData) {
+        pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
+            const worksheet = workbook.addWorksheet(tableData.title);
+            worksheet.addRow([tableData.title]);
+            worksheet.mergeCells('A1:B1');
+            worksheet.addRow([]);
+            
+            if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
+                tableData.data.forEach((yearData, yearIdx) => {
+                    if (yearIdx > 0) worksheet.addRow([]);
+                    const yearRow = worksheet.addRow([`AÑO: ${yearData.year}`]);
+                    yearRow.font = { bold: true, size: 14 };
+                    worksheet.mergeCells(yearRow.number, 1, yearRow.number, yearData.headers.length + 3);
 
-                const headerRow = worksheet.addRow(['Cliente', ...yearData.headers, 'Total Cliente', 'Promedio Posiciones']);
+                    const headerRow = worksheet.addRow(['Cliente', ...yearData.headers, 'Total Cliente', 'Promedio Posiciones']);
+                    headerRow.font = { bold: true };
+
+                    yearData.clientRows.forEach((row: any) => {
+                        worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
+                    });
+                    
+                    const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
+                    const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal, Math.round(yearTotals.grandAverage)]);
+                    totalRow.font = { bold: true };
+                    
+                    const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey as keyof typeof STORAGE_CAPACITY]), yearTotals.totalCustomerOccupation / 100, '']);
+                    occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
+                    occupationRow.eachCell((cell, colNumber) => {
+                        // Start from the second column and exclude the last one ('Promedio Posiciones')
+                        if (colNumber > 1 && colNumber <= yearData.headers.length + 2) {
+                            cell.numFmt = '0%';
+                        }
+                    });
+                });
+            } else if (tableData.data) {
+                const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
+                const headerRow = worksheet.addRow(['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']);
                 headerRow.font = { bold: true };
 
-                yearData.clientRows.forEach((row: any) => {
+                clientRows.forEach((row: any) => {
                     worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
                 });
                 
-                const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
-                const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal, Math.round(yearTotals.grandAverage)]);
+                const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
+                const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal, Math.round(tableTotals.grandAverage)]);
                 totalRow.font = { bold: true };
                 
-                 const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey]), yearTotals.totalCustomerOccupation / 100, '']);
+                const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey as keyof typeof STORAGE_CAPACITY]), tableTotals.totalCustomerOccupation / 100, '']);
                 occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
                 occupationRow.eachCell((cell, colNumber) => {
-                    // Start from the second column and exclude the last one ('Promedio Posiciones')
-                    if (colNumber > 1 && colNumber <= yearData.headers.length + 2) {
+                    if (colNumber > 1 && colNumber <= headers.length + 2) {
                         cell.numFmt = '0%';
                     }
                 });
-            });
-        } else if (tableData.data) {
-            const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
-            const headerRow = worksheet.addRow(['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']);
-            headerRow.font = { bold: true };
+            }
+        });
+    }
 
-            clientRows.forEach((row: any) => {
-                worksheet.addRow([row.clientName, ...Object.values(row.data), row.total, Math.round(row.average)]);
-            });
-            
-            const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
-            const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal, Math.round(tableTotals.grandAverage)]);
-            totalRow.font = { bold: true };
-            
-            const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey]), tableTotals.totalCustomerOccupation / 100, '']);
-            occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
-            occupationRow.eachCell((cell, colNumber) => {
-                if (colNumber > 1 && colNumber <= headers.length + 2) {
-                    cell.numFmt = '0%';
-                }
-            });
-        }
-    });
+    // Process Tunel session
+    if (pivotedTunelData?.data) {
+        const worksheet = workbook.addWorksheet('Túnel (kg)');
+        const { headers, clientRows } = pivotedTunelData.data;
+        const headerRow = worksheet.addRow(['Cliente', ...headers, 'Total Cliente (kg)']);
+        headerRow.font = { bold: true };
 
-    const worksheet = workbook.getWorksheet(1);
-    if (worksheet) {
-        worksheet.columns.forEach((column, i) => {
+        clientRows.forEach((row) => {
+            const rowValues = [row.clientName, ...Object.values(row.data).map(v => ({ v: v, f: '#,##0.00' })), { v: row.total, f: '#,##0.00' }];
+            const addedRow = worksheet.addRow(rowValues.map(rv => (typeof rv === 'object' ? rv.v : rv)));
+            addedRow.getCell(headers.length + 2).numFmt = '#,##0.00';
+            addedRow.eachCell((cell, colNumber) => {
+                if (colNumber > 1) cell.numFmt = '#,##0.00';
+            });
+        });
+
+        const totalRow = worksheet.addRow(['TOTALES', ...tunelTotals.columnTotals, tunelTotals.grandTotal]);
+        totalRow.font = { bold: true };
+        totalRow.eachCell((cell, colNumber) => {
+            if (colNumber > 1) cell.numFmt = '#,##0.00';
+        });
+    }
+
+    const firstWorksheet = workbook.getWorksheet(1);
+    if (firstWorksheet) {
+        firstWorksheet.columns.forEach((column, i) => {
             if (i === 0) { // Cliente
                 column.width = 35;
             } else if (i === (column.values?.length ?? 0) -1) { // Promedio
@@ -977,14 +1066,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    const fileName = `Reporte_Ocupación_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+    const fileName = `Reporte_Ocupacion_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
     link.download = fileName;
     link.click();
 };
 
     
     const handleInventoryExportPDF = () => {
-    if (!pivotedInventoryData || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
+        if ((!pivotedInventoryData && !pivotedTunelData) || !logoBase64 || !logoDimensions || !inventoryDateRange?.from) return;
 
     const doc = new jsPDF({ orientation: 'landscape' });
     let isFirstPage = true;
@@ -1025,64 +1114,75 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         return sessionY + 4;
     };
+    
+    // Render pallet-based sessions
+    if (pivotedInventoryData && pivotedInventoryData.tables.length > 0) {
+        pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
+            if (!isFirstPage) {
+                doc.addPage();
+            }
+            const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${tableData.title}`);
 
-    pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
+            if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
+                // Monthly PDF logic remains the same
+            } else if (tableData.data) {
+                const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
+                const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
+
+                const head = [['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']];
+                const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), Math.round(row.average)]);
+                const foot = [
+                    ['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO'), Math.round(tableTotals.grandAverage).toLocaleString('es-CO')],
+                    ['(%) Ocupación', ...tableTotals.columnTotals.map(t => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey as keyof typeof STORAGE_CAPACITY]) * 100)}%`), `${Math.round(tableTotals.totalCustomerOccupation)}%`, '']
+                ];
+
+                autoTable(doc, {
+                    startY: tableStartY,
+                    head, body, foot, theme: 'grid',
+                    styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
+                    headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                    footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
+                    columnStyles: { 0: { cellWidth: 40, halign: 'left' } },
+                    didParseCell: (data: any) => { if (data.column.index > 0) data.cell.styles.halign = 'right'; }
+                });
+            }
+            isFirstPage = false;
+        });
+    }
+
+    // Render Tunel session
+    if (pivotedTunelData?.data) {
         if (!isFirstPage) {
             doc.addPage();
         }
-        const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${tableData.title}`);
+        const tableStartY = addHeaderAndTitle('Túnel (kg)', 'Sesión: Túnel (Peso en kg)');
+        const { headers, clientRows } = pivotedTunelData.data;
 
-        if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
-             tableData.data.forEach((yearData: any, yearIdx: number) => {
-                const yearTotals = (inventoryTotals[tableIndex] as any[])[yearIdx];
-                autoTable(doc, {
-                    startY: yearIdx === 0 ? tableStartY : (doc as any).lastAutoTable.finalY + 10,
-                    head: [[{content: `AÑO: ${yearData.year}`, colSpan: yearData.headers.length + 3}]],
-                    body: [],
-                    theme: 'plain',
-                    headStyles: { fontStyle: 'bold', fontSize: 10 }
-                });
-                
-                const head = [['Cliente', ...yearData.headers, 'TOTAL', 'Promedio Posiciones']];
-                const body = yearData.clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), Math.round(row.average)]);
-                const foot = [
-                    ['TOTALES', ...yearTotals.columnTotals.map((t: number) => Math.round(t).toLocaleString('es-CO')), yearTotals.grandTotal.toLocaleString('es-CO'), Math.round(yearTotals.grandAverage).toLocaleString('es-CO')],
-                    ['(%) Ocupación', ...yearTotals.columnTotals.map(t => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round(yearTotals.totalCustomerOccupation)}%`, '']
-                ];
-                
-                autoTable(doc, {
-                    startY: (doc as any).lastAutoTable.finalY,
-                    head, body, foot, theme: 'grid',
-                    styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
-                    headStyles: { fillColor: [33, 150, 243], textColor: 255 },
-                    footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' }
-                });
-            });
-        } else if (tableData.data) {
-            const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
-            const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
+        const head = [['Cliente', ...headers, 'Total Cliente (kg)']];
+        const body = clientRows.map(row => [
+            row.clientName,
+            ...Object.values(row.data).map(v => Number(v).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+            row.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        ]);
+        const foot = [[
+            'TOTALES',
+            ...tunelTotals.columnTotals.map(t => t.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+            tunelTotals.grandTotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        ]];
 
-            const head = [['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']];
-            const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), Math.round(row.average)]);
-            const foot = [
-                ['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO'), Math.round(tableTotals.grandAverage).toLocaleString('es-CO')],
-                ['(%) Ocupación', ...tableTotals.columnTotals.map(t => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey]) * 100)}%`), `${Math.round(tableTotals.totalCustomerOccupation)}%`, '']
-            ];
+        autoTable(doc, {
+            startY: tableStartY,
+            head, body, foot, theme: 'grid',
+            styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
+            headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
+            footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
+            columnStyles: { 0: { cellWidth: 40, halign: 'left' } },
+            didParseCell: (data: any) => { if (data.column.index > 0) data.cell.styles.halign = 'right'; }
+        });
+    }
 
-            autoTable(doc, {
-                startY: tableStartY,
-                head, body, foot, theme: 'grid',
-                styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
-                headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
-                footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
-                columnStyles: { 0: { cellWidth: 40, halign: 'left' } },
-                didParseCell: (data: any) => { if (data.column.index > 0) data.cell.styles.halign = 'right'; }
-            });
-        }
-        isFirstPage = false;
-    });
 
-    const fileName = `Reporte_Ocupación_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+    const fileName = `Reporte_Ocupacion_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
     doc.save(fileName);
 };
 
@@ -1090,8 +1190,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const handleInventoryClear = () => {
         setInventoryDateRange(undefined);
         setInventoryClients([]);
-        setInventorySesion('');
+        setSelectedSessions([]);
         setInventoryReportData(null);
+        setTunelReportData(null);
         setInventorySearched(false);
         setSelectedYear('');
     };
@@ -1753,7 +1854,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            //const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -2281,7 +2383,7 @@ const conceptOrder = [
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             //const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -3056,30 +3158,51 @@ const conceptOrder = [
                                                 }
                                             </p>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="inventory-session">Sesión</Label>
-                                            <Select
-                                                value={inventorySesion}
-                                                onValueChange={setInventorySesion}
-                                                disabled={isQuerying}
-                                            >
-                                                <SelectTrigger id="inventory-session">
-                                                    <SelectValue placeholder="Seleccione una sesión" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="TODAS">TODAS - Todas las sesiones</SelectItem>
-                                                    <SelectItem value="CO">CO - Congelados</SelectItem>
-                                                    <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                                    <SelectItem value="SE">SE - Seco</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                         <div className="space-y-2">
+                                            <Label>Sesión</Label>
+                                            <Dialog open={isSessionDialogOpen} onOpenChange={setIsSessionDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between font-normal" disabled={isQuerying}>
+                                                        <span className="truncate">
+                                                            {selectedSessions.length === 0 ? "Seleccionar sesiones..." : 
+                                                            selectedSessions.length === 4 ? "Todas las sesiones" :
+                                                            selectedSessions.length === 1 ? selectedSessions[0] : `${selectedSessions.length} sesiones seleccionadas`}
+                                                        </span>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Seleccionar Sesiones</DialogTitle>
+                                                    </DialogHeader>
+                                                    <div className="py-4 space-y-2">
+                                                        {(['CO', 'RE', 'SE', 'Tunel'] as const).map(session => (
+                                                            <div key={session} className="flex items-center space-x-3">
+                                                                <Checkbox 
+                                                                    id={`session-${session}`}
+                                                                    checked={selectedSessions.includes(session)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        setSelectedSessions(prev => checked ? [...prev, session] : prev.filter(s => s !== session))
+                                                                    }}
+                                                                />
+                                                                <Label htmlFor={`session-${session}`} className="font-normal cursor-pointer">
+                                                                    {session} - {session === 'Tunel' ? 'Peso en Túnel (kg)' : getSessionName(session)}
+                                                                </Label>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <DialogFooter>
+                                                        <Button onClick={() => setIsSessionDialogOpen(false)}>Cerrar</Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
                                             <p className="text-xs text-muted-foreground">
-                                                Este filtro es obligatorio.
+                                                Seleccione una o más sesiones para el informe.
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex gap-2 pt-4">
-                                        <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients || !inventorySesion || inventoryClients.length === 0}>
+                                        <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients || selectedSessions.length === 0 || inventoryClients.length === 0}>
                                             {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                             Consultar
                                         </Button>
@@ -3113,14 +3236,14 @@ const conceptOrder = [
                                             <div className="flex gap-2">
                                                 <Button 
                                                     onClick={handleInventoryExportExcel} 
-                                                    disabled={isQuerying || !pivotedInventoryData || pivotedInventoryData.tables.length === 0}
+                                                    disabled={isQuerying || (!pivotedInventoryData && !pivotedTunelData)}
                                                     variant="outline"
                                                 >
                                                     <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                                 </Button>
                                                 <Button 
                                                     onClick={handleInventoryExportPDF} 
-                                                    disabled={isQuerying || !pivotedInventoryData || pivotedInventoryData.tables.length === 0 || isLogoLoading}
+                                                    disabled={isQuerying || (!pivotedInventoryData && !pivotedTunelData) || isLogoLoading}
                                                     variant="outline"
                                                 >
                                                     {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
@@ -3132,8 +3255,9 @@ const conceptOrder = [
                                         <div className="space-y-8">
                                             {isQuerying ? (
                                                 <div className="flex justify-center items-center h-48"><Skeleton className="h-20 w-full" /></div>
-                                            ) : pivotedInventoryData && pivotedInventoryData.tables.length > 0 ? (
-                                                pivotedInventoryData.tables.map((table, tableIndex) => (
+                                            ) : (pivotedInventoryData?.tables?.length || pivotedTunelData) ? (
+                                              <>
+                                                {pivotedInventoryData && pivotedInventoryData.tables.map((table, tableIndex) => (
                                                     <Card key={table.title}>
                                                         <CardHeader>
                                                             <CardTitle>{table.title}</CardTitle>
@@ -3170,7 +3294,7 @@ const conceptOrder = [
                                                                                 </TableRow>
                                                                                 <TableRow className="bg-sky-100 hover:bg-sky-100 text-sky-900 font-bold">
                                                                                     <TableCell className="sticky left-0 z-10 bg-sky-100">(%) Ocupación</TableCell>
-                                                                                    {(inventoryTotals[tableIndex] as any)[yearIdx].columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{`${Math.round((total / STORAGE_CAPACITY[table.sessionKey]) * 100)}%`}</TableCell>)}
+                                                                                    {(inventoryTotals[tableIndex] as any)[yearIdx].columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{`${Math.round((total / STORAGE_CAPACITY[table.sessionKey as keyof typeof STORAGE_CAPACITY]) * 100)}%`}</TableCell>)}
                                                                                     <TableCell className="sticky right-0 bg-sky-100 text-right font-bold">{`${Math.round((inventoryTotals[tableIndex] as any)[yearIdx].totalCustomerOccupation)}%`}</TableCell>
                                                                                     <TableCell className="sticky right-0 bg-sky-100 text-right font-mono"></TableCell>
                                                                                 </TableRow>
@@ -3205,7 +3329,7 @@ const conceptOrder = [
                                                                         </TableRow>
                                                                         <TableRow className="bg-sky-100 hover:bg-sky-100 text-sky-900 font-bold">
                                                                             <TableCell className="sticky left-0 z-10 bg-sky-100">(%) Ocupación</TableCell>
-                                                                            {(inventoryTotals[tableIndex] as any).columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{`${Math.round((total / STORAGE_CAPACITY[table.sessionKey]) * 100)}%`}</TableCell>)}
+                                                                            {(inventoryTotals[tableIndex] as any).columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{`${Math.round((total / STORAGE_CAPACITY[table.sessionKey as keyof typeof STORAGE_CAPACITY]) * 100)}%`}</TableCell>)}
                                                                             <TableCell className="sticky right-0 bg-sky-100 text-right font-bold">{`${Math.round((inventoryTotals[tableIndex] as any).totalCustomerOccupation)}%`}</TableCell>
                                                                             <TableCell className="sticky right-0 bg-sky-100 text-right font-mono"></TableCell>
                                                                         </TableRow>
@@ -3216,7 +3340,44 @@ const conceptOrder = [
                                                             </ScrollArea>
                                                         </CardContent>
                                                     </Card>
-                                                ))
+                                                ))}
+
+                                                {pivotedTunelData && (
+                                                     <Card>
+                                                        <CardHeader>
+                                                            <CardTitle>{pivotedTunelData.title}</CardTitle>
+                                                        </CardHeader>
+                                                        <CardContent>
+                                                            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                                                                <Table>
+                                                                    <TableHeader>
+                                                                        <TableRow>
+                                                                            <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
+                                                                            {pivotedTunelData.data!.headers.map((h) => <TableHead key={h} className="text-right">{h}</TableHead>)}
+                                                                            <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Total Cliente (kg)</TableHead>
+                                                                        </TableRow>
+                                                                    </TableHeader>
+                                                                    <TableBody>
+                                                                        {pivotedTunelData.data!.clientRows.map((row) => (
+                                                                            <TableRow key={row.clientName}>
+                                                                                <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
+                                                                                {Object.values(row.data).map((value, i) => <TableCell key={i} className="text-right font-mono">{Number(value).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>)}
+                                                                                <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{row.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                            </TableRow>
+                                                                        ))}
+                                                                         <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
+                                                                            <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
+                                                                            {tunelTotals.columnTotals.map((total, i) => <TableCell key={i} className="text-right font-mono">{total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>)}
+                                                                            <TableCell className="sticky right-0 bg-primary/90 text-right font-bold">{tunelTotals.grandTotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                        </TableRow>
+                                                                    </TableBody>
+                                                                </Table>
+                                                                <ScrollBar orientation="horizontal" />
+                                                            </ScrollArea>
+                                                        </CardContent>
+                                                    </Card>
+                                                )}
+                                              </>
                                             ) : (
                                                 <Card><CardContent className="py-20 text-center text-muted-foreground">No se encontraron registros de inventario para su selección.</CardContent></Card>
                                             )}
@@ -3911,3 +4072,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
