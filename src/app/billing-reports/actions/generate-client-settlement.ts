@@ -193,10 +193,13 @@ const getFilteredItems = (
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
     articleSessionMap: Map<string, string>
 ): any[] => {
-    const allItems = (op.formData.productos || [])
-        .concat(op.formData.items || [])
-        .concat((op.formData.destinos || []).flatMap((d: any) => d.items || []))
-        .concat((op.formData.placas || []).flatMap((p: any) => p.items || []));
+    const allItems = [
+        ...(op.formData.productos || []),
+        ...(op.formData.items || []),
+        ...((op.formData.destinos || []).flatMap((d: any) => d.items || [])),
+        ...((op.formData.placas || []).flatMap((p: any) => p.items || []))
+    ];
+
 
     if (!sessionFilter || sessionFilter === 'AMBOS') {
         return allItems;
@@ -844,29 +847,31 @@ export async function generateClientSettlement(criteria: {
             
         for (const op of allOperations.filter(o => o.type === 'form')) {
             const submission = op.data;
-            const formType = submission.formType || '';
-
-            // --- INICIO DE LA NUEVA EXCEPCIÓN DE FRUTELLI ---
+            
+            // --- INICIO DE EXCEPCIÓN FRUTELLI ---
             if (
                 concept.calculationType === 'REGLAS' &&
                 (concept.conceptName === 'ARIN DE INGRESO ZFPC' || concept.conceptName === 'ARIN DE SALIDA ZFPC') &&
                 submission.formData?.cliente === 'GRUPO FRUTELLI SAS'
             ) {
-                const allItems = (submission.formData.productos || [])
-                    .concat(submission.formData.items || [])
-                    .concat((submission.formData.destinos || []).flatMap((d: any) => d.items || []))
-                    .concat((submission.formData.placas || []).flatMap((p: any) => p.items || []));
-    
+                const formType = submission.formType || '';
+                const allItems = [
+                    ...(submission.formData.productos || []),
+                    ...(submission.formData.items || []),
+                    ...((submission.formData.destinos || []).flatMap((d: any) => d.items || [])),
+                    ...((submission.formData.placas || []).flatMap((p: any) => p.items || []))
+                ];
+
                 if (
-                    // Condición 1: El formulario solo tiene el producto 'MAQUINA'
-                    (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') ||
-                    // Condición 2: El formulario es de peso variable
-                    (formType.includes('variable-weight'))
+                    // Condición 1: El formulario es de peso variable
+                    (formType.includes('variable-weight')) ||
+                    // Condición 2: El formulario solo tiene el producto 'MAQUINA'
+                    (allItems.length === 1 && allItems[0].codigo === 'MAQUINA')
                 ) {
                     continue; 
                 }
             }
-            // --- FIN DE LA NUEVA EXCEPCIÓN DE FRUTELLI ---
+            // --- FIN DE EXCEPCIÓN FRUTELLI ---
 
 
              if (containerNumber && submission.formData.contenedor !== containerNumber) {
@@ -1124,16 +1129,18 @@ export async function generateClientSettlement(criteria: {
 
                 if (relatedSubmission) {
                     const formType = relatedSubmission.formType || '';
-                    const allItems = (relatedSubmission.formData.productos || [])
-                        .concat(relatedSubmission.formData.items || [])
-                        .concat((relatedSubmission.formData.destinos || []).flatMap((d: any) => d.items || []))
-                        .concat((relatedSubmission.formData.placas || []).flatMap((p: any) => p.items || []));
+                    const allItems = [
+                        ...(relatedSubmission.formData.productos || []),
+                        ...(relatedSubmission.formData.items || []),
+                        ...((relatedSubmission.formData.destinos || []).flatMap((d: any) => d.items || [])),
+                        ...((relatedSubmission.formData.placas || []).flatMap((p: any) => p.items || []))
+                    ];
 
                     if (
-                        (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') ||
-                        (formType.includes('variable-weight'))
+                        (formType.includes('variable-weight')) ||
+                        (allItems.length === 1 && allItems[0].codigo === 'MAQUINA')
                     ) {
-                        continue; // Salta esta operación manual si está vinculada a un formulario de solo dispensador o es de peso variable.
+                        continue; 
                     }
                 }
             }
@@ -1686,6 +1693,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
