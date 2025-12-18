@@ -62,6 +62,7 @@ export interface ClientSettlementRow {
   isPending?: boolean; // Para marcar si necesita legalización
   submissionId?: string; // Para saber a qué formulario enlazar
   formType?: string; // NUEVA LÍNEA
+  lotId?: string; // Para agrupar SMYL
 }
 
 export interface ClientSettlementResult {
@@ -443,6 +444,7 @@ async function generateSmylLiquidation(
   
               allLotRows.push({
                   date: format(receptionDate, 'yyyy-MM-dd'),
+                  lotId,
                   conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
                   subConceptName: 'Servicio logístico Congelación (4 Días)',
                   quantity: initialReception.pallets,
@@ -455,6 +457,7 @@ async function generateSmylLiquidation(
   
               allLotRows.push({
                   date: format(receptionDate, 'yyyy-MM-dd'),
+                  lotId,
                   conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
                   subConceptName: 'Servicio de Manipulación',
                   quantity: 1, unitOfMeasure: 'UNIDAD', unitValue: manipulationTotal, totalValue: manipulationTotal,
@@ -473,6 +476,7 @@ async function generateSmylLiquidation(
               if (day.finalBalance > 0) {
                   allLotRows.push({
                       date: day.date,
+                      lotId,
                       conceptName: 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
                       quantity: day.finalBalance,
                       unitOfMeasure: 'PALETA/DIA',
@@ -849,24 +853,20 @@ export async function generateClientSettlement(criteria: {
             const submission = op.data;
             
             const submissionClientName = submission.formData?.cliente || submission.formData?.nombreCliente;
+            const allItems = [
+                ...(submission.formData.productos || []),
+                ...(submission.formData.items || []),
+                ...((submission.formData.destinos || []).flatMap((d: any) => d.items || [])),
+                ...((submission.formData.placas || []).flatMap((p: any) => p.items || []))
+            ];
 
             if (
-                concept.calculationType === 'REGLAS' &&
-                (concept.conceptName === 'ARIN DE INGRESO ZFPC' || concept.conceptName === 'ARIN DE SALIDA ZFPC') &&
-                submissionClientName === 'GRUPO FRUTELLI SAS'
+                submissionClientName === 'GRUPO FRUTELLI SAS' &&
+                (concept.conceptName.startsWith('ARIN DE INGRESO') || concept.conceptName.startsWith('ARIN DE SALIDA'))
             ) {
-                const formType = submission.formType || '';
-                const allItems = [
-                    ...(submission.formData.productos || []),
-                    ...(submission.formData.items || []),
-                    ...((submission.formData.destinos || []).flatMap((d: any) => d.items || [])),
-                    ...((submission.formData.placas || []).flatMap((p: any) => p.items || []))
-                ];
-                
-                if (formType.includes('variable-weight')) {
+                 if (submission.formType.includes('variable-weight')) {
                     continue; 
                 }
-                
                 if (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') {
                     continue; 
                 }
@@ -1116,35 +1116,21 @@ export async function generateClientSettlement(criteria: {
         for (const op of manualOpsFiltered) {
             const opData = op.data;
 
-            // --- INICIO DE EXCEPCIÓN FRUTELLI PARA OPERACIONES MANUALES ---
+            const submissionClientName = opData.clientName;
+            const formType = op.formType || '';
+            const allItems = [
+                ...(op.formData?.productos || []),
+                ...(op.formData?.items || []),
+            ];
+
             if (
-                (opData.concept === 'ARIN DE INGRESO ZFPC' || opData.concept === 'ARIN DE SALIDA ZFPC') &&
-                opData.clientName === 'GRUPO FRUTELLI SAS' &&
-                opData.details?.pedidoSislog
+                submissionClientName === 'GRUPO FRUTELLI SAS' &&
+                (opData.concept === 'ARIN DE INGRESO ZFPC (MANUAL)' || opData.concept === 'ARIN DE SALIDA ZFPC (MANUAL)')
             ) {
-                const relatedSubmission = allSubmissionsForClient.find(
-                    s => s.formData.pedidoSislog === opData.details.pedidoSislog
-                );
-
-                if (relatedSubmission) {
-                    const formType = relatedSubmission.formType || '';
-                    const allItems = [
-                        ...(relatedSubmission.formData.productos || []),
-                        ...(relatedSubmission.formData.items || []),
-                        ...((relatedSubmission.formData.destinos || []).flatMap((d: any) => d.items || [])),
-                        ...((relatedSubmission.formData.placas || []).flatMap((p: any) => p.items || []))
-                    ];
-
-                    if (formType.includes('variable-weight')) {
-                        continue;
-                    }
-
-                    if (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') {
-                        continue;
-                    }
+                if (allItems.length === 1 && allItems[0].codigo === 'MAQUINA') {
+                    continue;
                 }
             }
-            // --- FIN DE EXCEPCIÓN FRUTELLI PARA OPERACIONES MANUALES ---
 
             const concept = conceptsToProcessManually.find(c => c.conceptName === opData.concept);
             if (!concept) continue;
@@ -1693,6 +1679,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 

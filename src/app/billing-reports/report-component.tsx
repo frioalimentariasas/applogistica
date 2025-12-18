@@ -901,7 +901,45 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 }).filter(row => row.total > 0);
                 return { headers: dateHeaders.map(d => format(parseISO(d), 'dd/MM')), clientRows };
             }
-            return null; // Grouping by month/consolidated not implemented for weight
+            if (groupType === 'monthly') {
+                const yearGroups = tunelReportData.rows.reduce((acc, row) => {
+                    const year = getYear(parseISO(row.date));
+                    if (!acc[year]) acc[year] = [];
+                    acc[year].push(row);
+                    return acc;
+                }, {} as Record<number, any[]>);
+
+                return Object.entries(yearGroups).map(([year, yearRows]) => {
+                    const startRange = max([inventoryDateRange.from!, startOfYear(new Date(Number(year), 0, 1))]);
+                    const endRange = min([inventoryDateRange.to!, endOfYear(new Date(Number(year), 11, 31))]);
+                    const monthHeaders = eachMonthOfInterval({ start: startRange, end: endRange }).map(m => format(m, 'MMM', { locale: es }));
+                    
+                    const clientRows = tunelReportData.clientHeaders.map(client => {
+                        const monthData: Record<string, number> = {};
+                        let total = 0;
+                        monthHeaders.forEach((mHeader, index) => {
+                            const monthDate = eachMonthOfInterval({ start: startRange, end: endRange })[index];
+                            const monthRows = yearRows.filter(r => {
+                                const rowDate = parseISO(r.date);
+                                return rowDate.getFullYear() === Number(year) && rowDate.getMonth() === monthDate.getMonth();
+                            });
+                            const sumOfDailyTotals = monthRows.reduce((sum, row) => sum + (row.clientData[client] || 0), 0);
+                            monthData[mHeader] = sumOfDailyTotals;
+                            total += sumOfDailyTotals;
+                        });
+                        return { clientName: client, data: monthData, total };
+                    }).filter(row => row.total > 0);
+                    return { year, headers: monthHeaders, clientRows };
+                });
+            }
+             if (groupType === 'consolidated') {
+                const clientRows = tunelReportData.clientHeaders.map(client => {
+                    const total = tunelReportData.rows.reduce((sum, row) => sum + (row.clientData[client] || 0), 0);
+                    return { clientName: client, data: { 'Total': total }, total };
+                }).filter(row => row.total > 0);
+                return { headers: ['Total Período'], clientRows };
+            }
+            return null;
         }
 
         return {
@@ -930,7 +968,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const grandTotal = yearData.clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
                 const grandTotalAverage = yearData.clientRows.reduce((sum: number, row: any) => sum + row.average, 0);
                 const capacityKey = table.sessionKey as keyof typeof STORAGE_CAPACITY;
-                const totalCustomerOccupation = grandTotal > 0 ? (grandTotal / (STORAGE_CAPACITY[capacityKey] * 365) * 100) : 0;
+                const totalDaysInYear = (getYear(new Date(Number(yearData.year), 0, 1)) % 4 === 0 && getYear(new Date(Number(yearData.year), 0, 1)) % 100 !== 0) || getYear(new Date(Number(yearData.year), 0, 1)) % 400 === 0 ? 366 : 365;
+                const totalCustomerOccupation = grandTotal > 0 ? (grandTotal / (STORAGE_CAPACITY[capacityKey] * totalDaysInYear) * 100) : 0;
                 
                 return { year: yearData.year, columnTotals, grandTotal, grandAverage: grandTotalAverage, occupationPercentage: 0, totalCustomerOccupation };
             });
@@ -951,16 +990,27 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const occupationDenominator = STORAGE_CAPACITY[capacityKey] * columnTotals.length;
         const occupationPercentage = occupationDenominator > 0 ? (totalOccupationSum / occupationDenominator) * 100 : 0;
         
-        const totalCustomerOccupation = occupationDenominator > 0 ? (grandTotal / occupationDenominator) * 100 : 0;
+        const totalCustomerOccupation = grandTotal > 0 ? (grandTotal / (occupationDenominator)) * 100 : 0;
         
         return { columnTotals, grandTotal, grandAverage: grandTotalAverage, occupationPercentage, totalCustomerOccupation };
     });
 }, [pivotedInventoryData]);
 
     const tunelTotals = useMemo(() => {
-        if (!pivotedTunelData?.data) return { columnTotals: [], grandTotal: 0 };
-        const { clientRows, headers } = pivotedTunelData.data;
+        if (!pivotedTunelData?.data) return null;
+        
+        if (pivotedTunelData.type === 'monthly' && Array.isArray(pivotedTunelData.data)) {
+            return pivotedTunelData.data.map(yearData => {
+                const columnTotals = yearData.headers.map((_, colIndex) =>
+                    yearData.clientRows.reduce((sum, row) => sum + (Number(Object.values(row.data)[colIndex]) || 0), 0)
+                );
+                const grandTotal = yearData.clientRows.reduce((sum, row) => sum + row.total, 0);
+                return { year: yearData.year, columnTotals, grandTotal };
+            });
+        }
 
+        const clientRows = pivotedTunelData.data.clientRows as { clientName: string, data: Record<string, number>, total: number }[];
+        const headers = pivotedTunelData.data.headers as string[];
         const columnTotals = headers.map((_, colIndex) =>
             clientRows.reduce((sum, row) => sum + (Number(Object.values(row.data)[colIndex]) || 0), 0)
         );
@@ -1036,24 +1086,41 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     // Process Tunel session
     if (pivotedTunelData?.data) {
         const worksheet = workbook.addWorksheet('Túnel (kg)');
-        const { headers, clientRows } = pivotedTunelData.data;
-        const headerRow = worksheet.addRow(['Cliente', ...headers, 'Total Cliente (kg)']);
-        headerRow.font = { bold: true };
+        worksheet.addRow(['Túnel (kg)']);
+        worksheet.mergeCells('A1:B1');
+        worksheet.addRow([]);
 
-        clientRows.forEach((row) => {
-            const rowValues = [row.clientName, ...Object.values(row.data).map(v => ({ v: v, f: '#,##0.00' })), { v: row.total, f: '#,##0.00' }];
-            const addedRow = worksheet.addRow(rowValues.map(rv => (typeof rv === 'object' ? rv.v : rv)));
-            addedRow.getCell(headers.length + 2).numFmt = '#,##0.00';
-            addedRow.eachCell((cell, colNumber) => {
-                if (colNumber > 1) cell.numFmt = '#,##0.00';
+        if (pivotedTunelData.type === 'monthly' && Array.isArray(pivotedTunelData.data)) {
+            (pivotedTunelData.data as any[]).forEach((yearData, yearIdx) => {
+                if (yearIdx > 0) worksheet.addRow([]);
+                const yearRow = worksheet.addRow([`AÑO: ${yearData.year}`]);
+                yearRow.font = { bold: true, size: 14 };
+                worksheet.mergeCells(yearRow.number, 1, yearRow.number, yearData.headers.length + 2);
+                
+                const headerRow = worksheet.addRow(['Cliente', ...yearData.headers, 'Total Cliente (kg)']);
+                headerRow.font = { bold: true };
+
+                yearData.clientRows.forEach((row: any) => {
+                    worksheet.addRow([row.clientName, ...Object.values(row.data), row.total]);
+                });
+                
+                const yearTotals = (tunelTotals as any[])[yearIdx];
+                const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal]);
+                totalRow.font = { bold: true };
             });
-        });
-
-        const totalRow = worksheet.addRow(['TOTALES', ...tunelTotals.columnTotals, tunelTotals.grandTotal]);
-        totalRow.font = { bold: true };
-        totalRow.eachCell((cell, colNumber) => {
-            if (colNumber > 1) cell.numFmt = '#,##0.00';
-        });
+        } else if (pivotedTunelData.data) {
+            const { headers, clientRows } = pivotedTunelData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number }[] };
+            const headerRow = worksheet.addRow(['Cliente', ...headers, 'Total Cliente (kg)']);
+            headerRow.font = { bold: true };
+            
+            clientRows.forEach((row) => {
+                const rowValues = [row.clientName, ...Object.values(row.data), row.total];
+                worksheet.addRow(rowValues);
+            });
+            const tableTotals = tunelTotals as { columnTotals: number[], grandTotal: number };
+            const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal]);
+            totalRow.font = { bold: true };
+        }
     }
 
     const firstWorksheet = workbook.getWorksheet(1);
@@ -1163,29 +1230,52 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             doc.addPage();
         }
         const tableStartY = addHeaderAndTitle('Túnel (kg)', 'Sesión: Túnel (Peso en kg)');
-        const { headers, clientRows } = pivotedTunelData.data;
+        
+        if (pivotedTunelData.type === 'monthly' && Array.isArray(pivotedTunelData.data)) {
+            (pivotedTunelData.data as any[]).forEach(yearData => {
+                const head = [['Cliente', ...yearData.headers, 'Total Cliente (kg)']];
+                const body = yearData.clientRows.map((row: any) => [
+                    row.clientName,
+                    ...Object.values(row.data).map(v => Number(v).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+                    row.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                ]);
+                const yearTotals = (tunelTotals as any[]).find(t => t.year === yearData.year);
+                const foot = [[
+                    'TOTALES',
+                    ...yearTotals.columnTotals.map((t: number) => t.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+                    yearTotals.grandTotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                ]];
+                 autoTable(doc, {
+                    startY: (doc as any).lastAutoTable.finalY + 10 || tableStartY,
+                    head, body, foot, theme: 'grid',
+                    // ... styles
+                });
+            });
+        } else if (pivotedTunelData.data) {
+            const { headers, clientRows } = pivotedTunelData.data as { headers: string[], clientRows: any[] };
+            const head = [['Cliente', ...headers, 'Total Cliente (kg)']];
+            const body = clientRows.map(row => [
+                row.clientName,
+                ...Object.values(row.data).map(v => Number(v).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+                row.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            ]);
+            const tableTotals = tunelTotals as { columnTotals: number[], grandTotal: number };
+            const foot = [[
+                'TOTALES',
+                ...tableTotals.columnTotals.map(t => t.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+                tableTotals.grandTotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            ]];
 
-        const head = [['Cliente', ...headers, 'Total Cliente (kg)']];
-        const body = clientRows.map(row => [
-            row.clientName,
-            ...Object.values(row.data).map(v => Number(v).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
-            row.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        ]);
-        const foot = [[
-            'TOTALES',
-            ...tunelTotals.columnTotals.map(t => t.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
-            tunelTotals.grandTotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        ]];
-
-        autoTable(doc, {
-            startY: tableStartY,
-            head, body, foot, theme: 'grid',
-            styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
-            headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
-            footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
-            columnStyles: { 0: { cellWidth: 40, halign: 'left' } },
-            didParseCell: (data: any) => { if (data.column.index > 0) data.cell.styles.halign = 'right'; }
-        });
+             autoTable(doc, {
+                startY: tableStartY,
+                head, body, foot, theme: 'grid',
+                styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
+                headStyles: { fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
+                columnStyles: { 0: { cellWidth: 40, halign: 'left' } },
+                didParseCell: (data: any) => { if (data.column.index > 0) data.cell.styles.halign = 'right'; }
+            });
+        }
     }
 
 
@@ -1468,7 +1558,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            const fileName = `Inventario_Detallado_${format(exportDateRange.from, 'yyyy-MM-dd')}_a_${format(exportDateRange.to, 'yyyy-MM-dd')}.xlsx`;
+            const fileName = `Inventario_Detallado_${format(exportDateRange.from, 'yyyy-MM-dd')}_a_${format(exportDateRange.to!, 'yyyy-MM-dd')}.xlsx`;
             link.download = fileName;
             link.click();
 
@@ -1854,7 +1944,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'HORA EXTRA NOCTURNA',
             'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
             'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-            'ALIMENTACIÓN',
+            'ALIMENTACION',
             'TRANSPORTE EXTRAORDINARIO',
             'TRANSPORTE DOMINICAL Y FESTIVO',
         ];
@@ -2184,7 +2274,7 @@ const conceptOrder = [
                 conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
             } else if (row.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                 conceptName = row.conceptName;
-                unitOfMeasure = row.unitOfMeasure;
+                unitOfMeasure = 'HORA';
                 conceptKey = row.conceptName;
             } else {
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
@@ -2377,88 +2467,63 @@ const conceptOrder = [
             row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
         ];
 
-        const groupedByConcept = visibleRows.reduce((acc, row) => {
-            const conceptKey = row.conceptName;
-            if (!acc[conceptKey]) {
-                acc[conceptKey] = { rows: [], subtotalValor: 0, subtotalCantidad: 0, order: conceptOrder.indexOf(conceptKey) };
+        const groupedByLotAndConcept = visibleRows.reduce((acc, row) => {
+            const lotKey = row.lotId || `CONCEPTO-${row.conceptName}`;
+            if (!acc[lotKey]) {
+                acc[lotKey] = { lotId: row.lotId, conceptName: row.conceptName, rows: [], order: conceptOrder.indexOf(row.conceptName) };
             }
-            acc[conceptKey].rows.push(row);
-            acc[conceptKey].subtotalCantidad += row.quantity || 0;
-            acc[conceptKey].subtotalValor += row.totalValue || 0;
+            acc[lotKey].rows.push(row);
             return acc;
-        }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number, order: number }>);
-    
-        const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
-            //const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+        }, {} as Record<string, { lotId?: string; conceptName: string; rows: ClientSettlementRow[]; order: number; }>);
+        
+        const sortedGroupKeys = Object.keys(groupedByLotAndConcept).sort((a, b) => {
+            const groupA = groupedByLotAndConcept[a];
+            const groupB = groupedByLotAndConcept[b];
+            
+            const lotCompare = (groupA.lotId || groupA.conceptName).localeCompare(groupB.lotId || groupB.conceptName);
+            if(lotCompare !== 0) return lotCompare;
+
+            const orderA = groupA.order === -1 ? Infinity : groupA.order;
+            const orderB = groupB.order === -1 ? Infinity : groupB.order;
             if (orderA !== orderB) return orderA - orderB;
-            return a.localeCompare(b);
+            
+            return groupA.conceptName.localeCompare(groupB.conceptName);
         });
 
-        sortedConceptKeys.forEach(conceptName => {
-             const isContainerConcept = [
-                'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
-                'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC) POR CONTENEDOR',
-                'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR'
-             ].includes(conceptName);
-             const group = groupedByConcept[conceptName];
-
-             detailBody.push([{ content: conceptName, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+        for (const groupKey of sortedGroupKeys) {
+             const group = groupedByLotAndConcept[groupKey];
+             let groupTitle = group.lotId ? `Lote/Contenedor: ${group.lotId}` : group.conceptName;
              
-             if (isContainerConcept) {
-                const containerGroups = group.rows.reduce((acc, row) => {
-                    const containerKey = row.container || 'SIN_CONTENEDOR';
-                    if (!acc[containerKey]) {
-                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
-                    }
-                    acc[containerKey].rows.push(row);
-                    acc[containerKey].subtotalCantidad += row.quantity;
-                    acc[containerKey].subtotalValor += row.totalValue;
-                    return acc;
-                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
-
-                Object.entries(containerGroups).forEach(([containerKey, containerData]: [string, any]) => {
-                     detailBody.push([{ content: `Contenedor: ${containerKey}`, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
-                     containerData.rows.sort((a: ClientSettlementRow, b: ClientSettlementRow) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach((row: ClientSettlementRow) => {
-                        detailBody.push(generateDetailRow(row));
-                     });
-                     detailBody.push([
-                        { content: `Subtotal Contenedor ${containerKey}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
-                        { content: containerData.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
-                        { content: '', colSpan: 2 },
-                        { content: containerData.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-                     ]);
-                });
-             } else {
-                 const sortedRowsForConcept = group.rows.sort((a,b) => {
-                    const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-                    if (dateComparison !== 0) return dateComparison;
-
-                    // Custom sort logic for TIEMPO EXTRA ZFPC
-                    if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
-                        const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
-                        const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
-                        const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : b.order;
-                        if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
-                    }
-                    
-                    return (a.subConceptName || '').localeCompare(b.subConceptName || '');
-                });
-                
-                sortedRowsForConcept.forEach(row => {
-                     detailBody.push(generateDetailRow(row));
-                });
+             // If not a lot-based concept, just show the concept name as the header
+             if (!group.lotId) {
+                detailBody.push([{ content: groupTitle, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
              }
+            
+            const sortedRowsForGroup = group.rows.sort((a, b) => {
+                const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+                if (dateComparison !== 0) return dateComparison;
+                return (a.subConceptName || '').localeCompare(b.subConceptName || '');
+            });
+            
+            // Add a header for the lot if it exists
+            if (group.lotId) {
+                detailBody.push([{ content: groupTitle, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+            }
+            
+            sortedRowsForGroup.forEach(row => {
+                detailBody.push(generateDetailRow(row));
+            });
 
+             const groupSubtotalCantidad = group.rows.reduce((sum, row) => sum + (row.quantity || 0), 0);
+             const groupSubtotalValor = group.rows.reduce((sum, row) => sum + (row.totalValue || 0), 0);
+             
              detailBody.push([
-                { content: `Subtotal ${conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: group.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: `Subtotal ${group.lotId ? `Lote ${group.lotId}` : group.conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: groupSubtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: '', colSpan: 2 },
-                { content: group.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+                { content: groupSubtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
             ]);
-        });
+        }
         
         autoTable(doc, {
             head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
@@ -2490,7 +2555,6 @@ const conceptOrder = [
     
                 });
     
-                // --- INICIO DEL CÓDIGO A AGREGAR ---
                 const totalPages = (doc as any).internal.getNumberOfPages();
                 for (let i = 1; i <= totalPages; i++) {
                 doc.setPage(i);
@@ -4079,4 +4143,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
