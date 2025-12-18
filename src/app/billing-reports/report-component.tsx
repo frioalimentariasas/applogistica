@@ -780,7 +780,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
         } catch (error) {
             const msg = error instanceof Error ? error.message : 'Ocurrió un error inesperado.';
-            toast({ variant: 'destructive', title: 'Error de Consulta', description: msg });
+            if (typeof msg === 'string' && msg.includes('requires an index')) {
+                setIndexErrorMessage(msg);
+                setIsIndexErrorOpen(true);
+            } else {
+                toast({ variant: 'destructive', title: 'Error de Consulta', description: msg });
+            }
         } finally {
             setIsQuerying(false);
         }
@@ -907,48 +912,51 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     }, [tunelReportData, inventoryDateRange, inventoryGroupType]);
     
     const inventoryTotals = useMemo(() => {
-        if (!pivotedInventoryData || !pivotedInventoryData.tables) {
-            return [];
-        }
-    
-        return pivotedInventoryData.tables.map(table => {
-            if (!table.data) return { columnTotals: [], grandTotal: 0, grandAverage: 0, occupationPercentage: 0, totalCustomerOccupation: 0 };
-    
-            if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
-                 return table.data.map(yearData => {
-                    const columnTotals = yearData.headers.map((_:any, colIndex:number) => {
-                        return yearData.clientRows.reduce((sum:number, row:any) => {
-                            const value = Object.values(row.data)[colIndex];
-                            return sum + (Number(value) || 0);
-                        }, 0);
-                    });
-                    const grandTotal = yearData.clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
-                    const grandTotalAverage = yearData.clientRows.reduce((sum, row) => sum + row.average, 0);
-                    const totalCustomerOccupation = grandTotal > 0 ? (grandTotal / (STORAGE_CAPACITY[table.sessionKey as keyof typeof STORAGE_CAPACITY] * 365)) * 100 : 0;
-                    
-                    return { year: yearData.year, columnTotals, grandTotal, grandAverage: grandTotalAverage, occupationPercentage: 0, totalCustomerOccupation };
-                });
-            }
-            
-            const clientRows = table.data.clientRows as { clientName: string; data: Record<string, number>; total: number; average: number }[];
-            const headers = table.data.headers as string[];
-            const columnTotals = headers.map((_:any, colIndex:number) => {
-                 return clientRows.reduce((sum:number, row:any) => {
-                    const value = Object.values(row.data)[colIndex];
-                    return sum + (Number(value) || 0);
-                }, 0);
-            });
-            const grandTotal = clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
-            const grandTotalAverage = clientRows.reduce((sum, row) => sum + row.average, 0);
+    if (!pivotedInventoryData || !pivotedInventoryData.tables) {
+        return [];
+    }
 
-            const totalOccupationSum = columnTotals.reduce((a, b) => a + b, 0);
-            const capacityKey = table.sessionKey as keyof typeof STORAGE_CAPACITY;
-            const occupationDenominator = STORAGE_CAPACITY[capacityKey] * columnTotals.length;
-            const occupationPercentage = occupationDenominator > 0 ? (totalOccupationSum / occupationDenominator) * 100 : 0;
-            const totalCustomerOccupation = occupationDenominator > 0 ? (grandTotal / occupationDenominator) * 100 : 0;
-            return { columnTotals, grandTotal, grandAverage: grandTotalAverage, occupationPercentage, totalCustomerOccupation };
+    return pivotedInventoryData.tables.map(table => {
+        if (!table.data) return { columnTotals: [], grandTotal: 0, grandAverage: 0, occupationPercentage: 0, totalCustomerOccupation: 0 };
+
+        if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
+            return table.data.map(yearData => {
+                const columnTotals = yearData.headers.map((_: any, colIndex: number) => {
+                    return yearData.clientRows.reduce((sum: number, row: any) => {
+                        const value = Object.values(row.data)[colIndex];
+                        return sum + (Number(value) || 0);
+                    }, 0);
+                });
+                const grandTotal = yearData.clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
+                const grandTotalAverage = yearData.clientRows.reduce((sum: number, row: any) => sum + row.average, 0);
+                const capacityKey = table.sessionKey as keyof typeof STORAGE_CAPACITY;
+                const denominator = (STORAGE_CAPACITY[capacityKey] || 0) * 365;
+                const totalCustomerOccupation = denominator > 0 ? (grandTotal / denominator) * 100 : 0;
+
+                return { year: yearData.year, columnTotals, grandTotal, grandAverage: grandTotalAverage, occupationPercentage: 0, totalCustomerOccupation };
+            });
+        }
+        
+        const clientRows = table.data.clientRows as { clientName: string; data: Record<string, number>; total: number; average: number }[];
+        const headers = table.data.headers as string[];
+        const columnTotals = headers.map((_: any, colIndex: number) => {
+             return clientRows.reduce((sum: number, row: any) => {
+                const value = Object.values(row.data)[colIndex];
+                return sum + (Number(value) || 0);
+            }, 0);
         });
-    }, [pivotedInventoryData]);
+        const grandTotal = clientRows.reduce((sum: number, row: any) => sum + row.total, 0);
+        const grandTotalAverage = clientRows.reduce((sum: number, row: any) => sum + row.average, 0);
+        const totalOccupationSum = columnTotals.reduce((a, b) => a + b, 0);
+        const capacityKey = table.sessionKey as keyof typeof STORAGE_CAPACITY;
+        const occupationDenominator = STORAGE_CAPACITY[capacityKey] * columnTotals.length;
+        const occupationPercentage = occupationDenominator > 0 ? (totalOccupationSum / occupationDenominator) * 100 : 0;
+        
+        const totalCustomerOccupation = occupationDenominator > 0 ? (grandTotal / occupationDenominator) * 100 : 0;
+        
+        return { columnTotals, grandTotal, grandAverage: grandTotalAverage, occupationPercentage, totalCustomerOccupation };
+    });
+}, [pivotedInventoryData]);
 
     const tunelTotals = useMemo(() => {
         if (!pivotedTunelData?.data) return { columnTotals: [], grandTotal: 0 };
@@ -2383,7 +2391,7 @@ const conceptOrder = [
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             //const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -4073,3 +4081,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     );
 }
 
+```
