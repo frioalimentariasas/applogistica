@@ -1951,7 +1951,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            //const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -2021,7 +2020,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
                         const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
                         const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : b.order;
+                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
                         if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
                     }
                     
@@ -2480,12 +2479,12 @@ const conceptOrder = [
             const groupA = groupedByLotAndConcept[a];
             const groupB = groupedByLotAndConcept[b];
             
-            const lotCompare = (groupA.lotId || groupA.conceptName).localeCompare(groupB.lotId || groupB.conceptName);
-            if(lotCompare !== 0) return lotCompare;
-
             const orderA = groupA.order === -1 ? Infinity : groupA.order;
             const orderB = groupB.order === -1 ? Infinity : groupB.order;
             if (orderA !== orderB) return orderA - orderB;
+
+            const lotCompare = (groupA.lotId || groupA.conceptName).localeCompare(groupB.lotId || groupB.conceptName);
+            if(lotCompare !== 0) return lotCompare;
             
             return groupA.conceptName.localeCompare(groupB.conceptName);
         });
@@ -4152,5 +4151,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
