@@ -1138,7 +1138,15 @@ export async function generateClientSettlement(criteria: {
             const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
             
             let operacionLogistica = opData.opLogistica || 'N/A'; // Usar valor existente o N/A
-            if (opData.concept.includes('FMM')) {
+            
+            const specialCommentConcepts = [
+                'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
+                'MOVIMIENTO SALIDA PRODUCTO - PALETA'
+            ];
+
+            if (specialCommentConcepts.includes(opData.concept) && opData.comentarios) {
+                operacionLogistica = opData.comentarios;
+            } else if (opData.concept.includes('FMM')) {
                 const opType = String(opData.concept).includes('INGRESO') ? 'DESCARGUE' : 'CARGUE';
                 operacionLogistica = opData.details?.fmmNumber ? `${opType} - #${opData.details.fmmNumber}` : opType;
             } else if (opData.concept.includes('ARIN')) {
