@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -1490,17 +1489,39 @@ export async function generateClientSettlement(criteria: {
             // Step 2: Fetch detailed inventory data for the entire date range just once.
             const detailedInventoryData = await getDetailedInventoryForExport({
                 clientNames: [clientName],
-                startDate,
-                endDate,
+                startDate: startDate,
+                endDate: endDate,
             });
 
             // Create a map for quick lookup: date -> inventory rows
             const inventoryByDay = detailedInventoryData.reduce((acc, row) => {
-                const dateStr = format(parseISO(row.FECHA as string), 'yyyy-MM-dd');
+                const rowDate = row.FECHA;
+                let dateStr: string;
+
+                if (rowDate instanceof Date) {
+                    // It's a Date object, likely from ExcelJS after conversion.
+                    // We need to be careful about timezones. Let's assume it's local and format.
+                    dateStr = format(rowDate, 'yyyy-MM-dd');
+                } else if (typeof rowDate === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(rowDate)) {
+                    // It's an ISO string from Firestore.
+                    dateStr = format(parseISO(rowDate), 'yyyy-MM-dd');
+                } else if (typeof rowDate === 'string') {
+                     // Handle 'dd/MM/yyyy' or other formats if necessary
+                    try {
+                        const parsed = parse(rowDate, 'dd/MM/yyyy', new Date());
+                        dateStr = format(parsed, 'yyyy-MM-dd');
+                    } catch {
+                        return acc; // Skip if date format is unexpected
+                    }
+                } else {
+                    return acc; // Skip if date is not a recognizable type
+                }
+                
                 if (!acc[dateStr]) acc[dateStr] = [];
                 acc[dateStr].push(row);
                 return acc;
             }, {} as Record<string, any[]>);
+
 
             for (const dayData of consolidatedReport) {
                 const totalPalletsForDay = dayData.posicionesAlmacenadas;
@@ -1540,21 +1561,25 @@ export async function generateClientSettlement(criteria: {
                     filteredPalletsCount = totalPalletsForDay;
                 }
 
-                settlementRows.push({
-                    date: dayData.date,
-                    placa: 'N/A',
-                    container: 'N/A',
-                    camara: concept.inventorySesion,
-                    totalPaletas: Math.min(filteredPalletsCount, totalPalletsForDay), // Ensure we don't exceed the historical balance
-                    operacionLogistica: 'Servicio',
-                    pedidoSislog: 'N/A',
-                    conceptName: concept.conceptName,
-                    tipoVehiculo: 'N/A',
-                    quantity: Math.min(filteredPalletsCount, totalPalletsForDay), // The final quantity to bill
-                    unitOfMeasure: concept.unitOfMeasure,
-                    unitValue: concept.value,
-                    totalValue: Math.min(filteredPalletsCount, totalPalletsForDay) * concept.value,
-                });
+                 const finalQuantity = Math.min(filteredPalletsCount, totalPalletsForDay);
+
+                if (finalQuantity > 0) {
+                    settlementRows.push({
+                        date: dayData.date,
+                        placa: 'N/A',
+                        container: 'N/A',
+                        camara: concept.inventorySesion,
+                        totalPaletas: finalQuantity,
+                        operacionLogistica: 'Servicio',
+                        pedidoSislog: 'N/A',
+                        conceptName: concept.conceptName,
+                        tipoVehiculo: 'N/A',
+                        quantity: finalQuantity, // The final quantity to bill
+                        unitOfMeasure: concept.unitOfMeasure,
+                        unitValue: concept.value,
+                        totalValue: finalQuantity * concept.value,
+                    });
+                }
             }
         }
     }
@@ -1573,6 +1598,7 @@ export async function generateClientSettlement(criteria: {
     
     const conceptOrder = [
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
@@ -1667,9 +1693,10 @@ export async function generateClientSettlement(criteria: {
 
         const conceptA = a.lotId ? `LOTE-${a.lotId}` : a.conceptName;
         const conceptB = b.lotId ? `LOTE-${b.lotId}` : b.conceptName;
-        const orderA = conceptOrder.indexOf(conceptA);
-        const orderB = conceptOrder.indexOf(conceptB);
-
+        
+        const orderA = conceptOrder.indexOf(a.conceptName);
+        const orderB = conceptOrder.indexOf(b.conceptName);
+        
         if (orderA !== -1 && orderB !== -1 && orderA !== orderB) {
             return orderA - orderB;
         }
@@ -1722,3 +1749,5 @@ const minutesToTime = (minutes: number): string => {
 };
 
 
+
+    
