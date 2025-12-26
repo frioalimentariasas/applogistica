@@ -3505,7 +3505,7 @@ const conceptOrder = [
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                                             <div className="space-y-2 lg:col-span-2">
                                                 <Label>Cliente(s)</Label>
-                                                <Dialog open={isExportClientDialogOpen} onOpenChange={setExportClientDialogOpen}>
+                                                <Dialog open={isExportClientDialogOpen} onOpenChange={setIsExportClientDialogOpen}>
                                                     <DialogTrigger asChild>
                                                         <Button variant="outline" className="w-full justify-between font-normal">
                                                             <span className="truncate">{getExportClientsText()}</span>
@@ -4248,6 +4248,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 
