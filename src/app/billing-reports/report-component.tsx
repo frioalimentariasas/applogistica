@@ -35,7 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff, AlertTriangle, Home } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff, AlertTriangle, Home, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -283,8 +283,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [originalSettlementData, setOriginalSettlementData] = useState<ClientSettlementRow[]>([]);
     const [hiddenRowIds, setHiddenRowIds] = useState<Set<string>>(new Set());
     const [settlementPaymentTerm, setSettlementPaymentTerm] = useState<string>('');
-
     
+    // --- INICIO CÓDIGO NUEVO ---
+    const [rowToDuplicate, setRowToDuplicate] = useState<ClientSettlementRow | null>(null);
+    const [duplicateDateRange, setDuplicateDateRange] = useState<DateRange | undefined>();
+    // --- FIN CÓDIGO NUEVO ---
+
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
     const [indexErrorMessage, setIndexErrorMessage] = useState('');
 
@@ -1664,6 +1668,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setHiddenRowIds(new Set());
     };
     
+    // --- INICIO CÓDIGO NUEVO ---
+    const handleDuplicateRow = () => {
+        if (!rowToDuplicate || !duplicateDateRange?.from) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Faltan datos para la duplicación.' });
+            return;
+        }
+    
+        const endDate = duplicateDateRange.to || duplicateDateRange.from;
+        const datesToCreate = eachDayOfInterval({ start: duplicateDateRange.from, end: endDate });
+    
+        const newRows: ClientSettlementRow[] = datesToCreate.map((date, index) => ({
+            ...rowToDuplicate,
+            date: date.toISOString(),
+            uniqueId: `${rowToDuplicate.conceptName}-${format(date, 'yyyyMMdd')}-${index}`,
+            isEdited: true, // Mark as special/projected
+        }));
+    
+        // Add new rows and sort the entire dataset by date
+        setSettlementReportData(prev => [...prev, ...newRows].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+        setOriginalSettlementData(prev => [...prev, ...newRows].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    
+        toast({ title: 'Éxito', description: `Se agregaron ${newRows.length} registros proyectados.` });
+    
+        setRowToDuplicate(null);
+        setDuplicateDateRange(undefined);
+    };
+    // --- FIN CÓDIGO NUEVO ---
+
     const handleSettlementExportExcel = async () => {
         const visibleRows = settlementReportData.filter(row => !hiddenRowIds.has(row.uniqueId!));
         if (visibleRows.length === 0 || !settlementClient || !settlementDateRange?.from) return;
@@ -3891,7 +3923,9 @@ const conceptOrder = [
                                                                             <TableCell colSpan={18} className="font-semibold text-primary text-sm p-2">{title}</TableCell>
                                                                         </TableRow>
                                                                     )}
-                                                                    {rows.map((row) => (
+                                                                    {rows.map((row) => {
+                                                                        const isProjected = row.isEdited && !originalSettlementData.some(originalRow => originalRow.uniqueId === row.uniqueId);
+                                                                        return (
                                                                         <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
                                                                         {row.isPending ? (
                                                                             <>
@@ -3928,7 +3962,7 @@ const conceptOrder = [
                                                                                 <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                                                 <TableCell className="text-right p-1">
                                                                                     <div className="flex items-center justify-end gap-0">
-                                                                                        {row.isEdited && (
+                                                                                        {row.isEdited && !isProjected && (
                                                                                             <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original">
                                                                                                 <Undo2 className="h-4 w-4" />
                                                                                             </Button>
@@ -3939,13 +3973,20 @@ const conceptOrder = [
                                                                                         <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
                                                                                             <EyeOff className="h-4 w-4 text-muted-foreground" />
                                                                                         </Button>
+                                                                                        {/* --- INICIO CÓDIGO NUEVO --- */}
+                                                                                        {row.conceptName.includes('CONGELACIÓN') && (
+                                                                                            <Button variant="ghost" size="icon" onClick={() => setRowToDuplicate(row)} title="Duplicar registro">
+                                                                                                <Copy className="h-4 w-4 text-sky-600" />
+                                                                                            </Button>
+                                                                                        )}
+                                                                                        {/* --- FIN CÓDIGO NUEVO --- */}
                                                                                     </div>
                                                                                 </TableCell>
                                                                             </>
                                                                         )}
                                                                     </TableRow>
- 
-                                                                    ))}
+                                                                        );
+                                                                    })}
                                                                     {subtotalLabel && (
                                                                         <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
                                                                             <TableCell colSpan={13} className="text-right text-xs p-2">{subtotalLabel}</TableCell>
@@ -4042,6 +4083,47 @@ const conceptOrder = [
                 errorMessage={indexErrorMessage}
             />
             {rowToEdit && <EditSettlementRowDialog isOpen={isEditSettlementRowOpen} onOpenChange={setIsEditSettlementRowOpen} row={rowToEdit} onSave={handleSaveRowEdit} />}
+             {/* --- INICIO CÓDIGO NUEVO --- */}
+            <Dialog open={!!rowToDuplicate} onOpenChange={(open) => {if (!open) setRowToDuplicate(null)}}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Duplicar Registro para Proyección</DialogTitle>
+                        <DialogDescription>
+                            Seleccione el rango de fechas al que desea duplicar este registro. Se creará una copia para cada día en el rango.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                        <Card className="bg-muted/50">
+                            <CardHeader className="pb-2"><CardTitle className="text-base">Registro Original</CardTitle></CardHeader>
+                            <CardContent className="text-sm space-y-1">
+                                <p><strong>Fecha:</strong> {rowToDuplicate && format(parseISO(rowToDuplicate.date), 'dd/MM/yyyy')}</p>
+                                <p><strong>Concepto:</strong> {rowToDuplicate?.conceptName}</p>
+                                <p><strong>Cantidad:</strong> {rowToDuplicate?.quantity.toLocaleString('es-CO')}</p>
+                                <p><strong>Valor:</strong> {rowToDuplicate?.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</p>
+                            </CardContent>
+                        </Card>
+                        <div className="space-y-2">
+                             <Label>Duplicar en el rango de fechas:</Label>
+                             <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !duplicateDateRange && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {duplicateDateRange?.from ? (duplicateDateRange.to ? (<>{format(duplicateDateRange.from, "dd/MM/yy")} - {format(duplicateDateRange.to, "dd/MM/yy")}</>) : format(duplicateDateRange.from, "dd/MM/yy")) : (<span>Seleccione un rango</span>)}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="range" selected={duplicateDateRange} onSelect={setDuplicateDateRange} initialFocus disabled={{ before: settlementDateRange?.from }}/>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setRowToDuplicate(null)}>Cancelar</Button>
+                        <Button onClick={handleDuplicateRow} disabled={!duplicateDateRange?.from}>Duplicar Registros</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* --- FIN CÓDIGO NUEVO --- */}
         </div>
     );
 }
@@ -4151,6 +4233,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 
