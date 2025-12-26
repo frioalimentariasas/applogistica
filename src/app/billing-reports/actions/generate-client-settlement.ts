@@ -1481,103 +1481,35 @@ export async function generateClientSettlement(criteria: {
             }
         } else if (concept.inventorySource === 'POSICIONES_ALMACENADAS' && concept.inventorySesion) {
             const consolidatedReport = await getConsolidatedMovementReport({
-                clientName: clientName,
-                startDate: startDate,
-                endDate: endDate,
-                sesion: concept.inventorySesion,
+              clientName: clientName,
+              startDate: startDate,
+              endDate: endDate,
+              sesion: concept.inventorySesion,
+              filterByArticleCodes: concept.filterByArticleCodes,
+              excludeArticleCodes: concept.excludeArticleCodes,
             });
-
-            // Step 2: Fetch detailed inventory data for the entire date range just once.
-            const detailedInventoryData = await getDetailedInventoryForExport({
-                clientNames: [clientName],
-                startDate: startDate,
-                endDate: endDate,
-            });
-
-            // Create a map for quick lookup: date -> inventory rows
-            const inventoryByDay = detailedInventoryData.reduce((acc, row) => {
-                const rowDate = row.FECHA;
-                let dateStr: string;
-
-                if (rowDate instanceof Date) {
-                    dateStr = format(rowDate, 'yyyy-MM-dd');
-                } else if (typeof rowDate === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(rowDate)) {
-                    dateStr = format(parseISO(rowDate), 'yyyy-MM-dd');
-                } else if (typeof rowDate === 'string') {
-                    try {
-                        const parsed = parse(rowDate, 'dd/MM/yyyy', new Date());
-                        dateStr = format(parsed, 'yyyy-MM-dd');
-                    } catch {
-                        return acc;
-                    }
-                } else {
-                    return acc;
-                }
-                
-                if (!acc[dateStr]) acc[dateStr] = [];
-                acc[dateStr].push(row);
-                return acc;
-            }, {} as Record<string, any[]>);
-
-
+      
             for (const dayData of consolidatedReport) {
-                const totalPalletsForDay = dayData.posicionesAlmacenadas;
-                if (totalPalletsForDay <= 0) continue;
-
-                const dayInventory = inventoryByDay[dayData.date] || [];
-                const filterIdentifiers = concept.filterByArticleCodes?.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
-                let filteredPalletsCount = 0;
-
-                if (dayInventory.length > 0 && filterIdentifiers && filterIdentifiers.length > 0) {
-                    const relevantPallets = new Set<string>();
-                    
-                    const filteredRows = dayInventory.filter(row => {
-                        let articleCode = String(row.ARTICUL || '').trim();
-                        // Special rule for 'PAPA PREFRITAS CONGELADAS'
-                        if (String(row.DENOMINACION || '').toUpperCase().includes('PAPA PREFRITAS CONGELADAS') && articleCode === '3') {
-                            articleCode = '03';
-                        }
-                        const description = String(row.DENOMINACION || '').trim().toLowerCase();
-                        
-                        const identifierMatch = filterIdentifiers.some(id => 
-                          id === articleCode.toLowerCase() || id === description
-                        );
-
-                        return concept.excludeArticleCodes ? !identifierMatch : identifierMatch;
-                    });
-                    
-                    filteredRows.forEach(row => {
-                      if (row.PALETA !== undefined && row.PALETA !== null) {
-                        relevantPallets.add(String(row.PALETA).trim());
-                      }
-                    });
-
-                    filteredPalletsCount = relevantPallets.size;
-                } else if (!filterIdentifiers || filterIdentifiers.length === 0) {
-                    filteredPalletsCount = totalPalletsForDay;
-                }
-
-                 const finalQuantity = Math.min(filteredPalletsCount, totalPalletsForDay);
-
-                if (finalQuantity > 0) {
-                    settlementRows.push({
-                        date: dayData.date,
-                        placa: 'N/A',
-                        container: 'N/A',
-                        camara: concept.inventorySesion,
-                        totalPaletas: finalQuantity,
-                        operacionLogistica: 'Servicio',
-                        pedidoSislog: 'N/A',
-                        conceptName: concept.conceptName,
-                        tipoVehiculo: 'N/A',
-                        quantity: finalQuantity, // The final quantity to bill
-                        unitOfMeasure: concept.unitOfMeasure,
-                        unitValue: concept.value,
-                        totalValue: finalQuantity * concept.value,
-                    });
-                }
+              const totalPalletsForDay = dayData.posicionesAlmacenadas;
+              if (totalPalletsForDay > 0) {
+                settlementRows.push({
+                  date: dayData.date,
+                  placa: 'N/A',
+                  container: 'N/A',
+                  camara: concept.inventorySesion,
+                  totalPaletas: totalPalletsForDay,
+                  operacionLogistica: 'Servicio',
+                  pedidoSislog: 'N/A',
+                  conceptName: concept.conceptName,
+                  tipoVehiculo: 'N/A',
+                  quantity: totalPalletsForDay,
+                  unitOfMeasure: concept.unitOfMeasure,
+                  unitValue: concept.value,
+                  totalValue: totalPalletsForDay * concept.value,
+                });
+              }
             }
-        }
+          }
     }
 
     settlementRows.forEach(row => {
@@ -1747,4 +1679,3 @@ const minutesToTime = (minutes: number): string => {
 
 
     
-
