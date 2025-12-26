@@ -48,6 +48,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Form } from '@/components/ui/form';
+import { DateMultiSelector } from '@/components/app/date-multi-selector';
 
 
 const ResultsSkeleton = () => (
@@ -286,8 +287,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     // --- INICIO CÓDIGO NUEVO ---
     const [rowToDuplicate, setRowToDuplicate] = useState<ClientSettlementRow | null>(null);
-    const [duplicateDateRange, setDuplicateDateRange] = useState<DateRange | undefined>();
-    const [isDuplicatePopoverOpen, setIsDuplicatePopoverOpen] = useState(false);
+    const [duplicateDates, setDuplicateDates] = useState<Date[]>([]);
     // --- FIN CÓDIGO NUEVO ---
 
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
@@ -1671,15 +1671,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     // --- INICIO CÓDIGO NUEVO ---
     const handleDuplicateRow = () => {
-        if (!rowToDuplicate || !duplicateDateRange?.from) {
+        if (!rowToDuplicate || !duplicateDates || duplicateDates.length === 0) {
             toast({ variant: 'destructive', title: 'Error', description: 'Faltan datos para la duplicación.' });
             return;
         }
-    
-        const endDate = duplicateDateRange.to || duplicateDateRange.from;
-        const datesToCreate = eachDayOfInterval({ start: duplicateDateRange.from, end: endDate });
-    
-        const newRows: ClientSettlementRow[] = datesToCreate.map((date, index) => ({
+
+        const newRows: ClientSettlementRow[] = duplicateDates.map((date, index) => ({
             ...rowToDuplicate,
             date: date.toISOString(),
             uniqueId: `${rowToDuplicate.conceptName}-${format(date, 'yyyyMMdd')}-${index}`,
@@ -1693,7 +1690,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         toast({ title: 'Éxito', description: `Se agregaron ${newRows.length} registros proyectados.` });
     
         setRowToDuplicate(null);
-        setDuplicateDateRange(undefined);
+        setDuplicateDates([]);
     };
     // --- FIN CÓDIGO NUEVO ---
 
@@ -4085,12 +4082,12 @@ const conceptOrder = [
             />
             {rowToEdit && <EditSettlementRowDialog isOpen={isEditSettlementRowOpen} onOpenChange={setIsEditSettlementRowOpen} row={rowToEdit} onSave={handleSaveRowEdit} />}
              {/* --- INICIO CÓDIGO NUEVO --- */}
-            <Dialog open={!!rowToDuplicate} onOpenChange={(open) => {if (!open) {setRowToDuplicate(null); setIsDuplicatePopoverOpen(false);}}}>
+            <Dialog open={!!rowToDuplicate} onOpenChange={(open) => {if (!open) {setRowToDuplicate(null); }}}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Duplicar Registro para Proyección</DialogTitle>
                         <DialogDescription>
-                            Seleccione el rango de fechas al que desea duplicar este registro. Se creará una copia para cada día en el rango.
+                            Seleccione las fechas a las que desea duplicar este registro.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4 space-y-4">
@@ -4104,37 +4101,19 @@ const conceptOrder = [
                             </CardContent>
                         </Card>
                         <div className="space-y-2">
-                             <Label>Duplicar en el rango de fechas:</Label>
-                             <Popover open={isDuplicatePopoverOpen} onOpenChange={setIsDuplicatePopoverOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !duplicateDateRange && "text-muted-foreground")}>
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {duplicateDateRange?.from ? (duplicateDateRange.to ? (<>{format(duplicateDateRange.from, "dd/MM/yy")} - {format(duplicateDateRange.to, "dd/MM/yy")}</>) : format(duplicateDateRange.from, "dd/MM/yy")) : (<span>Seleccione un rango</span>)}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar 
-                                        mode="range" 
-                                        selected={duplicateDateRange} 
-                                        onSelect={(range) => {
-                                            setDuplicateDateRange(range);
-                                            if (range?.from && range.to && range.from === range.to) {
-                                              // Allow single day selection to close popover
-                                              setTimeout(() => setIsDuplicatePopoverOpen(false), 100);
-                                            } else if (range?.from && range?.to) {
-                                              setTimeout(() => setIsDuplicatePopoverOpen(false), 100);
-                                            }
-                                        }} 
-                                        initialFocus 
-                                        disabled={{ before: settlementDateRange?.from }}
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                             <Label>Duplicar en las fechas:</Label>
+                            <DateMultiSelector
+                                value={duplicateDates}
+                                onChange={setDuplicateDates}
+                                calendarProps={{
+                                    disabled: (date) => !settlementDateRange?.from || date < settlementDateRange.from
+                                }}
+                             />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setRowToDuplicate(null)}>Cancelar</Button>
-                        <Button onClick={handleDuplicateRow} disabled={!duplicateDateRange?.from}>Duplicar Registros</Button>
+                        <Button onClick={handleDuplicateRow} disabled={duplicateDates.length === 0}>Duplicar Registros</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -4248,6 +4227,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 

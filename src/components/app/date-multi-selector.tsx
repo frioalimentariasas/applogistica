@@ -22,6 +22,7 @@ interface DateMultiSelectorProps {
   value: Date[]
   onChange: (dates: Date[]) => void
   disabled?: boolean
+  triggerClassName?: string
   calendarProps?: Omit<CalendarProps, "mode" | "selected" | "onSelect">
 }
 
@@ -29,6 +30,7 @@ export function DateMultiSelector({
   value,
   onChange,
   disabled,
+  triggerClassName,
   calendarProps,
 }: DateMultiSelectorProps) {
   const [isPickerOpen, setIsPickerOpen] = React.useState(false)
@@ -50,7 +52,7 @@ export function DateMultiSelector({
       <Button
         type="button"
         variant="outline"
-        className="w-full justify-start text-left font-normal"
+        className={cn("w-full justify-start text-left font-normal", triggerClassName)}
         onClick={() => setIsPickerOpen(true)}
         disabled={disabled}
       >
