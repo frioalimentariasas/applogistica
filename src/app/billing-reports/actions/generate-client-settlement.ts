@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -1499,22 +1500,18 @@ export async function generateClientSettlement(criteria: {
                 let dateStr: string;
 
                 if (rowDate instanceof Date) {
-                    // It's a Date object, likely from ExcelJS after conversion.
-                    // We need to be careful about timezones. Let's assume it's local and format.
                     dateStr = format(rowDate, 'yyyy-MM-dd');
                 } else if (typeof rowDate === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(rowDate)) {
-                    // It's an ISO string from Firestore.
                     dateStr = format(parseISO(rowDate), 'yyyy-MM-dd');
                 } else if (typeof rowDate === 'string') {
-                     // Handle 'dd/MM/yyyy' or other formats if necessary
                     try {
                         const parsed = parse(rowDate, 'dd/MM/yyyy', new Date());
                         dateStr = format(parsed, 'yyyy-MM-dd');
                     } catch {
-                        return acc; // Skip if date format is unexpected
+                        return acc;
                     }
                 } else {
-                    return acc; // Skip if date is not a recognizable type
+                    return acc;
                 }
                 
                 if (!acc[dateStr]) acc[dateStr] = [];
@@ -1557,7 +1554,6 @@ export async function generateClientSettlement(criteria: {
 
                     filteredPalletsCount = relevantPallets.size;
                 } else if (!filterIdentifiers || filterIdentifiers.length === 0) {
-                    // If no filter is applied, the quantity is the total positions.
                     filteredPalletsCount = totalPalletsForDay;
                 }
 
@@ -1751,3 +1747,4 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
