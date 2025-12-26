@@ -609,6 +609,8 @@ async function processCargueAlmacenamiento(
                                unitOfMeasure: 'UNIDAD',
                                unitValue: valorTotalConceptoPrincipal,
                                totalValue: valorTotalConceptoPrincipal,
+                               horaInicio: recepcion.formData.horaInicio,
+                               horaFin: recepcion.formData.horaFin,
                            });
                        } else {
                            const totalCongelacion = totalPaletasRecepcion * congelacionTariff;
@@ -629,6 +631,8 @@ async function processCargueAlmacenamiento(
                                unitOfMeasure: 'PALETA',
                                unitValue: congelacionTariff,
                                totalValue: totalCongelacion,
+                               horaInicio: recepcion.formData.horaInicio,
+                               horaFin: recepcion.formData.horaFin,
                            });
                            
                            settlementRows.push({
@@ -646,6 +650,8 @@ async function processCargueAlmacenamiento(
                                unitOfMeasure: 'UNIDAD',
                                unitValue: totalManipulacion,
                                totalValue: totalManipulacion,
+                               horaInicio: recepcion.formData.horaInicio,
+                               horaFin: recepcion.formData.horaFin,
                            });
                        }
                         processedCrossDockLots.add(loteId);
@@ -1611,16 +1617,18 @@ export async function generateClientSettlement(criteria: {
         const dateB = new Date(b.date).getTime();
         if (dateA !== dateB) return dateA - dateB;
 
-        const getSortOrder = (conceptName: string) => {
-            const normalizedName = conceptName.toUpperCase().replace('AREA', 'ÁREA');
-            const index = conceptOrder.indexOf(normalizedName);
-            return index === -1 ? Infinity : index;
-        };
+        const conceptA = a.lotId ? `LOTE-${a.lotId}` : a.conceptName;
+        const conceptB = b.lotId ? `LOTE-${b.lotId}` : b.conceptName;
+        const orderA = conceptOrder.indexOf(conceptA);
+        const orderB = conceptOrder.indexOf(conceptB);
 
-        const orderA = getSortOrder(a.conceptName);
-        const orderB = getSortOrder(b.conceptName);
+        if (orderA !== -1 && orderB !== -1 && orderA !== orderB) {
+            return orderA - orderB;
+        }
 
-        if (orderA !== orderB) return orderA - orderB;
+        if (conceptA !== conceptB) {
+            return conceptA.localeCompare(conceptB);
+        }
 
         if (a.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' || a.conceptName === 'TIEMPO EXTRA FRIOAL') {
             const subConceptA = a.subConceptName || '';
@@ -1664,3 +1672,4 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+

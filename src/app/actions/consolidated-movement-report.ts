@@ -43,7 +43,7 @@ export async function getConsolidatedMovementReport(
     endDate: criteria.endDate,
   });
 
-  const articleFilterCodes = criteria.filterByArticleCodes?.split(',').map(c => c.trim()).filter(Boolean);
+  const filterIdentifiers = criteria.filterByArticleCodes?.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
 
   // 2. Get daily inventory stock for the period for the specific session (LOGIC REPLACED)
   const inventorySnapshot = await firestore.collection('dailyInventories')
@@ -68,11 +68,20 @@ export async function getConsolidatedMovementReport(
               );
           }
 
-          if (articleFilterCodes && articleFilterCodes.length > 0) {
+          if (filterIdentifiers && filterIdentifiers.length > 0) {
             relevantRows = relevantRows.filter(row => {
               const articleCode = String(row.ARTICUL || '').trim();
-              const hasCode = articleFilterCodes.includes(articleCode);
-              return criteria.excludeArticleCodes ? !hasCode : hasCode;
+              let finalArticleCode = articleCode;
+              if (row.DENOMINACION && typeof row.DENOMINACION === 'string' && row.DENOMINACION.toUpperCase().includes('PAPA PREFRITAS CONGELADAS') && articleCode === '3') {
+                finalArticleCode = '03';
+              }
+              const description = String(row.DENOMINACION || '').trim().toLowerCase();
+              
+              const identifierMatch = filterIdentifiers.some(id => 
+                id === finalArticleCode.toLowerCase() || id === description
+              );
+
+              return criteria.excludeArticleCodes ? !identifierMatch : identifierMatch;
             });
           }
           
@@ -113,11 +122,20 @@ export async function getConsolidatedMovementReport(
                 );
             }
             
-            if (articleFilterCodes && articleFilterCodes.length > 0) {
+            if (filterIdentifiers && filterIdentifiers.length > 0) {
               relevantRows = relevantRows.filter(row => {
                 const articleCode = String(row.ARTICUL || '').trim();
-                const hasCode = articleFilterCodes.includes(articleCode);
-                return criteria.excludeArticleCodes ? !hasCode : hasCode;
+                let finalArticleCode = articleCode;
+                if (row.DENOMINACION && typeof row.DENOMINACION === 'string' && row.DENOMINACION.toUpperCase().includes('PAPA PREFRITAS CONGELADAS') && articleCode === '3') {
+                  finalArticleCode = '03';
+                }
+                const description = String(row.DENOMINACION || '').trim().toLowerCase();
+                
+                const identifierMatch = filterIdentifiers.some(id => 
+                  id === finalArticleCode.toLowerCase() || id === description
+                );
+
+                return criteria.excludeArticleCodes ? !identifierMatch : identifierMatch;
               });
             }
 
@@ -195,3 +213,4 @@ export async function getConsolidatedMovementReport(
 
 
     
+
