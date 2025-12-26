@@ -1485,28 +1485,76 @@ export async function generateClientSettlement(criteria: {
                 startDate: startDate,
                 endDate: endDate,
                 sesion: concept.inventorySesion,
-                filterByArticleCodes: concept.filterByArticleCodes,
-                excludeArticleCodes: concept.excludeArticleCodes
             });
-    
+
+            // Step 2: Fetch detailed inventory data for the entire date range just once.
+            const detailedInventoryData = await getDetailedInventoryForExport({
+                clientNames: [clientName],
+                startDate,
+                endDate,
+            });
+
+            // Create a map for quick lookup: date -> inventory rows
+            const inventoryByDay = detailedInventoryData.reduce((acc, row) => {
+                const dateStr = format(parseISO(row.FECHA as string), 'yyyy-MM-dd');
+                if (!acc[dateStr]) acc[dateStr] = [];
+                acc[dateStr].push(row);
+                return acc;
+            }, {} as Record<string, any[]>);
+
             for (const dayData of consolidatedReport) {
-                if (dayData.posicionesAlmacenadas > 0) {
-                    settlementRows.push({
-                        date: dayData.date,
-                        placa: 'N/A',
-                        container: 'N/A',
-                        camara: concept.inventorySesion,
-                        totalPaletas: dayData.posicionesAlmacenadas,
-                        operacionLogistica: 'Servicio',
-                        pedidoSislog: 'N/A',
-                        conceptName: concept.conceptName,
-                        tipoVehiculo: 'N/A',
-                        quantity: dayData.posicionesAlmacenadas,
-                        unitOfMeasure: concept.unitOfMeasure,
-                        unitValue: concept.value,
-                        totalValue: dayData.posicionesAlmacenadas * concept.value,
+                const totalPalletsForDay = dayData.posicionesAlmacenadas;
+                if (totalPalletsForDay <= 0) continue;
+
+                const dayInventory = inventoryByDay[dayData.date] || [];
+                const filterIdentifiers = concept.filterByArticleCodes?.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
+                let filteredPalletsCount = 0;
+
+                if (dayInventory.length > 0 && filterIdentifiers && filterIdentifiers.length > 0) {
+                    const relevantPallets = new Set<string>();
+                    
+                    const filteredRows = dayInventory.filter(row => {
+                        let articleCode = String(row.ARTICUL || '').trim();
+                        // Special rule for 'PAPA PREFRITAS CONGELADAS'
+                        if (String(row.DENOMINACION || '').toUpperCase().includes('PAPA PREFRITAS CONGELADAS') && articleCode === '3') {
+                            articleCode = '03';
+                        }
+                        const description = String(row.DENOMINACION || '').trim().toLowerCase();
+                        
+                        const identifierMatch = filterIdentifiers.some(id => 
+                          id === articleCode.toLowerCase() || id === description
+                        );
+
+                        return concept.excludeArticleCodes ? !identifierMatch : identifierMatch;
                     });
+                    
+                    filteredRows.forEach(row => {
+                      if (row.PALETA !== undefined && row.PALETA !== null) {
+                        relevantPallets.add(String(row.PALETA).trim());
+                      }
+                    });
+
+                    filteredPalletsCount = relevantPallets.size;
+                } else if (!filterIdentifiers || filterIdentifiers.length === 0) {
+                    // If no filter is applied, the quantity is the total positions.
+                    filteredPalletsCount = totalPalletsForDay;
                 }
+
+                settlementRows.push({
+                    date: dayData.date,
+                    placa: 'N/A',
+                    container: 'N/A',
+                    camara: concept.inventorySesion,
+                    totalPaletas: Math.min(filteredPalletsCount, totalPalletsForDay), // Ensure we don't exceed the historical balance
+                    operacionLogistica: 'Servicio',
+                    pedidoSislog: 'N/A',
+                    conceptName: concept.conceptName,
+                    tipoVehiculo: 'N/A',
+                    quantity: Math.min(filteredPalletsCount, totalPalletsForDay), // The final quantity to bill
+                    unitOfMeasure: concept.unitOfMeasure,
+                    unitValue: concept.value,
+                    totalValue: Math.min(filteredPalletsCount, totalPalletsForDay) * concept.value,
+                });
             }
         }
     }
@@ -1672,4 +1720,5 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
 
