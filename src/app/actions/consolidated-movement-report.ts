@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import admin from 'firebase-admin';
@@ -35,63 +33,26 @@ export async function getConsolidatedMovementReport(
   if (!criteria.clientName || !criteria.sesion || !criteria.startDate || !criteria.endDate) {
     throw new Error('Se requieren el cliente, la sesión y un rango de fechas.');
   }
+  
+  const filterIdentifiers = criteria.filterByArticleCodes?.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
 
-  // 1. Get daily movements for the specified client, but for ALL sessions
+  // 1. Get daily movements for the specified client, but for ALL sessions to calculate the base saldo.
   const billingData = await getBillingReport({
     clientName: criteria.clientName,
     startDate: criteria.startDate,
     endDate: criteria.endDate,
   });
 
-  const filterIdentifiers = criteria.filterByArticleCodes?.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
-
-  // 2. Get daily inventory stock for the period for the specific session (LOGIC REPLACED)
+  // 2. Get daily inventory stock for the period for the specific session
   const inventorySnapshot = await firestore.collection('dailyInventories')
       .where(admin.firestore.FieldPath.documentId(), '>=', criteria.startDate)
       .where(admin.firestore.FieldPath.documentId(), '<=', criteria.endDate)
       .get();
-
-  const inventoryDataMap = new Map<string, number>(); // Map<date, count>
-
+  
+  const detailedInventoryByDate = new Map<string, any[]>();
   inventorySnapshot.forEach(doc => {
-      const inventoryDay = doc.data();
-      if (inventoryDay && Array.isArray(inventoryDay.data)) {
-          let relevantRows = (inventoryDay.data as any[]).filter(row => 
-              row && row.PROPIETARIO && typeof row.PROPIETARIO === 'string' &&
-              row.PROPIETARIO.trim() === criteria.clientName
-          );
-
-          if (criteria.sesion) {
-              relevantRows = relevantRows.filter(row => 
-                  row && row.SE !== undefined && row.SE !== null &&
-                  String(row.SE).trim().toLowerCase() === criteria.sesion.trim().toLowerCase()
-              );
-          }
-
-          if (filterIdentifiers && filterIdentifiers.length > 0) {
-            relevantRows = relevantRows.filter(row => {
-              const articleCode = String(row.ARTICUL || '').trim();
-              let finalArticleCode = articleCode;
-              if (row.DENOMINACION && typeof row.DENOMINACION === 'string' && row.DENOMINACION.toUpperCase().includes('PAPA PREFRITAS CONGELADAS') && articleCode === '3') {
-                finalArticleCode = '03';
-              }
-              const description = String(row.DENOMINACION || '').trim().toLowerCase();
-              
-              const identifierMatch = filterIdentifiers.some(id => 
-                id === finalArticleCode.toLowerCase() || id === description
-              );
-
-              return criteria.excludeArticleCodes ? !identifierMatch : identifierMatch;
-            });
-          }
-          
-          const uniquePallets = new Set<string>();
-          relevantRows.forEach((row: any) => {
-              if (row.PALETA !== undefined && row.PALETA !== null) {
-                  uniquePallets.add(String(row.PALETA).trim());
-              }
-          });
-          inventoryDataMap.set(doc.id, uniquePallets.size);
+      if (doc.data()?.data) {
+        detailedInventoryByDate.set(doc.id, doc.data().data);
       }
   });
 
@@ -122,23 +83,7 @@ export async function getConsolidatedMovementReport(
                 );
             }
             
-            if (filterIdentifiers && filterIdentifiers.length > 0) {
-              relevantRows = relevantRows.filter(row => {
-                const articleCode = String(row.ARTICUL || '').trim();
-                let finalArticleCode = articleCode;
-                if (row.DENOMINACION && typeof row.DENOMINACION === 'string' && row.DENOMINACION.toUpperCase().includes('PAPA PREFRITAS CONGELADAS') && articleCode === '3') {
-                  finalArticleCode = '03';
-                }
-                const description = String(row.DENOMINACION || '').trim().toLowerCase();
-                
-                const identifierMatch = filterIdentifiers.some(id => 
-                  id === finalArticleCode.toLowerCase() || id === description
-                );
-
-                return criteria.excludeArticleCodes ? !identifierMatch : identifierMatch;
-              });
-            }
-
+            // This part was flawed. Now we correctly count unique pallets for the initial balance.
             const pallets = new Set<string>();
             relevantRows.forEach((row: any) => {
                 if (row.PALETA !== undefined && row.PALETA !== null) {
@@ -168,15 +113,6 @@ export async function getConsolidatedMovementReport(
     entry.paletasDespachadas = (item[despachadasKey] as number) || 0;
   });
 
-  // 5. Populate map with inventory data for the SELECTED session
-  inventoryDataMap.forEach((count, date) => {
-      if (!consolidatedMap.has(date)) {
-          consolidatedMap.set(date, { paletasRecibidas: 0, paletasDespachadas: 0, inventarioAcumulado: 0, posicionesAlmacenadas: 0 });
-      }
-      consolidatedMap.get(date)!.inventarioAcumulado = count;
-  });
-
-
   const fullDateRange: string[] = [];
   let currentDate = parseISO(criteria.startDate);
   const reportEndDate = parseISO(criteria.endDate);
@@ -185,7 +121,7 @@ export async function getConsolidatedMovementReport(
       currentDate = addDays(currentDate, 1);
   }
 
-  // 6. Calculate rolling balance for "Posiciones Almacenadas"
+  // 5. Calculate rolling balance for "Posiciones Almacenadas"
   const consolidatedReport: ConsolidatedReportRow[] = [];
   let posicionesDiaAnterior = saldoInicial;
 
@@ -193,16 +129,67 @@ export async function getConsolidatedMovementReport(
       const dataForDay = consolidatedMap.get(dateStr);
       let recibidasHoy = dataForDay?.paletasRecibidas || 0;
       const despachadasHoy = dataForDay?.paletasDespachadas || 0;
-      const inventarioHoy = dataForDay?.inventarioAcumulado || 0;
       
       const posicionesAlmacenadas = posicionesDiaAnterior + recibidasHoy - despachadasHoy;
+
+      // START OF CORRECTION LOGIC
+      let finalPosicionesAlmacenadas = posicionesAlmacenadas;
+      let finalInventarioAcumulado = 0;
+
+      const dailyInventory = detailedInventoryByDate.get(dateStr) || [];
+      
+      let relevantRowsForDay = dailyInventory.filter(row => 
+          row && row.PROPIETARIO && typeof row.PROPIETARIO === 'string' &&
+          row.PROPIETARIO.trim() === criteria.clientName &&
+          row && row.SE !== undefined && row.SE !== null &&
+          String(row.SE).trim().toLowerCase() === criteria.sesion.trim().toLowerCase()
+      );
+
+      if (filterIdentifiers && filterIdentifiers.length > 0) {
+        const filteredInventoryRows = relevantRowsForDay.filter(row => {
+          const articleCode = String(row.ARTICUL || '').trim();
+          let finalArticleCode = articleCode;
+          if (row.DENOMINACION && typeof row.DENOMINACION === 'string' && row.DENOMINACION.toUpperCase().includes('PAPA PREFRITAS CONGELADAS') && articleCode === '3') {
+            finalArticleCode = '03';
+          }
+          const description = String(row.DENOMINACION || '').trim().toLowerCase();
+          
+          const identifierMatch = filterIdentifiers.some(id => 
+            id === finalArticleCode.toLowerCase() || id === description
+          );
+          return criteria.excludeArticleCodes ? !identifierMatch : identifierMatch;
+        });
+
+        const uniquePallets = new Set<string>();
+        filteredInventoryRows.forEach((row: any) => {
+            if (row.PALETA !== undefined && row.PALETA !== null) {
+                uniquePallets.add(String(row.PALETA).trim());
+            }
+        });
+
+        // Use the count of filtered pallets, but don't let it exceed the calculated historical balance
+        finalPosicionesAlmacenadas = Math.min(posicionesAlmacenadas, uniquePallets.size);
+        finalInventarioAcumulado = uniquePallets.size;
+
+      } else {
+        // If no filter, the 'inventarioAcumulado' is the count of all unique pallets for that client/session
+        const uniquePalletsTotal = new Set<string>();
+        relevantRowsForDay.forEach((row: any) => {
+            if (row.PALETA !== undefined && row.PALETA !== null) {
+                uniquePalletsTotal.add(String(row.PALETA).trim());
+            }
+        });
+        finalInventarioAcumulado = uniquePalletsTotal.size;
+      }
+      // END OF CORRECTION LOGIC
+
 
       consolidatedReport.push({
           date: dateStr,
           paletasRecibidas: recibidasHoy,
           paletasDespachadas: despachadasHoy,
-          inventarioAcumulado: inventarioHoy,
-          posicionesAlmacenadas: posicionesAlmacenadas,
+          inventarioAcumulado: finalInventarioAcumulado,
+          posicionesAlmacenadas: finalPosicionesAlmacenadas,
       });
 
       posicionesDiaAnterior = posicionesAlmacenadas;
@@ -210,6 +197,4 @@ export async function getConsolidatedMovementReport(
 
   return consolidatedReport;
 }
-
-
     
