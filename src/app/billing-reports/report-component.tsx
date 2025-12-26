@@ -253,7 +253,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [exportClients, setExportClients] = useState<string[]>([]);
     const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>(undefined);
     const [isExporting, setIsExporting] = useState(false);
-    const [isExportClientDialogOpen, setExportClientDialogOpen] = useState(false);
+    const [isExportClientDialogOpen, setIsExportClientDialogOpen] = useState(false);
     const [exportClientSearch, setExportClientSearch] = useState("");
 
 
@@ -287,6 +287,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     // --- INICIO CÓDIGO NUEVO ---
     const [rowToDuplicate, setRowToDuplicate] = useState<ClientSettlementRow | null>(null);
     const [duplicateDateRange, setDuplicateDateRange] = useState<DateRange | undefined>();
+    const [isDuplicatePopoverOpen, setIsDuplicatePopoverOpen] = useState(false);
     // --- FIN CÓDIGO NUEVO ---
 
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
@@ -1540,7 +1541,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const results = await getDetailedInventoryForExport({
                 clientNames: exportClients,
                 startDate: format(exportDateRange.from, 'yyyy-MM-dd'),
-                endDate: format(exportDateRange.to, 'yyyy-MM-dd'),
+                endDate: format(exportDateRange.to!, 'yyyy-MM-dd'),
             });
             
             if (results.length === 0) {
@@ -4084,7 +4085,7 @@ const conceptOrder = [
             />
             {rowToEdit && <EditSettlementRowDialog isOpen={isEditSettlementRowOpen} onOpenChange={setIsEditSettlementRowOpen} row={rowToEdit} onSave={handleSaveRowEdit} />}
              {/* --- INICIO CÓDIGO NUEVO --- */}
-            <Dialog open={!!rowToDuplicate} onOpenChange={(open) => {if (!open) setRowToDuplicate(null)}}>
+            <Dialog open={!!rowToDuplicate} onOpenChange={(open) => {if (!open) {setRowToDuplicate(null); setIsDuplicatePopoverOpen(false);}}}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Duplicar Registro para Proyección</DialogTitle>
@@ -4104,7 +4105,7 @@ const conceptOrder = [
                         </Card>
                         <div className="space-y-2">
                              <Label>Duplicar en el rango de fechas:</Label>
-                             <Popover>
+                             <Popover open={isDuplicatePopoverOpen} onOpenChange={setIsDuplicatePopoverOpen}>
                                 <PopoverTrigger asChild>
                                     <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !duplicateDateRange && "text-muted-foreground")}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -4112,7 +4113,21 @@ const conceptOrder = [
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="range" selected={duplicateDateRange} onSelect={setDuplicateDateRange} initialFocus disabled={{ before: settlementDateRange?.from }}/>
+                                    <Calendar 
+                                        mode="range" 
+                                        selected={duplicateDateRange} 
+                                        onSelect={(range) => {
+                                            setDuplicateDateRange(range);
+                                            if (range?.from && range.to && range.from === range.to) {
+                                              // Allow single day selection to close popover
+                                              setTimeout(() => setIsDuplicatePopoverOpen(false), 100);
+                                            } else if (range?.from && range?.to) {
+                                              setTimeout(() => setIsDuplicatePopoverOpen(false), 100);
+                                            }
+                                        }} 
+                                        initialFocus 
+                                        disabled={{ before: settlementDateRange?.from }}
+                                    />
                                 </PopoverContent>
                             </Popover>
                         </div>
@@ -4233,6 +4248,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 
