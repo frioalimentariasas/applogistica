@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -1705,6 +1704,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const conceptOrder = [
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
 'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
@@ -2133,6 +2133,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 const conceptOrder = [
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
 'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
@@ -2625,6 +2626,7 @@ const conceptOrder = [
         const conceptOrder = [
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
 'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
@@ -3972,7 +3974,7 @@ const conceptOrder = [
                                                                                             <EyeOff className="h-4 w-4 text-muted-foreground" />
                                                                                         </Button>
                                                                                         {/* --- INICIO CÓDIGO NUEVO --- */}
-                                                                                        {row.conceptName.includes('CONGELACIÓN') && (
+                                                                                        {(row.conceptName.includes('SERVICIO DE CONGELACIÓN') || row.conceptName.includes('SERVICIO DE REFRIGERACIÓN')) && (
                                                                                             <Button variant="ghost" size="icon" onClick={() => setRowToDuplicate(row)} title="Duplicar registro">
                                                                                                 <Copy className="h-4 w-4 text-sky-600" />
                                                                                             </Button>
