@@ -85,7 +85,7 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
             }
         } catch (error: any) {
             const errorMessage = error.message || "Ocurrió un error desconocido.";
-            if (errorMessage.includes('requires an index') || errorMessage.includes('needs an index')) {
+            if (typeof errorMessage === 'string' && (errorMessage.includes('requires an index') || errorMessage.includes('needs an index'))) {
                 setIndexErrorMessage(errorMessage);
                 setIsIndexErrorOpen(true);
             } else {
@@ -223,4 +223,3 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-

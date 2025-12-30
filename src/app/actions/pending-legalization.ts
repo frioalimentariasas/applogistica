@@ -88,7 +88,8 @@ export async function searchPendingLegalization(criteria: PendingLegalizationCri
     } catch (error) {
         console.error('Error searching pending submissions:', error);
         if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
-            throw new Error(`La base de datos requiere un índice compuesto que no existe. Por favor, revise la consola del servidor para crear el índice y vuelva a intentarlo.`);
+            // Re-throw the original error to pass the URL to the client
+            throw error;
         }
         throw new Error('No se pudieron buscar los formularios pendientes.');
     }
