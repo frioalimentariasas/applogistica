@@ -3,6 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -106,7 +107,7 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
 
     const getEditUrl = (submission: PendingLegalizationResult) => {
         const { id, formType } = submission;
-        const operation = formType.includes('recepcion') ? 'recepcion' : 'despacho';
+        const operation = formType.includes('reception') ? 'recepcion' : 'despacho';
         return `/fixed-weight-form?operation=${operation}&id=${id}`;
     };
 
@@ -199,9 +200,11 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
                                                 <TableCell>{sub.formData.nombreCliente || sub.formData.cliente}</TableCell>
                                                 <TableCell>{sub.userDisplayName}</TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button onClick={() => router.push(getEditUrl(sub))}>
-                                                        <Edit className="mr-2 h-4 w-4" />
-                                                        Legalizar
+                                                    <Button asChild>
+                                                        <Link href={getEditUrl(sub)} target="_blank" rel="noopener noreferrer">
+                                                            <Edit className="mr-2 h-4 w-4" />
+                                                            Legalizar
+                                                        </Link>
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
