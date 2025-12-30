@@ -85,7 +85,7 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
             }
         } catch (error: any) {
             const errorMessage = error.message || "Ocurrió un error desconocido.";
-            if (errorMessage.includes('requires an index')) {
+            if (errorMessage.includes('requires an index') || errorMessage.includes('needs an index')) {
                 setIndexErrorMessage(errorMessage);
                 setIsIndexErrorOpen(true);
             } else {
@@ -119,7 +119,7 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
                         <div>
-                            <h1 className="text-xl md:text-2xl font-bold text-primary">Formatos Pendientes de Legalizar</h1>
+                            <h1 className="text-xl md:text-2xl font-bold text-primary">Formatos Pendientes de Legalizar Peso Bruto</h1>
                             <p className="text-xs md:text-sm text-gray-500">Busque formatos de peso fijo pendientes por ingresar el Peso Bruto Total.</p>
                         </div>
                     </div>
