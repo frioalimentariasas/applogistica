@@ -312,28 +312,33 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     }, []);
 
     const fetchSettlementVersions = useCallback(async () => {
-      if (settlementClient && settlementDateRange?.from && settlementDateRange.to) {
+        if (!settlementClient || !settlementDateRange?.from || !settlementDateRange.to) {
+            setSettlementVersions([]);
+            setSelectedVersionId('original');
+            return;
+        }
+
         setIsLoadingVersions(true);
         try {
-          const versions = await getSettlementVersions(
-            settlementClient,
-            format(settlementDateRange.from, 'yyyy-MM-dd'),
-            format(settlementDateRange.to, 'yyyy-MM-dd')
-          );
-          setSettlementVersions(versions);
+            const versions = await getSettlementVersions(
+                settlementClient,
+                format(settlementDateRange.from, 'yyyy-MM-dd'),
+                format(settlementDateRange.to, 'yyyy-MM-dd')
+            );
+            setSettlementVersions(versions);
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las versiones guardadas.' });
-          setSettlementVersions([]);
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las versiones guardadas.' });
+            setSettlementVersions([]);
         } finally {
-          setIsLoadingVersions(false);
+            setIsLoadingVersions(false);
         }
-      } else {
-        setSettlementVersions([]);
-      }
     }, [settlementClient, settlementDateRange, toast]);
 
     useEffect(() => {
-        fetchSettlementVersions();
+        const handler = setTimeout(() => {
+            fetchSettlementVersions();
+        }, 500); // Debounce
+        return () => clearTimeout(handler);
     }, [fetchSettlementVersions]);
 
     useEffect(() => {
@@ -1770,11 +1775,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         const loadVersionData = () => {
             if (selectedVersionId === 'original') {
-                // If switching back to original, we might want to clear the table or re-trigger calculation
-                // For now, let's clear it to force user to click "Liquidar" again
-                setSettlementReportData([]);
-                setOriginalSettlementData([]);
-                setSettlementSearched(false);
+                handleSettlementSearch();
             } else {
                 const version = settlementVersions.find(v => v.id === selectedVersionId);
                 if (version) {
@@ -4369,4 +4370,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 

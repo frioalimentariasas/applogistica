@@ -11,7 +11,7 @@ import { getConsolidatedMovementReport } from '@/app/actions/consolidated-moveme
 import { processTunelCongelacionData } from '@/lib/report-utils';
 import { getSmylLotAssistantReport, type AssistantReport } from '@/app/smyl-liquidation-assistant/actions';
 import { getDetailedInventoryForExport } from '@/app/actions/inventory-report';
-
+import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 const assistantConcepts = [
     'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
     'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
