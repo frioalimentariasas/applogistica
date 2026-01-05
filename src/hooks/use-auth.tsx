@@ -19,6 +19,7 @@ export interface AppPermissions {
   
   // Operaciones Logísticas
   canConsultForms: boolean;
+  canViewPendingLegalization: boolean;
   canViewPerformanceReport: boolean;
   canViewFormDetails: boolean;
   canEditForms: boolean;
@@ -61,6 +62,7 @@ export const defaultPermissions: AppPermissions = {
   canAccessMaestros: false,
   
   canConsultForms: false,
+  canViewPendingLegalization: false,
   canViewPerformanceReport: false,
   canViewFormDetails: false,
   canEditForms: false,

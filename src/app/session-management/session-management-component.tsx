@@ -84,11 +84,12 @@ const permissionGroups: {
     icon: FileCog,
     permissions: [
       { key: 'canConsultForms', label: 'Consultar Formatos Guardados' },
+      { key: 'canViewPendingLegalization', label: 'Formatos Pendientes de Legalizar' },
+      { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
       { key: 'canViewFormDetails', label: 'Ver Detalle del Formato (PDF)' },
       { key: 'canEditForms', label: 'Editar Formatos' },
       { key: 'canChangeFormType', label: 'Cambiar Tipo de Operación' },
       { key: 'canDeleteForms', label: 'Eliminar Formatos' },
-      { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
       { key: 'canViewPalletTraceability', label: 'Trazabilidad de Paletas' },
       { key: 'canViewContainerTraceability', label: 'Trazabilidad de Contenedor' },
     ],
