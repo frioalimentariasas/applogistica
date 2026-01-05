@@ -14,15 +14,18 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as ExcelJS from 'exceljs';
 import Link from 'next/link';
+
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
+import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from './actions/settlement-versions';
 import { findApplicableConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -34,7 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff, AlertTriangle, Home, Copy } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff, AlertTriangle, Home, Copy, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -173,7 +176,7 @@ const STORAGE_CAPACITY: { [key: string]: number } = {
   RE: 378,
   SE: 378,
 };
-//agregar botón legalizar
+
 function LegalizeLinkButton({ submissionId, formType }: { submissionId: string; formType: string }) {
     const getEditUrl = () => {
         const isReception = formType.includes('reception') || formType.includes('recepcion');
@@ -197,7 +200,7 @@ function LegalizeLinkButton({ submissionId, formType }: { submissionId: string; 
 
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
-    const { toast } = useToast();
+    const { user, displayName, toast } = useToast();
     const uploadFormRef = useRef<HTMLFormElement>(null);
     const today = new Date();
     const threeYearsAgo = subDays(today, MAX_DATE_RANGE_DAYS);
@@ -283,11 +286,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [originalSettlementData, setOriginalSettlementData] = useState<ClientSettlementRow[]>([]);
     const [hiddenRowIds, setHiddenRowIds] = useState<Set<string>>(new Set());
     const [settlementPaymentTerm, setSettlementPaymentTerm] = useState<string>('');
-    
-    // --- INICIO CÓDIGO NUEVO ---
     const [rowToDuplicate, setRowToDuplicate] = useState<ClientSettlementRow | null>(null);
     const [duplicateDates, setDuplicateDates] = useState<Date[]>([]);
-    // --- FIN CÓDIGO NUEVO ---
+    
+    // New states for versioning
+    const [settlementVersions, setSettlementVersions] = useState<SettlementVersion[]>([]);
+    const [selectedVersionId, setSelectedVersionId] = useState<string>('original');
+    const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+    const [isSaveVersionOpen, setIsSaveVersionOpen] = useState(false);
+    const [versionNote, setVersionNote] = useState('');
+    const [isSavingVersion, setIsSavingVersion] = useState(false);
 
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
     const [indexErrorMessage, setIndexErrorMessage] = useState('');
@@ -303,43 +311,66 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         getPedidoTypes().then(setAllPedidoTypes);
     }, []);
 
-    const handleFetchApplicableConcepts = useCallback(async () => {
-        if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
-            
-            setIsLoadingAvailableConcepts(true);
-            try {
-                const results = await findApplicableConcepts(
-                    settlementClient,
-                    format(settlementDateRange.from, 'yyyy-MM-dd'),
-                    format(settlementDateRange.to, 'yyyy-MM-dd')
-                );
-                
-                const smylLotConcepts = [
-                    'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-                    'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-                    'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)'
-                ];
-                
-                const filteredResults = results.filter(concept => !smylLotConcepts.includes(concept.conceptName));
-                
-                setAvailableConcepts(filteredResults);
-                setSelectedConcepts(prev => prev.filter(sc => filteredResults.some(ac => ac.id === sc)));
-
-            } catch (error) {
-                toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los conceptos aplicables.' });
-                setAvailableConcepts([]);
-            } finally {
-                setIsLoadingAvailableConcepts(false);
-            }
-        } else {
-            setAvailableConcepts([]);
-            setSelectedConcepts([]);
+    const fetchSettlementVersions = useCallback(async () => {
+      if (settlementClient && settlementDateRange?.from && settlementDateRange.to) {
+        setIsLoadingVersions(true);
+        try {
+          const versions = await getSettlementVersions(
+            settlementClient,
+            format(settlementDateRange.from, 'yyyy-MM-dd'),
+            format(settlementDateRange.to, 'yyyy-MM-dd')
+          );
+          setSettlementVersions(versions);
+        } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las versiones guardadas.' });
+          setSettlementVersions([]);
+        } finally {
+          setIsLoadingVersions(false);
         }
+      } else {
+        setSettlementVersions([]);
+      }
     }, [settlementClient, settlementDateRange, toast]);
 
     useEffect(() => {
-        handleFetchApplicableConcepts();
-    }, [handleFetchApplicableConcepts]);
+        fetchSettlementVersions();
+    }, [fetchSettlementVersions]);
+
+    useEffect(() => {
+        const fetchApplicableConcepts = async () => {
+            if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
+                setIsLoadingAvailableConcepts(true);
+                try {
+                    const results = await findApplicableConcepts(
+                        settlementClient,
+                        format(settlementDateRange.from, 'yyyy-MM-dd'),
+                        format(settlementDateRange.to, 'yyyy-MM-dd')
+                    );
+                    
+                    const smylLotConcepts = [
+                        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+                        'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+                        'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)'
+                    ];
+                    
+                    const filteredResults = results.filter(concept => !smylLotConcepts.includes(concept.conceptName));
+                    
+                    setAvailableConcepts(filteredResults);
+                    setSelectedConcepts(prev => prev.filter(sc => filteredResults.some(ac => ac.id === sc)));
+
+                } catch (error) {
+                    toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los conceptos aplicables.' });
+                    setAvailableConcepts([]);
+                } finally {
+                    setIsLoadingAvailableConcepts(false);
+                }
+            } else {
+                setAvailableConcepts([]);
+                setSelectedConcepts([]);
+            }
+        }
+        fetchApplicableConcepts();
+    }, [settlementClient, settlementDateRange, toast]);
     
     useEffect(() => {
         if (settlementClient) {
@@ -1668,7 +1699,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setHiddenRowIds(new Set());
     };
     
-    // --- INICIO CÓDIGO NUEVO ---
     const handleDuplicateRow = () => {
         if (!rowToDuplicate || !duplicateDates || duplicateDates.length === 0) {
             toast({ variant: 'destructive', title: 'Error', description: 'Faltan datos para la duplicación.' });
@@ -1682,7 +1712,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             isEdited: true, // Mark as special/projected
         }));
     
-        // Add new rows and sort the entire dataset by date
         setSettlementReportData(prev => [...prev, ...newRows].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
         setOriginalSettlementData(prev => [...prev, ...newRows].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
     
@@ -1691,7 +1720,78 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setRowToDuplicate(null);
         setDuplicateDates([]);
     };
-    // --- FIN CÓDIGO NUEVO ---
+
+    const handleSaveVersion = async () => {
+        if (!user || !displayName) {
+            toast({ variant: 'destructive', title: 'Error de autenticación' });
+            return;
+        }
+        if (!settlementClient || !settlementDateRange?.from || !settlementDateRange.to) {
+            toast({ variant: 'destructive', title: 'Faltan filtros', description: 'Cliente y rango de fechas son requeridos.' });
+            return;
+        }
+        if (!versionNote.trim()) {
+            toast({ variant: 'destructive', title: 'Falta la nota', description: 'Por favor, ingrese una nota descriptiva para esta versión.' });
+            return;
+        }
+        
+        setIsSavingVersion(true);
+        try {
+            const visibleData = settlementReportData.filter(row => !hiddenRowIds.has(row.uniqueId!));
+            const result = await saveSettlementVersion({
+                clientName: settlementClient,
+                startDate: format(settlementDateRange.from, 'yyyy-MM-dd'),
+                endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
+                note: versionNote,
+                settlementData: visibleData,
+                savedBy: {
+                    uid: user.uid,
+                    displayName: displayName
+                }
+            });
+            
+            if (result.success) {
+                toast({ title: "Versión Guardada", description: "La versión actual de la liquidación se ha guardado correctamente."});
+                await fetchSettlementVersions();
+                setSelectedVersionId(result.versionId!);
+                setIsSaveVersionOpen(false);
+                setVersionNote('');
+            } else {
+                throw new Error(result.message);
+            }
+        } catch(e) {
+            const error = e instanceof Error ? e.message : "Ocurrió un error inesperado.";
+            toast({ variant: "destructive", title: "Error al Guardar", description: error });
+        } finally {
+            setIsSavingVersion(false);
+        }
+    };
+    
+    useEffect(() => {
+        const loadVersionData = () => {
+            if (selectedVersionId === 'original') {
+                // If switching back to original, we might want to clear the table or re-trigger calculation
+                // For now, let's clear it to force user to click "Liquidar" again
+                setSettlementReportData([]);
+                setOriginalSettlementData([]);
+                setSettlementSearched(false);
+            } else {
+                const version = settlementVersions.find(v => v.id === selectedVersionId);
+                if (version) {
+                    const dataWithIds = version.settlementData.map((row, index) => ({
+                        ...row,
+                        uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
+                    }));
+                    setSettlementReportData(dataWithIds);
+                    setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
+                    setHiddenRowIds(new Set());
+                    setSettlementSearched(true);
+                }
+            }
+        };
+        loadVersionData();
+    }, [selectedVersionId, settlementVersions]);
+    
 
     const handleSettlementExportExcel = async () => {
         const visibleRows = settlementReportData.filter(row => !hiddenRowIds.has(row.uniqueId!));
@@ -2419,14 +2519,12 @@ const conceptOrder = [
                 [totalRowColSpan]: { halign: 'right' }, // Total Cantidad
                 [totalRowColSpan + 2]: { halign: 'right' }, // Total Valor
             };
-             // --- INICIO DEL CÓDIGO A AGREGAR ---
             if (settlementContainer) {
             doc.setFontSize(11);
             doc.setFont('helvetica', 'bold');
             doc.text(`Resumen Contenedor: ${settlementContainer}`, margin + 30, lastY + 10);
             lastY += 15;
             }
-            // --- FIN DEL CÓDIGO A AGREGAR ---
 
             autoTable(doc, {
                 head: summaryHead,
@@ -3789,8 +3887,23 @@ const conceptOrder = [
                                             />
                                         </div>
                                     </div>
-
-                                    <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-6", showSmylLotInput ? 'md:grid-cols-3' : 'md:grid-cols-2')}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-6">
+                                        <div className="space-y-2">
+                                            <Label>Versión de Liquidación</Label>
+                                            <Select value={selectedVersionId} onValueChange={setSelectedVersionId} disabled={isLoadingVersions}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="original">Calcular Original</SelectItem>
+                                                    {settlementVersions.map(v => (
+                                                        <SelectItem key={v.id} value={v.id}>
+                                                            {`${format(parseISO(v.savedAt), 'dd/MM/yy HH:mm')} - ${v.note} (${v.savedBy.displayName})`}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                         <div className="space-y-2">
                                             <Label>Conceptos a Liquidar</Label>
                                             <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
@@ -3798,7 +3911,7 @@ const conceptOrder = [
                                                     <Button
                                                         variant="outline"
                                                         className="w-full justify-between"
-                                                        disabled={isConceptSelectorDisabled || !settlementClient || !settlementDateRange}
+                                                        disabled={selectedVersionId !== 'original' || isConceptSelectorDisabled || !settlementClient || !settlementDateRange}
                                                     >
                                                         <span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>
                                                         {isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}
@@ -3839,6 +3952,8 @@ const conceptOrder = [
                                                 </DialogContent>
                                             </Dialog>
                                         </div>
+                                    </div>
+                                    <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-6", showSmylLotInput ? 'md:grid-cols-3' : 'md:grid-cols-2')}>
                                         <div className="space-y-2">
                                             <Label>No. Contenedor (Opcional)</Label>
                                             <Input placeholder="Filtrar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
@@ -3852,13 +3967,23 @@ const conceptOrder = [
                                         )}
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
-                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
+                                        <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading || selectedVersionId !== 'original'}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
+                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); setSelectedVersionId('original'); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                     </div>
                                 </div>
                                 </Form>
                                 {settlementSearched && (
                                     <>
+                                     <Alert className="my-4">
+                                        <Info className="h-4 w-4" />
+                                        <AlertTitle>Modo de Visualización</AlertTitle>
+                                        <AlertDescription>
+                                            {selectedVersionId === 'original'
+                                                ? "Mostrando liquidación calculada en tiempo real. Los cambios no se guardarán hasta que cree una nueva versión."
+                                                : `Estás viendo una versión guardada. Para realizar un nuevo cálculo, seleccione 'Calcular Original' en la lista de versiones y haga clic en 'Liquidar'.`
+                                            }
+                                        </AlertDescription>
+                                    </Alert>
                                     <div className="flex justify-between items-center gap-2 my-4">
                                         <div className="flex items-center gap-2">
                                             {hiddenRowIds.size > 0 && (
@@ -3869,6 +3994,25 @@ const conceptOrder = [
                                             )}
                                         </div>
                                         <div className="flex gap-2">
+                                            <Dialog open={isSaveVersionOpen} onOpenChange={setIsSaveVersionOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="default" disabled={isSettlementLoading || visibleSettlementData.length === 0}><Save className="mr-2 h-4 w-4" />Guardar Versión</Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Guardar Versión de Liquidación</DialogTitle>
+                                                        <DialogDescription>Agregue una nota descriptiva para identificar esta versión.</DialogDescription>
+                                                    </DialogHeader>
+                                                    <Textarea placeholder="Ej: Ajuste final para factura mayo" value={versionNote} onChange={e => setVersionNote(e.target.value)} />
+                                                    <DialogFooter>
+                                                        <Button variant="outline" onClick={() => setIsSaveVersionOpen(false)}>Cancelar</Button>
+                                                        <Button onClick={handleSaveVersion} disabled={isSavingVersion || !versionNote.trim()}>
+                                                            {isSavingVersion ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                                            Guardar
+                                                        </Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
                                             <Button onClick={handleSettlementExportExcel} disabled={isSettlementLoading || settlementReportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" />Exportar a Excel</Button>
                                             <Button onClick={handleSettlementExportPDF} disabled={isSettlementLoading || settlementReportData.length === 0 || isLogoLoading} variant="outline">
                                                 {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
@@ -3973,13 +4117,11 @@ const conceptOrder = [
                                                                                         <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
                                                                                             <EyeOff className="h-4 w-4 text-muted-foreground" />
                                                                                         </Button>
-                                                                                        {/* --- INICIO CÓDIGO NUEVO --- */}
                                                                                         {(row.conceptName.includes('SERVICIO DE CONGELACIÓN') || row.conceptName.includes('SERVICIO DE REFRIGERACIÓN')) && (
                                                                                             <Button variant="ghost" size="icon" onClick={() => setRowToDuplicate(row)} title="Duplicar registro">
                                                                                                 <Copy className="h-4 w-4 text-sky-600" />
                                                                                             </Button>
                                                                                         )}
-                                                                                        {/* --- FIN CÓDIGO NUEVO --- */}
                                                                                     </div>
                                                                                 </TableCell>
                                                                             </>
@@ -4083,7 +4225,6 @@ const conceptOrder = [
                 errorMessage={indexErrorMessage}
             />
             {rowToEdit && <EditSettlementRowDialog isOpen={isEditSettlementRowOpen} onOpenChange={setIsEditSettlementRowOpen} row={rowToEdit} onSave={handleSaveRowEdit} />}
-             {/* --- INICIO CÓDIGO NUEVO --- */}
             <Dialog open={!!rowToDuplicate} onOpenChange={(open) => {if (!open) {setRowToDuplicate(null); }}}>
                 <DialogContent>
                     <DialogHeader>
@@ -4119,7 +4260,6 @@ const conceptOrder = [
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            {/* --- FIN CÓDIGO NUEVO --- */}
         </div>
     );
 }
@@ -4229,10 +4369,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-
-
-
-
-
-
 
