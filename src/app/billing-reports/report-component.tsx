@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -21,7 +20,7 @@ import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detaile
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
-import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from '@/app/billing-reports/actions/settlement-versions';
+import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from './actions/settlement-versions';
 import { findApplicableConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
@@ -327,7 +326,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             
             const versions = await getSettlementVersions(settlementClient, startDate, endDate);
             setSettlementVersions(versions);
-            setSelectedVersionId('original'); // Reset to original on new version fetch
+            if (versions.length > 0) {
+                 setSelectedVersionId('original');
+            }
         } catch (error: any) {
             const msg = error.message;
             if (typeof msg === 'string' && (msg.includes('requires an index') || msg.includes('firestore.googleapis.com'))) {
@@ -345,6 +346,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         fetchSettlementVersions();
     }, [fetchSettlementVersions]);
+
+    useEffect(() => {
+        if (selectedVersionId === 'original') {
+            // Restore the original data if it exists, otherwise clear the table
+            setSettlementReportData(originalSettlementData || []);
+        } else {
+            // Find the selected version and load its data
+            const version = settlementVersions.find(v => v.id === selectedVersionId);
+            if (version) {
+                const dataWithIds = version.settlementData.map((row, index) => ({
+                    ...row,
+                    uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
+                }));
+                setSettlementReportData(dataWithIds);
+            }
+        }
+    }, [selectedVersionId, settlementVersions, originalSettlementData]);
 
     useEffect(() => {
         const fetchApplicableConcepts = async () => {
@@ -1790,22 +1808,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
-    useEffect(() => {
-        if (selectedVersionId === 'original') {
-            if (originalSettlementData) {
-                setSettlementReportData(originalSettlementData);
-            }
-        } else {
-            const version = settlementVersions.find(v => v.id === selectedVersionId);
-            if (version) {
-                const dataWithIds = version.settlementData.map((row, index) => ({
-                    ...row,
-                    uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
-                }));
-                setSettlementReportData(dataWithIds);
-            }
-        }
-    }, [selectedVersionId, settlementVersions, originalSettlementData]);
 
     const handleSettlementExportExcel = async () => {
         const visibleRows = settlementReportData.filter(row => !hiddenRowIds.has(row.uniqueId!));
@@ -2292,7 +2294,7 @@ const conceptOrder = [
 'SERVICIO EMPAQUE EN SACOS',
 'IMPRESIÓN FACTURAS',
 'TRANSBORDO CANASTILLA',
-'ALQUILER IMPRESORA ETIQUEDADO',
+'ALQUILER IMPRESORA ETIQUETADO',
 'FMM DE INGRESO ZFPC',
 'FMM DE INGRESO ZFPC (MANUAL)',
 'FMM DE INGRESO ZFPC NACIONAL',
@@ -2650,7 +2652,7 @@ const conceptOrder = [
                         const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
                         const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
                         const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
+                        const finalOrderB = subOrderB === -1 ? Infinity : finalOrderB;
                         if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
                     }
                 return (a.subConceptName || '').localeCompare(b.subConceptName || '');
@@ -2783,7 +2785,7 @@ const conceptOrder = [
 'SERVICIO EMPAQUE EN SACOS',
 'IMPRESIÓN FACTURAS',
 'TRANSBORDO CANASTILLA',
-'ALQUILER IMPRESORA ETIQUEDADO',
+'ALQUILER IMPRESORA ETIQUETADO',
 'FMM DE INGRESO ZFPC',
 'FMM DE INGRESO ZFPC (MANUAL)',
 'FMM DE INGRESO ZFPC NACIONAL',
@@ -3994,7 +3996,7 @@ const conceptOrder = [
                                         <AlertDescription>
                                             {selectedVersionId === 'original'
                                                 ? "Mostrando liquidación calculada en tiempo real. Los cambios no se guardarán hasta que cree una nueva versión."
-                                                : `Estás viendo una versión guardada. Para realizar un nuevo cálculo, seleccione 'Calcular Original' en la lista de versiones y haga clic en 'Liquidar'.`
+                                                : `Estás viendo una versión guardada. Para realizar un nuevo cálculo, seleccione 'Calcular Original' en la lista de versiones y haga clic en 'Liquidar'."`
                                             }
                                         </AlertDescription>
                                     </Alert>
@@ -4384,9 +4386,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     );
 }
 
-
-
-
-
-
-
+    
