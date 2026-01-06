@@ -20,7 +20,7 @@ import { getBillingReport, DailyReportData } from '@/app/actions/billing-report'
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
-import { generateClientSettlement, type ClientSettlementRow } from '@/app/billing-reports/actions/generate-client-settlement';
+import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
 import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from '@/app/billing-reports/actions/settlement-versions';
 import { findApplicableConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import type { ClientInfo } from '@/app/actions/clients';
@@ -1791,25 +1791,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     useEffect(() => {
-        const loadVersionData = async () => {
-            if (selectedVersionId === 'original') {
+        if (selectedVersionId === 'original') {
+            if (originalSettlementData) {
                 setSettlementReportData(originalSettlementData);
-            } else {
-                const version = settlementVersions.find(v => v.id === selectedVersionId);
-                if (version) {
-                    const dataWithIds = version.settlementData.map((row, index) => ({
-                        ...row,
-                        uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
-                    }));
-                    setSettlementReportData(dataWithIds);
-                }
             }
-        };
-        loadVersionData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedVersionId, settlementVersions]);
-    
-    
+        } else {
+            const version = settlementVersions.find(v => v.id === selectedVersionId);
+            if (version) {
+                const dataWithIds = version.settlementData.map((row, index) => ({
+                    ...row,
+                    uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
+                }));
+                setSettlementReportData(dataWithIds);
+            }
+        }
+    }, [selectedVersionId, settlementVersions, originalSettlementData]);
 
     const handleSettlementExportExcel = async () => {
         const visibleRows = settlementReportData.filter(row => !hiddenRowIds.has(row.uniqueId!));
@@ -4387,6 +4383,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 

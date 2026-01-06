@@ -56,8 +56,8 @@ export async function getSettlementVersions(
   try {
     const snapshot = await firestore.collection('saved_liquidations')
       .where('clientName', '==', clientName)
-      .where('startDate', '==', startDateString)
-      .where('endDate', '==', endDateString)
+      .where('startDate', '>=', startDateString)
+      .where('endDate', '<=', endDateString)
       .orderBy('savedAt', 'desc')
       .get();
       
@@ -82,6 +82,7 @@ export async function getSettlementVersions(
     return [];
   }
 }
+
 
 
 
