@@ -1775,7 +1775,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         const loadVersionData = () => {
             if (selectedVersionId === 'original') {
-                handleSettlementSearch();
+                if (settlementSearched) {
+                    handleSettlementSearch();
+                } else {
+                    setSettlementReportData([]);
+                    setOriginalSettlementData([]);
+                }
             } else {
                 const version = settlementVersions.find(v => v.id === selectedVersionId);
                 if (version) {
@@ -4370,5 +4375,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
