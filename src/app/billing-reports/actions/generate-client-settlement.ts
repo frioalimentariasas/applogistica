@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -343,9 +344,6 @@ const calculateUnitsForOperation = (
     if (formType.startsWith('fixed-weight')) {
         const filteredProducts = allItems.filter((p: any) => {
             if (palletTypeFilter === 'ambas') return true;
-            // Para peso fijo, no diferenciamos entre completas y picking a nivel de cajas
-            // La lógica es más simple: si el filtro es específico (completas o picking), se cuentan las cajas
-            // de las filas que tengan paletas de ese tipo.
             if (palletTypeFilter === 'completas' && (Number(p.paletasCompletas) || 0) > 0) return true;
             if (palletTypeFilter === 'picking' && (Number(p.paletasPicking) || 0) > 0) return true;
             return false;
@@ -358,29 +356,31 @@ const calculateUnitsForOperation = (
         const allDespatchItems = (formData.items || [])
             .concat((formData.destinos || []).flatMap((d: any) => d.items || []));
         
+        const isSummary = allDespatchItems.some((i: any) => Number(i.paleta) === 0);
+
+        if (isSummary) {
+            return allDespatchItems.reduce((sum: number, i: any) => {
+                if (!i) return sum;
+                if (palletTypeFilter === 'picking' && (Number(i.paletasPicking) || 0) > 0) {
+                    return sum + (Number(i.totalCantidad) || 0);
+                }
+                if (palletTypeFilter === 'completas' && (Number(i.paletasCompletas) || 0) > 0) {
+                    return sum + (Number(i.totalCantidad) || 0);
+                }
+                if (palletTypeFilter === 'ambas') {
+                    return sum + (Number(i.totalCantidad) || 0);
+                }
+                return sum;
+            }, 0);
+        }
+        
+        // Detailed logic for variable-weight-despacho
         const itemsToProcess = allDespatchItems.filter((item: any) => {
             if (!item) return false;
             if (palletTypeFilter === 'completas') return !item.esPicking;
             if (palletTypeFilter === 'picking') return item.esPicking === true;
             return true; // para 'ambas'
         });
-
-        const isSummary = itemsToProcess.some((i: any) => Number(i.paleta) === 0);
-
-        if (isSummary) {
-            // CORRECCIÓN: Filtrar por paletas de picking si es necesario
-            if (palletTypeFilter === 'picking') {
-                return itemsToProcess
-                    .filter(i => (Number(i.paletasPicking) || 0) > 0)
-                    .reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
-            }
-            if (palletTypeFilter === 'completas') {
-                return itemsToProcess
-                    .filter(i => (Number(i.paletasCompletas) || 0) > 0)
-                    .reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
-            }
-            return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
-        }
         return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
     }
 
@@ -1708,4 +1708,5 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
 
