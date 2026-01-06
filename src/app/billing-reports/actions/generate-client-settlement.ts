@@ -56,7 +56,7 @@ export interface ClientSettlementRow {
   horaInicio?: string;
   horaFin?: string;
   numeroPersonas?: number | string;
-  uniqueId?: boolean;
+  uniqueId?: string; // Change to string
   isEdited?: boolean;
   isPending?: boolean; // Para marcar si necesita legalización
   submissionId?: string; // Para saber a qué formulario enlazar
@@ -337,19 +337,20 @@ const calculateUnitsForOperation = (
     const { formType, formData } = op;
     const palletTypeFilter = concept?.palletTypeFilter || 'ambas';
     const allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
+    if (allItems.length === 0) return 0;
 
-    if (formType.startsWith('fixed-weight-despacho')) {
+    // --- Lógica para Peso Fijo ---
+    if (formType.startsWith('fixed-weight')) {
         const filteredProducts = allItems.filter((p: any) => {
             if (palletTypeFilter === 'ambas') return true;
-            if (palletTypeFilter === 'completas') return (Number(p.paletasCompletas) || 0) > 0 && !(Number(p.paletasPicking) > 0);
-            if (palletTypeFilter === 'picking') return (Number(p.paletasPicking) || 0) > 0 && !(Number(p.completas) > 0);
+            // Para peso fijo, no diferenciamos entre completas y picking a nivel de cajas
+            // La lógica es más simple: si el filtro es específico (completas o picking), se cuentan las cajas
+            // de las filas que tengan paletas de ese tipo.
+            if (palletTypeFilter === 'completas' && (Number(p.paletasCompletas) || 0) > 0) return true;
+            if (palletTypeFilter === 'picking' && (Number(p.paletasPicking) || 0) > 0) return true;
             return false;
         });
         return filteredProducts.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
-    }
-    
-    if (formType?.startsWith('fixed-weight')) {
-        return allItems.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
     }
     
     // --- Lógica para Despacho de Peso Variable ---
@@ -358,13 +359,26 @@ const calculateUnitsForOperation = (
             .concat((formData.destinos || []).flatMap((d: any) => d.items || []));
         
         const itemsToProcess = allDespatchItems.filter((item: any) => {
+            if (!item) return false;
             if (palletTypeFilter === 'completas') return !item.esPicking;
             if (palletTypeFilter === 'picking') return item.esPicking === true;
             return true; // para 'ambas'
         });
 
         const isSummary = itemsToProcess.some((i: any) => Number(i.paleta) === 0);
+
         if (isSummary) {
+            // CORRECCIÓN: Filtrar por paletas de picking si es necesario
+            if (palletTypeFilter === 'picking') {
+                return itemsToProcess
+                    .filter(i => (Number(i.paletasPicking) || 0) > 0)
+                    .reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
+            }
+            if (palletTypeFilter === 'completas') {
+                return itemsToProcess
+                    .filter(i => (Number(i.paletasCompletas) || 0) > 0)
+                    .reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
+            }
             return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
         }
         return itemsToProcess.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
@@ -443,6 +457,7 @@ async function generateSmylLiquidation(
   
               allLotRows.push({
                   date: format(receptionDate, 'yyyy-MM-dd'),
+                  uniqueId: `${lotId}-${format(receptionDate, 'yyyy-MM-dd')}-freezing`,
                   lotId,
                   conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
                   subConceptName: 'Servicio logístico Congelación (4 Días)',
@@ -456,6 +471,7 @@ async function generateSmylLiquidation(
   
               allLotRows.push({
                   date: format(receptionDate, 'yyyy-MM-dd'),
+                  uniqueId: `${lotId}-${format(receptionDate, 'yyyy-MM-dd')}-manipulation`,
                   lotId,
                   conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
                   subConceptName: 'Servicio de Manipulación',
@@ -475,6 +491,7 @@ async function generateSmylLiquidation(
               if (day.finalBalance > 0) {
                   allLotRows.push({
                       date: day.date,
+                      uniqueId: `${lotId}-${day.date}-daily`,
                       lotId,
                       conceptName: 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
                       quantity: day.finalBalance,
@@ -595,6 +612,7 @@ async function processCargueAlmacenamiento(
                         if (fechaRecepcionStr === fechaDespachoFinalStr) {
                            settlementRows.push({
                                date: fechaRecepcionStr,
+                               uniqueId: `${recepcion.id}-${loteId}-crossdock`,
                                placa: recepcion.formData.placa,
                                container: recepcion.formData.contenedor,
                                camara: 'CO',
@@ -617,6 +635,7 @@ async function processCargueAlmacenamiento(
                            
                            settlementRows.push({
                                date: fechaRecepcionStr,
+                               uniqueId: `${recepcion.id}-${loteId}-almacenamiento`,
                                placa: recepcion.formData.placa,
                                container: recepcion.formData.contenedor,
                                camara: 'CO',
@@ -636,6 +655,7 @@ async function processCargueAlmacenamiento(
                            
                            settlementRows.push({
                                date: fechaRecepcionStr,
+                               uniqueId: `${recepcion.id}-${loteId}-manipulacion`,
                                placa: recepcion.formData.placa,
                                container: recepcion.formData.contenedor,
                                camara: 'CO',
@@ -695,6 +715,7 @@ async function processAvicolaMaquila(
         if (quantity > 0) {
             settlementRows.push({
                 date: recepcion.formData.fecha,
+                uniqueId: `${recepcion.id}-${concept.id}`,
                 placa: recepcion.formData.placa || 'N/A',
                 container: recepcion.formData.contenedor || 'N/A',
                 camara: 'N/A',
@@ -786,8 +807,8 @@ export async function generateClientSettlement(criteria: {
     const allOperations: BasicOperation[] = [];
 
     operationsInDateRange.forEach(data => allOperations.push({ type: 'form', data }));
-    manualOpsSnapshot.docs.forEach(doc => allOperations.push({ type: 'manual', data: serializeTimestamps(doc.data()) }));
-    crewManualOpsSnapshot.docs.forEach(doc => allOperations.push({ type: 'crew_manual', data: serializeTimestamps(doc.data()) }));
+    manualOpsSnapshot.docs.forEach(doc => allOperations.push({ type: 'manual', data: {id: doc.id, ...serializeTimestamps(doc.data())} }));
+    crewManualOpsSnapshot.docs.forEach(doc => allOperations.push({ type: 'crew_manual', data: {id: doc.id, ...serializeTimestamps(doc.data())} }));
     
     let settlementRows: ClientSettlementRow[] = [];
     
@@ -831,6 +852,7 @@ export async function generateClientSettlement(criteria: {
 
                 settlementRows.push({
                     date: opData.operationDate,
+                    uniqueId: opData.id,
                     placa: opData.plate || 'Manual',
                     container: 'N/A',
                     camara: 'N/A',
@@ -927,6 +949,7 @@ export async function generateClientSettlement(criteria: {
                     isPending: true,
                     submissionId: submission.id,
                     formType: submission.formType, 
+                    uniqueId: `${submission.id}-${concept.id}-pending`,
                     date: submission.formData.fecha,
                     placa: submission.formData.placa || 'N/A',
                     container: submission.formData.contenedor || 'N/A',
@@ -1049,6 +1072,7 @@ export async function generateClientSettlement(criteria: {
             settlementRows.push({
                 submissionId: submission.id, 
                 formType: submission.formType,
+                uniqueId: `${submission.id}-${concept.id}`,
                 date: submission.formData.fecha,
                 placa: submission.formData.placa || 'N/A',
                 container: submission.formData.contenedor || 'N/A',
@@ -1087,6 +1111,7 @@ export async function generateClientSettlement(criteria: {
 
                 if (quantity > 0) {
                     settlementRows.push({
+                        uniqueId: `${op.data.id}-${concept.id}`,
                         date: op.data.formData.fecha,
                         placa: op.data.formData.placa || 'N/A',
                         container: op.data.formData.contenedor || 'N/A',
@@ -1197,6 +1222,7 @@ export async function generateClientSettlement(criteria: {
                             const quantityHours = totalDiurnoMinutes / 60;
                             settlementRows.push({
                                 date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: 'N/A',
+                                uniqueId: `${opData.id}-${diurnaTariff.id}`,
                                 container: 'N/A', totalPaletas: 0, camara: 'N/A', operacionLogistica: 'Diurno',
                                 pedidoSislog: 'Manual', tipoVehiculo: 'N/A', quantity: quantityHours,
                                 numeroPersonas: numPersonas, unitOfMeasure: diurnaTariff.unit, unitValue: diurnaTariff.value || 0,
@@ -1208,6 +1234,7 @@ export async function generateClientSettlement(criteria: {
                             const quantityHours = totalNocturnoMinutes / 60;
                             settlementRows.push({
                                 date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: 'N/A',
+                                uniqueId: `${opData.id}-${nocturnaTariff.id}`,
                                 container: 'N/A', totalPaletas: 0, camara: 'N/A', operacionLogistica: 'Nocturno',
                                 pedidoSislog: 'Manual', tipoVehiculo: 'N/A', quantity: quantityHours,
                                 numeroPersonas: numPersonas, unitOfMeasure: nocturnaTariff.unit, unitValue: nocturnaTariff.value || 0,
@@ -1246,6 +1273,7 @@ export async function generateClientSettlement(criteria: {
                             const quantity = totalDiurnoMinutes / 60;
                             settlementRows.push({
                                 date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: opData.details?.plate || 'N/A',
+                                uniqueId: `${opData.id}-${diurnaTariff.id}`,
                                 container: opData.details?.container || 'N/A', totalPaletas: opData.details?.totalPallets || 0, camara: 'N/A',
                                 operacionLogistica: 'Diurno', pedidoSislog: 'Manual', tipoVehiculo: 'N/A',
                                 quantity: quantity, numeroPersonas: numPersonas, unitOfMeasure: diurnaTariff.unit,
@@ -1257,6 +1285,7 @@ export async function generateClientSettlement(criteria: {
                             const quantity = totalNocturnoMinutes / 60;
                             settlementRows.push({
                                 date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: opData.details?.plate || 'N/A',
+                                uniqueId: `${opData.id}-${nocturnaTariff.id}`,
                                 container: opData.details?.container || 'N/A', totalPaletas: opData.details?.totalPallets || 0, camara: 'N/A',
                                 operacionLogistica: 'Nocturno', pedidoSislog: 'Manual', tipoVehiculo: 'N/A',
                                 quantity: quantity, numeroPersonas: numPersonas, unitOfMeasure: nocturnaTariff.unit,
@@ -1295,6 +1324,7 @@ export async function generateClientSettlement(criteria: {
                     if (totalValue > 0) {
                         settlementRows.push({
                             date,
+                            uniqueId: `${opData.id}-${specificTariffInfo.id}`,
                             placa: opData.details?.plate || 'N/A',
                             container: opData.details?.container || 'N/A',
                             totalPaletas: opData.details?.totalPallets || 0,
@@ -1323,6 +1353,7 @@ export async function generateClientSettlement(criteria: {
                     const valorUnitario = specificTariffInfo.value || 0;
                      settlementRows.push({
                         date,
+                        uniqueId: `${opData.id}-${specificTariffInfo.id}`,
                         placa: opData.details?.plate || 'N/A',
                         container: opData.details?.container || 'N/A',
                         totalPaletas: opData.details?.totalPallets || 0,
@@ -1393,6 +1424,7 @@ export async function generateClientSettlement(criteria: {
 
                  settlementRows.push({
                     date,
+                    uniqueId: opData.id,
                     placa: opData.details?.plate || 'N/A',
                     container: containerValue,
                     totalPaletas: opData.details?.totalPallets || 0,
@@ -1462,6 +1494,7 @@ export async function generateClientSettlement(criteria: {
                     if (balance > 0) {
                         settlementRows.push({
                             date: format(date, 'yyyy-MM-dd'),
+                            uniqueId: `${container}-${format(date, 'yyyy-MM-dd')}`,
                             placa: 'N/A',
                             container: container,
                             camara: concept.inventorySesion || 'N/A',
@@ -1493,6 +1526,7 @@ export async function generateClientSettlement(criteria: {
               if (totalPalletsForDay > 0) {
                 settlementRows.push({
                   date: dayData.date,
+                  uniqueId: `${concept.id}-${dayData.date}`,
                   placa: 'N/A',
                   container: 'N/A',
                   camara: concept.inventorySesion,
@@ -1525,8 +1559,8 @@ export async function generateClientSettlement(criteria: {
     
     const conceptOrder = [
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
-'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
 'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
@@ -1675,4 +1709,3 @@ const minutesToTime = (minutes: number): string => {
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-    
