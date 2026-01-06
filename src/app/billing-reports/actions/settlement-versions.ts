@@ -49,6 +49,9 @@ export async function getSettlementVersions(
     console.error('Firestore not available');
     return [];
   }
+  if (!clientName || !startDate || !endDate) {
+    return [];
+  }
 
   try {
     const snapshot = await firestore.collection('saved_liquidations')
@@ -72,6 +75,11 @@ export async function getSettlementVersions(
 
   } catch (error) {
     console.error('Error fetching settlement versions:', error);
+    // This will help debug if an index is missing.
+    if (error instanceof Error && error.message.includes('requires an index')) {
+      throw error;
+    }
     return [];
   }
 }
+

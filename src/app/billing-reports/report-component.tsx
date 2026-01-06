@@ -313,34 +313,37 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         getPedidoTypes().then(setAllPedidoTypes);
     }, []);
 
-     const fetchSettlementVersions = useCallback(async () => {
-        if (!settlementClient || !settlementDateRange?.from || !settlementDateRange.to) {
-            setSettlementVersions([]);
-            return;
-        }
-
-        setIsLoadingVersions(true);
-        try {
-            // Correctly format dates to YYYY-MM-DD strings for the server action
-            const startDate = format(settlementDateRange.from, 'yyyy-MM-dd');
-            const endDate = format(settlementDateRange.to, 'yyyy-MM-dd');
-            
-            const versions = await getSettlementVersions(settlementClient, startDate, endDate);
-            setSettlementVersions(versions);
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las versiones guardadas.' });
-            setSettlementVersions([]);
-        } finally {
-            setIsLoadingVersions(false);
-        }
-    }, [settlementClient, settlementDateRange, toast]);
-
     useEffect(() => {
+        const fetchVersions = async () => {
+            if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
+                setSettlementVersions([]);
+                setSelectedVersionId('original');
+                return;
+            }
+
+            setIsLoadingVersions(true);
+            try {
+                const startDateStr = format(settlementDateRange.from, 'yyyy-MM-dd');
+                const endDateStr = format(settlementDateRange.to, 'yyyy-MM-dd');
+                
+                const versions = await getSettlementVersions(settlementClient, startDateStr, endDateStr);
+                setSettlementVersions(versions);
+            } catch (error) {
+                const msg = error instanceof Error ? error.message : "Error al cargar versiones.";
+                toast({ variant: 'destructive', title: 'Error', description: msg });
+                setSettlementVersions([]);
+            } finally {
+                setIsLoadingVersions(false);
+            }
+        };
+
         const handler = setTimeout(() => {
-            fetchSettlementVersions();
-        }, 500); // Debounce
+            fetchVersions();
+        }, 300); // Debounce to avoid rapid firing
+
         return () => clearTimeout(handler);
-    }, [fetchSettlementVersions]);
+    }, [settlementClient, settlementDateRange, toast]);
+    
     
     useEffect(() => {
         const fetchApplicableConcepts = async () => {
@@ -1611,17 +1614,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
-    const handleSettlementSearch = async () => {
+    const handleSettlementSearch = useCallback(async () => {
         const isSmylClient = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
         const lotIdsArray = settlementLotIds.split(/[\s,]+/).filter(Boolean);
 
         if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
-            toast({ variant: 'destructive', title: 'Filtros incompletos', description: 'Seleccione cliente y rango de fechas.' });
             return;
         }
 
         if (isSmylClient && lotIdsArray.length === 0 && selectedConcepts.length === 0) {
-            toast({ variant: "destructive", title: "Filtro Inválido para SMYL", description: "Para SMYL, debe ingresar al menos un lote o seleccionar un concepto a liquidar." });
+             toast({ variant: "destructive", title: "Filtro Inválido para SMYL", description: "Para SMYL, debe ingresar al menos un lote o seleccionar un concepto a liquidar." });
             return;
         }
         
@@ -1671,7 +1673,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         } finally {
             setIsSettlementLoading(false);
         }
-    };
+    }, [settlementClient, settlementDateRange, selectedConcepts, settlementContainer, settlementLotIds, toast]);
 
     const handleSaveRowEdit = (updatedRow: ClientSettlementRow) => {
         setSettlementReportData(prevData =>
@@ -1729,7 +1731,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     const handleSaveVersion = async () => {
         if (!user || !displayName) {
-            toast({ variant: 'destructive', title: 'Error de autenticación' });
+            toast({ variant: "destructive", title: "Error de autenticación" });
             return;
         }
         if (!settlementClient || !settlementDateRange?.from || !settlementDateRange.to) {
@@ -1758,7 +1760,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             
             if (result.success) {
                 toast({ title: "Versión Guardada", description: "La versión actual de la liquidación se ha guardado correctamente."});
-                await fetchSettlementVersions();
+                
+                // Manually add the new version to the local state to avoid a full re-fetch
+                const newVersion: SettlementVersion = {
+                    id: result.versionId!,
+                    clientName: settlementClient,
+                    startDate: format(settlementDateRange.from, 'yyyy-MM-dd'),
+                    endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
+                    note: versionNote,
+                    savedAt: new Date().toISOString(),
+                    settlementData: visibleData,
+                    savedBy: { uid: user.uid, displayName: displayName },
+                };
+                setSettlementVersions(prev => [newVersion, ...prev]);
+
                 setSelectedVersionId(result.versionId!);
                 setIsSaveVersionOpen(false);
                 setVersionNote('');
@@ -1775,9 +1790,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     useEffect(() => {
         const loadVersionData = async () => {
-            if (!settlementSearched) return;
             if (selectedVersionId === 'original') {
-                await handleSettlementSearch();
+                if (settlementSearched) {
+                    await handleSettlementSearch();
+                }
             } else {
                 const version = settlementVersions.find(v => v.id === selectedVersionId);
                 if (version) {
@@ -1792,7 +1808,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
         };
         loadVersionData();
-    }, [selectedVersionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedVersionId, settlementVersions]);
     
 
     const handleSettlementExportExcel = async () => {
@@ -2703,7 +2720,7 @@ const conceptOrder = [
         const fileName = `FA-GFC-F13_Liquidacion_Servicios_Cliente_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
-
+    
     const getTipoPedidoButtonText = () => {
         if (detailedReportTipoPedido.length === 0) return "Todos";
         if (detailedReportTipoPedido.length === 1) return detailedReportTipoPedido[0];
@@ -3653,7 +3670,7 @@ const conceptOrder = [
                                                             </ScrollArea>
                                                         </div>
                                                         <DialogFooter>
-                                                            <Button onClick={() => setExportClientDialogOpen(false)}>Cerrar</Button>
+                                                            <Button onClick={() => setIsExportClientDialogOpen(false)}>Cerrar</Button>
                                                         </DialogFooter>
                                                     </DialogContent>
                                                 </Dialog>
@@ -3893,8 +3910,8 @@ const conceptOrder = [
                                         <div className="space-y-2">
                                             <Label>Versión de Liquidación</Label>
                                             <Select value={selectedVersionId} onValueChange={setSelectedVersionId} disabled={isLoadingVersions}>
-                                                <SelectTrigger>
-                                                    {isLoadingVersions ? <Loader2 className="animate-spin h-4 w-4"/> : <SelectValue />}
+                                                <SelectTrigger className={cn(isLoadingVersions && "animate-pulse")}>
+                                                    {isLoadingVersions ? <span>Cargando versiones...</span> : <SelectValue />}
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="original">Calcular Original</SelectItem>
@@ -4008,7 +4025,7 @@ const conceptOrder = [
                                                     <Textarea placeholder="Ej: Ajuste final para factura mayo" value={versionNote} onChange={e => setVersionNote(e.target.value)} />
                                                     <DialogFooter>
                                                         <Button variant="outline" onClick={() => setIsSaveVersionOpen(false)}>Cancelar</Button>
-                                                        <Button onClick={handleSaveVersion} disabled={isSavingVersion || !versionNote.trim()}>
+                                                        <Button onClick={handleSaveVersion} disabled={isSavingVersion || !versionNote.trim() || !user}>
                                                             {isSavingVersion ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                                             Guardar
                                                         </Button>
@@ -4371,4 +4388,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
