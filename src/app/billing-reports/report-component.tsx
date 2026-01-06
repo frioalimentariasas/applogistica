@@ -312,9 +312,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         getPedidoTypes().then(setAllPedidoTypes);
     }, []);
-    
-    // --- START OF CORRECTIONS ---
-    
+
     const fetchSettlementVersions = useCallback(async () => {
         if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
             setSettlementVersions([]);
@@ -329,6 +327,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             
             const versions = await getSettlementVersions(settlementClient, startDateStr, endDateStr);
             setSettlementVersions(versions);
+            setSelectedVersionId('original');
         } catch (error: any) {
             const msg = error.message;
             if (typeof msg === 'string' && (msg.includes('requires an index') || msg.includes('firestore.googleapis.com'))) {
@@ -343,16 +342,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     }, [settlementClient, settlementDateRange, toast]);
 
-
     useEffect(() => {
-        const handler = setTimeout(() => {
-            fetchSettlementVersions();
-        }, 500); // Debounce to avoid rapid firing
-    
-        return () => clearTimeout(handler);
+        fetchSettlementVersions();
     }, [fetchSettlementVersions]);
     
-    // --- END OF CORRECTIONS ---
 
     useEffect(() => {
         const fetchApplicableConcepts = async () => {
@@ -1001,6 +994,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             data: getGroupedData(inventoryGroupType)
         };
     }, [tunelReportData, inventoryDateRange, inventoryGroupType]);
+    
     
     const inventoryTotals = useMemo(() => {
     if (!pivotedInventoryData || !pivotedInventoryData.tables) {
@@ -1797,14 +1791,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
-    // --- START OF CORRECTION ---
     useEffect(() => {
         const loadVersionData = async () => {
             if (selectedVersionId === 'original') {
-                if (settlementSearched && originalSettlementData.length > 0) {
+                if (settlementSearched) {
                     setSettlementReportData(originalSettlementData);
-                } else if (settlementSearched) {
-                    await handleSettlementSearch();
                 } else {
                     setSettlementReportData([]);
                     setOriginalSettlementData([]);
@@ -1817,14 +1808,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
                     }));
                     setSettlementReportData(dataWithIds);
-                    // Do not reset originalSettlementData here, so "Calcular Original" works
                 }
             }
         };
         loadVersionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedVersionId]);
-    // --- END OF CORRECTION ---
+    }, [selectedVersionId, settlementVersions]);
+    
     
 
     const handleSettlementExportExcel = async () => {
@@ -4403,6 +4393,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 
