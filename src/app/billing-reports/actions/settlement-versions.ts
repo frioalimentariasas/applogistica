@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -41,8 +42,8 @@ export async function saveSettlementVersion(
 
 export async function getSettlementVersions(
   clientName: string,
-  startDate: string,
-  endDate: string
+  startDate: string, // Expecting 'YYYY-MM-DD'
+  endDate: string   // Expecting 'YYYY-MM-DD'
 ): Promise<SettlementVersion[]> {
   if (!firestore) {
     console.error('Firestore not available');
@@ -50,7 +51,6 @@ export async function getSettlementVersions(
   }
 
   try {
-    // The query now uses the exact string format 'YYYY-MM-DD' for matching.
     const snapshot = await firestore.collection('saved_liquidations')
       .where('clientName', '==', clientName)
       .where('startDate', '==', startDate)

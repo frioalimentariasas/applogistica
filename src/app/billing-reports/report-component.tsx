@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -321,10 +322,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         setIsLoadingVersions(true);
         try {
+            // Correctly format dates to YYYY-MM-DD strings for the server action
+            const startDate = format(new Date(`${format(settlementDateRange.from, 'yyyy-MM-dd')}T00:00:00-05:00`), 'yyyy-MM-dd');
+            const endDate = format(new Date(`${format(settlementDateRange.to, 'yyyy-MM-dd')}T23:59:59-05:00`), 'yyyy-MM-dd');
+            
             const versions = await getSettlementVersions(
                 settlementClient,
-                format(settlementDateRange.from, 'yyyy-MM-dd'),
-                format(settlementDateRange.to, 'yyyy-MM-dd')
+                startDate,
+                endDate
             );
             setSettlementVersions(versions);
         } catch (error) {
@@ -1067,14 +1072,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     // Process Pallet-based sessions
     if (pivotedInventoryData) {
-        pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
-            const worksheet = workbook.addWorksheet(tableData.title);
-            worksheet.addRow([tableData.title]);
+        pivotedInventoryData.tables.forEach((table, tableIndex) => {
+            const worksheet = workbook.addWorksheet(table.title);
+            worksheet.addRow([table.title]);
             worksheet.mergeCells('A1:B1');
             worksheet.addRow([]);
             
-            if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
-                tableData.data.forEach((yearData, yearIdx) => {
+            if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
+                table.data.forEach((yearData: any, yearIdx: number) => {
                     if (yearIdx > 0) worksheet.addRow([]);
                     const yearRow = worksheet.addRow([`AÑO: ${yearData.year}`]);
                     yearRow.font = { bold: true, size: 14 };
@@ -1091,7 +1096,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     const totalRow = worksheet.addRow(['TOTALES', ...yearTotals.columnTotals, yearTotals.grandTotal, Math.round(yearTotals.grandAverage)]);
                     totalRow.font = { bold: true };
                     
-                    const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[tableData.sessionKey as keyof typeof STORAGE_CAPACITY]), yearTotals.totalCustomerOccupation / 100, '']);
+                    const occupationRow = worksheet.addRow(['(%) Ocupación', ...yearTotals.columnTotals.map((t: number) => t / STORAGE_CAPACITY[table.sessionKey as keyof typeof STORAGE_CAPACITY]), yearTotals.totalCustomerOccupation / 100, '']);
                     occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
                     occupationRow.eachCell((cell, colNumber) => {
                         // Start from the second column and exclude the last one ('Promedio Posiciones')
@@ -1100,8 +1105,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         }
                     });
                 });
-            } else if (tableData.data) {
-                const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
+            } else if (table.data) {
+                const { headers, clientRows } = table.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
                 const headerRow = worksheet.addRow(['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']);
                 headerRow.font = { bold: true };
 
@@ -1113,7 +1118,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const totalRow = worksheet.addRow(['TOTALES', ...tableTotals.columnTotals, tableTotals.grandTotal, Math.round(tableTotals.grandAverage)]);
                 totalRow.font = { bold: true };
                 
-                const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[tableData.sessionKey as keyof typeof STORAGE_CAPACITY]), tableTotals.totalCustomerOccupation / 100, '']);
+                const occupationRow = worksheet.addRow(['(%) Ocupación', ...tableTotals.columnTotals.map(t => t / STORAGE_CAPACITY[table.sessionKey as keyof typeof STORAGE_CAPACITY]), tableTotals.totalCustomerOccupation / 100, '']);
                 occupationRow.font = { bold: true, color: { argb: 'FF0070C0' } };
                 occupationRow.eachCell((cell, colNumber) => {
                     if (colNumber > 1 && colNumber <= headers.length + 2) {
@@ -1232,23 +1237,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     // Render pallet-based sessions
     if (pivotedInventoryData && pivotedInventoryData.tables.length > 0) {
-        pivotedInventoryData.tables.forEach((tableData, tableIndex) => {
+        pivotedInventoryData.tables.forEach((table, tableIndex) => {
             if (!isFirstPage) {
                 doc.addPage();
             }
-            const tableStartY = addHeaderAndTitle(tableData.title, `Sesión: ${tableData.title}`);
+            const tableStartY = addHeaderAndTitle(table.title, `Sesión: ${table.title}`);
 
-            if (pivotedInventoryData.type === 'monthly' && Array.isArray(tableData.data)) {
+            if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
                 // Monthly PDF logic remains the same
-            } else if (tableData.data) {
-                const { headers, clientRows } = tableData.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
+            } else if (table.data) {
+                const { headers, clientRows } = table.data as { headers: string[], clientRows: { clientName: string, data: Record<string, number>, total: number, average: number }[] };
                 const tableTotals = inventoryTotals[tableIndex] as { columnTotals: number[], grandTotal: number, grandAverage: number, occupationPercentage: number, totalCustomerOccupation: number };
 
                 const head = [['Cliente', ...headers, 'Total Cliente', 'Promedio Posiciones']];
                 const body = clientRows.map((row: any) => [row.clientName, ...Object.values(row.data).map(v => Math.round(Number(v)).toLocaleString('es-CO')), row.total.toLocaleString('es-CO'), Math.round(row.average)]);
                 const foot = [
                     ['TOTALES', ...tableTotals.columnTotals.map(t => Math.round(t).toLocaleString('es-CO')), tableTotals.grandTotal.toLocaleString('es-CO'), Math.round(tableTotals.grandAverage).toLocaleString('es-CO')],
-                    ['(%) Ocupación', ...tableTotals.columnTotals.map(t => `${Math.round((t / STORAGE_CAPACITY[tableData.sessionKey as keyof typeof STORAGE_CAPACITY]) * 100)}%`), `${Math.round(tableTotals.totalCustomerOccupation)}%`, '']
+                    ['(%) Ocupación', ...tableTotals.columnTotals.map(t => `${Math.round((t / STORAGE_CAPACITY[table.sessionKey as keyof typeof STORAGE_CAPACITY]) * 100)}%`), `${Math.round(tableTotals.totalCustomerOccupation)}%`, '']
                 ];
 
                 autoTable(doc, {
@@ -1774,10 +1779,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     useEffect(() => {
-        const loadVersionData = () => {
+        const loadVersionData = async () => {
             if (selectedVersionId === 'original') {
                 if (settlementSearched) {
-                    handleSettlementSearch();
+                    await handleSettlementSearch();
                 } else {
                     setSettlementReportData([]);
                     setOriginalSettlementData([]);
@@ -1798,7 +1803,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         };
         loadVersionData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedVersionId, settlementVersions]);
+    }, [selectedVersionId]);
     
 
     const handleSettlementExportExcel = async () => {
@@ -3482,7 +3487,7 @@ const conceptOrder = [
                                                         <CardContent>
                                                             <ScrollArea className="w-full whitespace-nowrap rounded-md border">
                                                             {pivotedInventoryData.type === 'monthly' && Array.isArray(table.data) ? (
-                                                                table.data.map((yearData, yearIdx) => (
+                                                                table.data.map((yearData: any, yearIdx: number) => (
                                                                     <div key={yearData.year} className="mb-6 last:mb-0">
                                                                         <h4 className="p-4 text-lg font-semibold bg-muted">{`AÑO: ${yearData.year}`}</h4>
                                                                         <Table>
@@ -3570,22 +3575,22 @@ const conceptOrder = [
                                                                     <TableHeader>
                                                                         <TableRow>
                                                                             <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
-                                                                            {pivotedTunelData.data!.headers.map((h) => <TableHead key={h} className="text-right">{h}</TableHead>)}
+                                                                            {(pivotedTunelData.data as any).headers.map((h: string) => <TableHead key={h} className="text-right">{h}</TableHead>)}
                                                                             <TableHead className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">Total Cliente (kg)</TableHead>
                                                                         </TableRow>
                                                                     </TableHeader>
                                                                     <TableBody>
-                                                                        {pivotedTunelData.data!.clientRows.map((row) => (
+                                                                        {(pivotedTunelData.data as any).clientRows.map((row: any) => (
                                                                             <TableRow key={row.clientName}>
                                                                                 <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{row.clientName}</TableCell>
-                                                                                {Object.values(row.data).map((value, i) => <TableCell key={i} className="text-right font-mono">{Number(value).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>)}
+                                                                                {Object.values(row.data).map((value: any, i) => <TableCell key={i} className="text-right font-mono">{Number(value).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>)}
                                                                                 <TableCell className="sticky right-0 bg-background/95 backdrop-blur-sm text-right font-bold">{row.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                                             </TableRow>
                                                                         ))}
                                                                          <TableRow className="bg-primary/90 hover:bg-primary/90 text-primary-foreground font-bold">
                                                                             <TableCell className="sticky left-0 z-10 bg-primary/90">TOTALES</TableCell>
-                                                                            {tunelTotals.columnTotals.map((total, i) => <TableCell key={i} className="text-right font-mono">{total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>)}
-                                                                            <TableCell className="sticky right-0 bg-primary/90 text-right font-bold">{tunelTotals.grandTotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                            {(tunelTotals as any).columnTotals.map((total: any, i: any) => <TableCell key={i} className="text-right font-mono">{total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>)}
+                                                                            <TableCell className="sticky right-0 bg-primary/90 text-right font-bold">{(tunelTotals as any).grandTotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                                         </TableRow>
                                                                     </TableBody>
                                                                 </Table>
@@ -4377,6 +4382,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 
