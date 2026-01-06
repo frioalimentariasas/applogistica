@@ -42,22 +42,22 @@ export async function saveSettlementVersion(
 
 export async function getSettlementVersions(
   clientName: string,
-  startDate: string, // Expecting 'YYYY-MM-DD' string
-  endDate: string   // Expecting 'YYYY-MM-DD' string
+  startDateString: string, // Expecting 'YYYY-MM-DD' string
+  endDateString: string   // Expecting 'YYYY-MM-DD' string
 ): Promise<SettlementVersion[]> {
   if (!firestore) {
     console.error('Firestore not available');
     return [];
   }
-  if (!clientName || !startDate || !endDate) {
+  if (!clientName || !startDateString || !endDateString) {
     return [];
   }
 
   try {
     const snapshot = await firestore.collection('saved_liquidations')
       .where('clientName', '==', clientName)
-      .where('startDate', '>=', startDate)
-      .where('endDate', '<=', endDate)
+      .where('startDate', '==', startDateString)
+      .where('endDate', '==', endDateString)
       .orderBy('savedAt', 'desc')
       .get();
       
@@ -82,6 +82,7 @@ export async function getSettlementVersions(
     return [];
   }
 }
+
 
 
 

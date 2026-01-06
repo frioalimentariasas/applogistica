@@ -316,18 +316,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const fetchSettlementVersions = useCallback(async () => {
         if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
             setSettlementVersions([]);
-            setSelectedVersionId('original');
+            setSelectedVersionId('original'); // Reset on filter clear
             return;
         }
 
         setIsLoadingVersions(true);
         try {
-            const startDateStr = format(settlementDateRange.from, 'yyyy-MM-dd');
-            const endDateStr = format(settlementDateRange.to, 'yyyy-MM-dd');
+            const startDate = format(new Date(settlementDateRange.from.setHours(0, 0, 0, 0)), 'yyyy-MM-dd');
+            const endDate = format(new Date(settlementDateRange.to.setHours(23, 59, 59, 999)), 'yyyy-MM-dd');
             
-            const versions = await getSettlementVersions(settlementClient, startDateStr, endDateStr);
+            const versions = await getSettlementVersions(settlementClient, startDate, endDate);
             setSettlementVersions(versions);
-            setSelectedVersionId('original');
+            setSelectedVersionId('original'); // Reset to original on new version fetch
         } catch (error: any) {
             const msg = error.message;
             if (typeof msg === 'string' && (msg.includes('requires an index') || msg.includes('firestore.googleapis.com'))) {
@@ -345,7 +345,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         fetchSettlementVersions();
     }, [fetchSettlementVersions]);
-    
 
     useEffect(() => {
         const fetchApplicableConcepts = async () => {
@@ -1794,12 +1793,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         const loadVersionData = async () => {
             if (selectedVersionId === 'original') {
-                if (settlementSearched) {
-                    setSettlementReportData(originalSettlementData);
-                } else {
-                    setSettlementReportData([]);
-                    setOriginalSettlementData([]);
-                }
+                setSettlementReportData(originalSettlementData);
             } else {
                 const version = settlementVersions.find(v => v.id === selectedVersionId);
                 if (version) {
@@ -2098,7 +2092,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'HORA EXTRA NOCTURNA',
             'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
             'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-            'ALIMENTACION',
+            'ALIMENTACIÓN',
             'TRANSPORTE EXTRAORDINARIO',
             'TRANSPORTE DOMINICAL Y FESTIVO',
         ];
@@ -4393,6 +4387,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 
