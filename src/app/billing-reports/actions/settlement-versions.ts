@@ -42,8 +42,8 @@ export async function saveSettlementVersion(
 
 export async function getSettlementVersions(
   clientName: string,
-  startDate: string, // Expecting 'YYYY-MM-DD'
-  endDate: string   // Expecting 'YYYY-MM-DD'
+  startDate: string, // Expecting 'YYYY-MM-DD' string
+  endDate: string   // Expecting 'YYYY-MM-DD' string
 ): Promise<SettlementVersion[]> {
   if (!firestore) {
     console.error('Firestore not available');

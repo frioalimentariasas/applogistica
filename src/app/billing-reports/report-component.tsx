@@ -313,24 +313,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         getPedidoTypes().then(setAllPedidoTypes);
     }, []);
 
-    const fetchSettlementVersions = useCallback(async () => {
+     const fetchSettlementVersions = useCallback(async () => {
         if (!settlementClient || !settlementDateRange?.from || !settlementDateRange.to) {
             setSettlementVersions([]);
-            setSelectedVersionId('original');
             return;
         }
 
         setIsLoadingVersions(true);
         try {
             // Correctly format dates to YYYY-MM-DD strings for the server action
-            const startDate = format(new Date(`${format(settlementDateRange.from, 'yyyy-MM-dd')}T00:00:00-05:00`), 'yyyy-MM-dd');
-            const endDate = format(new Date(`${format(settlementDateRange.to, 'yyyy-MM-dd')}T23:59:59-05:00`), 'yyyy-MM-dd');
+            const startDate = format(settlementDateRange.from, 'yyyy-MM-dd');
+            const endDate = format(settlementDateRange.to, 'yyyy-MM-dd');
             
-            const versions = await getSettlementVersions(
-                settlementClient,
-                startDate,
-                endDate
-            );
+            const versions = await getSettlementVersions(settlementClient, startDate, endDate);
             setSettlementVersions(versions);
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las versiones guardadas.' });
@@ -1780,13 +1775,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     useEffect(() => {
         const loadVersionData = async () => {
+            if (!settlementSearched) return;
             if (selectedVersionId === 'original') {
-                if (settlementSearched) {
-                    await handleSettlementSearch();
-                } else {
-                    setSettlementReportData([]);
-                    setOriginalSettlementData([]);
-                }
+                await handleSettlementSearch();
             } else {
                 const version = settlementVersions.find(v => v.id === selectedVersionId);
                 if (version) {
@@ -1797,12 +1788,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     setSettlementReportData(dataWithIds);
                     setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
                     setHiddenRowIds(new Set());
-                    setSettlementSearched(true);
                 }
             }
         };
         loadVersionData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedVersionId]);
     
 
@@ -2329,7 +2318,7 @@ const conceptOrder = [
 'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
 'ESTIBA MADERA RECICLADA',
 'SERVICIO DE INSPECCIÓN POR CAJA'
-    ];
+        ];
 
         const zfpcSubConceptOrder = [
             'HORA EXTRA DIURNA',
@@ -4382,10 +4371,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-
-
-
-
-
-
 
