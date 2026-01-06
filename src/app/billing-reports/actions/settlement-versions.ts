@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -49,9 +50,7 @@ export async function getSettlementVersions(
   }
 
   try {
-    const start = new Date(startDate + 'T00:00:00.000-05:00');
-    const end = new Date(endDate + 'T23:59:59.999-05:00');
-
+    // The query now uses the exact string format 'YYYY-MM-DD' for matching.
     const snapshot = await firestore.collection('saved_liquidations')
       .where('clientName', '==', clientName)
       .where('startDate', '==', startDate)

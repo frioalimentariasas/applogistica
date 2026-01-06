@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -342,7 +341,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, 500); // Debounce
         return () => clearTimeout(handler);
     }, [fetchSettlementVersions]);
-
+    
     useEffect(() => {
         const fetchApplicableConcepts = async () => {
             if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
@@ -1798,6 +1797,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
         };
         loadVersionData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedVersionId, settlementVersions]);
     
 
@@ -3900,7 +3900,7 @@ const conceptOrder = [
                                             <Label>Versión de Liquidación</Label>
                                             <Select value={selectedVersionId} onValueChange={setSelectedVersionId} disabled={isLoadingVersions}>
                                                 <SelectTrigger>
-                                                    <SelectValue />
+                                                    {isLoadingVersions ? <Loader2 className="animate-spin h-4 w-4"/> : <SelectValue />}
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="original">Calcular Original</SelectItem>
@@ -4377,6 +4377,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 
