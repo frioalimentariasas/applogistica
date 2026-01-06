@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -200,7 +201,8 @@ function LegalizeLinkButton({ submissionId, formType }: { submissionId: string; 
 
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
-    const { user, displayName, toast } = useToast();
+    const { toast } = useToast();
+    const { user, displayName } = useAuth();
     const uploadFormRef = useRef<HTMLFormElement>(null);
     const today = new Date();
     const threeYearsAgo = subDays(today, MAX_DATE_RANGE_DAYS);
@@ -2621,7 +2623,7 @@ const conceptOrder = [
             const lotCompare = (groupA.lotId || groupA.conceptName).localeCompare(groupB.lotId || groupB.conceptName);
             if(lotCompare !== 0) return lotCompare;
             
-            return groupA.conceptName.localeCompare(groupB.conceptName);
+            return groupA.conceptName.localeCompare(b.conceptName);
         });
 
         for (const groupKey of sortedGroupKeys) {
@@ -4375,6 +4377,8 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
+
 
 
 
