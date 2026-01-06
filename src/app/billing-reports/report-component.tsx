@@ -20,8 +20,8 @@ import { getBillingReport, DailyReportData } from '@/app/actions/billing-report'
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
-import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
-import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from './actions/settlement-versions';
+import { generateClientSettlement, type ClientSettlementRow } from '@/app/billing-reports/actions/generate-client-settlement';
+import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from '@/app/billing-reports/actions/settlement-versions';
 import { findApplicableConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
@@ -312,45 +312,48 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         getPedidoTypes().then(setAllPedidoTypes);
     }, []);
+    
+    // --- START OF CORRECTIONS ---
+    
+    const fetchSettlementVersions = useCallback(async () => {
+        if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
+            setSettlementVersions([]);
+            setSelectedVersionId('original');
+            return;
+        }
+
+        setIsLoadingVersions(true);
+        try {
+            const startDateStr = format(settlementDateRange.from, 'yyyy-MM-dd');
+            const endDateStr = format(settlementDateRange.to, 'yyyy-MM-dd');
+            
+            const versions = await getSettlementVersions(settlementClient, startDateStr, endDateStr);
+            setSettlementVersions(versions);
+        } catch (error: any) {
+            const msg = error.message;
+            if (typeof msg === 'string' && (msg.includes('requires an index') || msg.includes('firestore.googleapis.com'))) {
+                setIndexErrorMessage(msg);
+                setIsIndexErrorOpen(true);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: "No se pudieron cargar las versiones guardadas." });
+            }
+            setSettlementVersions([]);
+        } finally {
+            setIsLoadingVersions(false);
+        }
+    }, [settlementClient, settlementDateRange, toast]);
+
 
     useEffect(() => {
-        const fetchVersions = async () => {
-            if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
-                setSettlementVersions([]);
-                setSelectedVersionId('original');
-                return;
-            }
-
-            setIsLoadingVersions(true);
-            try {
-                // The dates are formatted here to ensure consistency with what's stored in Firestore
-                const startDateStr = format(settlementDateRange.from, 'yyyy-MM-dd');
-                const endDateStr = format(settlementDateRange.to, 'yyyy-MM-dd');
-                
-                const versions = await getSettlementVersions(settlementClient, startDateStr, endDateStr);
-                setSettlementVersions(versions);
-            } catch (error: any) {
-                const msg = error.message;
-                 if (typeof msg === 'string' && msg.includes('requires an index')) {
-                    setIndexErrorMessage(msg);
-                    setIsIndexErrorOpen(true);
-                } else {
-                    toast({ variant: 'destructive', title: 'Error', description: "No se pudieron cargar las versiones guardadas." });
-                }
-                setSettlementVersions([]);
-            } finally {
-                setIsLoadingVersions(false);
-            }
-        };
-
         const handler = setTimeout(() => {
-            fetchVersions();
-        }, 300); // Debounce to avoid rapid firing
-
+            fetchSettlementVersions();
+        }, 500); // Debounce to avoid rapid firing
+    
         return () => clearTimeout(handler);
-    }, [settlementClient, settlementDateRange, toast]);
+    }, [fetchSettlementVersions]);
     
-    
+    // --- END OF CORRECTIONS ---
+
     useEffect(() => {
         const fetchApplicableConcepts = async () => {
             if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
@@ -1794,11 +1797,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
+    // --- START OF CORRECTION ---
     useEffect(() => {
         const loadVersionData = async () => {
             if (selectedVersionId === 'original') {
-                if (settlementSearched) {
+                if (settlementSearched && originalSettlementData.length > 0) {
+                    setSettlementReportData(originalSettlementData);
+                } else if (settlementSearched) {
                     await handleSettlementSearch();
+                } else {
+                    setSettlementReportData([]);
+                    setOriginalSettlementData([]);
                 }
             } else {
                 const version = settlementVersions.find(v => v.id === selectedVersionId);
@@ -1808,14 +1817,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
                     }));
                     setSettlementReportData(dataWithIds);
-                    setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
-                    setHiddenRowIds(new Set());
+                    // Do not reset originalSettlementData here, so "Calcular Original" works
                 }
             }
         };
         loadVersionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedVersionId, settlementVersions]);
+    }, [selectedVersionId]);
+    // --- END OF CORRECTION ---
     
 
     const handleSettlementExportExcel = async () => {
@@ -4394,6 +4403,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
 
