@@ -323,14 +323,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
             setIsLoadingVersions(true);
             try {
+                // The dates are formatted here to ensure consistency with what's stored in Firestore
                 const startDateStr = format(settlementDateRange.from, 'yyyy-MM-dd');
                 const endDateStr = format(settlementDateRange.to, 'yyyy-MM-dd');
                 
                 const versions = await getSettlementVersions(settlementClient, startDateStr, endDateStr);
                 setSettlementVersions(versions);
-            } catch (error) {
-                const msg = error instanceof Error ? error.message : "Error al cargar versiones.";
-                toast({ variant: 'destructive', title: 'Error', description: msg });
+            } catch (error: any) {
+                const msg = error.message;
+                 if (typeof msg === 'string' && msg.includes('requires an index')) {
+                    setIndexErrorMessage(msg);
+                    setIsIndexErrorOpen(true);
+                } else {
+                    toast({ variant: 'destructive', title: 'Error', description: "No se pudieron cargar las versiones guardadas." });
+                }
                 setSettlementVersions([]);
             } finally {
                 setIsLoadingVersions(false);
@@ -4388,5 +4394,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
 
 
