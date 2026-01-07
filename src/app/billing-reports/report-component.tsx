@@ -350,21 +350,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     }, [fetchSettlementVersions]);
 
     useEffect(() => {
-        if (!isSettlementLoading) {
-            const version = settlementVersions.find(v => v.id === selectedVersionId);
-            if (version) {
-                const dataWithIds = (version.settlementData || []).map((row, index) => ({
-                    ...row,
-                    uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
-                }));
-                setSettlementReportData(dataWithIds);
-            } else if (selectedVersionId === 'original') {
-                setSettlementReportData(originalSettlementData);
-            }
-        }
-    }, [selectedVersionId, settlementVersions, originalSettlementData, isSettlementLoading]);
-
-    useEffect(() => {
         const fetchApplicableConcepts = async () => {
             if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
                 setIsLoadingAvailableConcepts(true);
@@ -1634,15 +1619,68 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
-    const handleSettlementSearch = useCallback(async () => {
-        const isSmylClient = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
-        const lotIdsArray = settlementLotIds.split(/[\s,]+/).filter(Boolean);
+    const handleSettlementSearch = async () => {
+        if (selectedVersionId === 'original') {
+            const isSmylClient = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
+            const lotIdsArray = settlementLotIds.split(/[\s,]+/).filter(Boolean);
+            
+            if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
+                 toast({ variant: "destructive", title: "Filtros Incompletos", description: "Debe seleccionar un cliente y un rango de fechas." });
+                return;
+            }
+            if (isSmylClient && lotIdsArray.length === 0 && selectedConcepts.length === 0) {
+                 toast({ variant: "destructive", title: "Filtro Inválido para SMYL", description: "Para SMYL, debe ingresar al menos un lote o seleccionar un concepto a liquidar." });
+                return;
+            }
+            if (!isSmylClient && selectedConcepts.length === 0) {
+                toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe seleccionar al menos un concepto a liquidar.' });
+                return;
+            }
 
-        if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
-            return;
-        }
-        
-        if (selectedVersionId !== 'original') {
+            setIsSettlementLoading(true);
+            setSettlementSearched(true);
+            setSettlementReportData([]);
+            setOriginalSettlementData([]);
+            setHiddenRowIds(new Set());
+            try {
+                const result = await generateClientSettlement({
+                    clientName: settlementClient,
+                    startDate: format(settlementDateRange.from, 'yyyy-MM-dd'),
+                    endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
+                    conceptIds: selectedConcepts,
+                    containerNumber: settlementContainer,
+                    lotIds: lotIdsArray,
+                });
+                
+                if (result.success && result.data) {
+                    const dataWithIds = result.data.map((row, index) => ({...row, uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`}));
+                    setSettlementReportData(dataWithIds);
+                    setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
+                    if(result.data.length === 0) {
+                        toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
+                    }
+                } else {
+                     if (result.error && result.errorLink) {
+                        setIndexErrorMessage(result.errorLink);
+                        setIsIndexErrorOpen(true);
+                    } else {
+                        toast({ variant: 'destructive', title: 'Error al Liquidar', description: result.error || "Ocurrió un error inesperado en el servidor." });
+                    }
+                }
+            } catch (error: any) {
+                const msg = error.message ? error.message : "Error inesperado.";
+                if (typeof msg === 'string' && msg.includes('requires an index')) {
+                    setIndexErrorMessage(msg);
+                    setIsIndexErrorOpen(true);
+                } else {
+                    toast({ variant: 'destructive', title: 'Error al Liquidar', description: msg });
+                }
+            } finally {
+                setIsSettlementLoading(false);
+            }
+
+        } else {
+            // Load version from state
             const version = settlementVersions.find(v => v.id === selectedVersionId);
             if (version) {
                 const dataWithIds = (version.settlementData || []).map((row, index) => ({
@@ -1651,62 +1689,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 }));
                 setSettlementReportData(dataWithIds);
                 setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
+                setSettlementSearched(true);
             }
-            return;
         }
-
-        if (isSmylClient && lotIdsArray.length === 0 && selectedConcepts.length === 0) {
-             toast({ variant: "destructive", title: "Filtro Inválido para SMYL", description: "Para SMYL, debe ingresar al menos un lote o seleccionar un concepto a liquidar." });
-            return;
-        }
-        
-        if (!isSmylClient && selectedConcepts.length === 0) {
-            toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe seleccionar al menos un concepto a liquidar.' });
-            return;
-        }
-
-        setIsSettlementLoading(true);
-        setSettlementSearched(true);
-        setSettlementReportData([]);
-        setOriginalSettlementData([]);
-        setHiddenRowIds(new Set()); // Reset hidden rows on new search
-        try {
-            const result = await generateClientSettlement({
-                clientName: settlementClient,
-                startDate: format(settlementDateRange.from, 'yyyy-MM-dd'),
-                endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
-                conceptIds: selectedConcepts,
-                containerNumber: settlementContainer,
-                lotIds: lotIdsArray,
-            });
-            
-            if (result.success && result.data) {
-                const dataWithIds = result.data.map((row, index) => ({...row, uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`}));
-                setSettlementReportData(dataWithIds);
-                setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
-                if(result.data.length === 0) {
-                    toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
-                }
-            } else {
-                 if (result.error && result.errorLink) {
-                    setIndexErrorMessage(result.errorLink);
-                    setIsIndexErrorOpen(true);
-                } else {
-                    toast({ variant: 'destructive', title: 'Error al Liquidar', description: result.error || "Ocurrió un error inesperado en el servidor." });
-                }
-            }
-        } catch (error: any) {
-            const msg = error.message ? error.message : "Error inesperado.";
-            if (typeof msg === 'string' && msg.includes('requires an index')) {
-                setIndexErrorMessage(msg);
-                setIsIndexErrorOpen(true);
-            } else {
-                toast({ variant: 'destructive', title: 'Error al Liquidar', description: msg });
-            }
-        } finally {
-            setIsSettlementLoading(false);
-        }
-    }, [settlementClient, settlementDateRange, selectedConcepts, settlementContainer, settlementLotIds, toast, selectedVersionId, settlementVersions]);
+    };
+    
 
     const handleSaveRowEdit = (updatedRow: ClientSettlementRow) => {
         setSettlementReportData(prevData =>
@@ -4403,6 +4390,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
 
 
 
