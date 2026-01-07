@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -37,7 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff, AlertTriangle, Home, Copy, Save } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff, AlertTriangle, Home, Copy, Save, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -318,15 +319,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             setSelectedVersionId('original'); // Reset on filter clear
             return;
         }
-
+    
         setIsLoadingVersions(true);
         try {
-            const startDate = format(new Date(settlementDateRange.from.setHours(0, 0, 0, 0)), 'yyyy-MM-dd');
-            const endDate = format(new Date(settlementDateRange.to.setHours(23, 59, 59, 999)), 'yyyy-MM-dd');
+            const startDate = format(new Date(settlementDateRange.from), 'yyyy-MM-dd');
+            const endDate = format(new Date(settlementDateRange.to), 'yyyy-MM-dd');
             
             const versions = await getSettlementVersions(settlementClient, startDate, endDate);
             setSettlementVersions(versions);
             if (versions.length > 0) {
+                 setSelectedVersionId('original');
+            } else {
                  setSelectedVersionId('original');
             }
         } catch (error: any) {
@@ -349,17 +352,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     useEffect(() => {
         if (selectedVersionId === 'original') {
-            // Restore the original data if it exists, otherwise clear the table
-            setSettlementReportData(originalSettlementData || []);
+            setSettlementReportData(originalSettlementData);
         } else {
-            // Find the selected version and load its data
             const version = settlementVersions.find(v => v.id === selectedVersionId);
             if (version) {
-                const dataWithIds = version.settlementData.map((row, index) => ({
+                const dataWithIds = (version.settlementData || []).map((row, index) => ({
                     ...row,
                     uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
                 }));
                 setSettlementReportData(dataWithIds);
+            } else {
+                // If version not found (e.g., deleted), revert to original
+                setSettlementReportData(originalSettlementData);
+                setSelectedVersionId('original');
             }
         }
     }, [selectedVersionId, settlementVersions, originalSettlementData]);
@@ -1751,7 +1756,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     const handleSaveVersion = async () => {
         if (!user || !displayName) {
-            toast({ variant: "destructive", title: "Error de autenticación" });
+            toast({ variant: "destructive", title: "Error de autenticación", description: "No se pudo identificar al usuario." });
             return;
         }
         if (!settlementClient || !settlementDateRange?.from || !settlementDateRange.to) {
@@ -1788,8 +1793,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     startDate: format(settlementDateRange.from, 'yyyy-MM-dd'),
                     endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
                     note: versionNote,
-                    savedAt: new Date().toISOString(),
                     settlementData: visibleData,
+                    savedAt: new Date().toISOString(),
                     savedBy: { uid: user.uid, displayName: displayName },
                 };
                 setSettlementVersions(prev => [newVersion, ...prev]);
@@ -2166,7 +2171,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
                         const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
                         const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
+                        const finalOrderB = subOrderB === -1 ? Infinity : finalOrderB;
                         if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
                     }
                     
@@ -3983,8 +3988,24 @@ const conceptOrder = [
                                         )}
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading || selectedVersionId !== 'original'}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
-                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); setSelectedVersionId('original'); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
+                                        <Button
+                                            onClick={selectedVersionId === 'original' ? handleSettlementSearch : () => {
+                                                const version = settlementVersions.find(v => v.id === selectedVersionId);
+                                                if (version) {
+                                                    const dataWithIds = (version.settlementData || []).map((row, index) => ({
+                                                        ...row,
+                                                        uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
+                                                    }));
+                                                    setSettlementReportData(dataWithIds);
+                                                }
+                                            }}
+                                            className="w-full"
+                                            disabled={isSettlementLoading || !settlementClient || !settlementDateRange}
+                                        >
+                                            {isSettlementLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                                            {selectedVersionId === 'original' ? 'Liquidar' : 'Cargar Versión'}
+                                        </Button>
+                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); setSelectedVersionId('original'); setOriginalSettlementData([]); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                     </div>
                                 </div>
                                 </Form>
