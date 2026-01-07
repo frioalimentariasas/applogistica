@@ -327,10 +327,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             
             const versions = await getSettlementVersions(settlementClient, startDate, endDate);
             setSettlementVersions(versions);
-            if (versions.length > 0) {
-                 setSelectedVersionId('original');
-            } else {
-                 setSelectedVersionId('original');
+            
+            if (!versions.some(v => v.id === selectedVersionId)) {
+                setSelectedVersionId('original');
             }
         } catch (error: any) {
             const msg = error.message;
@@ -344,16 +343,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         } finally {
             setIsLoadingVersions(false);
         }
-    }, [settlementClient, settlementDateRange, toast]);
+    }, [settlementClient, settlementDateRange, toast, selectedVersionId]);
 
     useEffect(() => {
         fetchSettlementVersions();
     }, [fetchSettlementVersions]);
 
     useEffect(() => {
-        if (selectedVersionId === 'original') {
-            setSettlementReportData(originalSettlementData);
-        } else {
+        if (!isSettlementLoading) {
             const version = settlementVersions.find(v => v.id === selectedVersionId);
             if (version) {
                 const dataWithIds = (version.settlementData || []).map((row, index) => ({
@@ -361,13 +358,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
                 }));
                 setSettlementReportData(dataWithIds);
-            } else {
-                // If version not found (e.g., deleted), revert to original
+            } else if (selectedVersionId === 'original') {
                 setSettlementReportData(originalSettlementData);
-                setSelectedVersionId('original');
             }
         }
-    }, [selectedVersionId, settlementVersions, originalSettlementData]);
+    }, [selectedVersionId, settlementVersions, originalSettlementData, isSettlementLoading]);
 
     useEffect(() => {
         const fetchApplicableConcepts = async () => {
@@ -1655,7 +1650,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
                 }));
                 setSettlementReportData(dataWithIds);
-                setOriginalSettlementData(dataWithIds);
+                setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
             }
             return;
         }
@@ -2184,7 +2179,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
                         const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
                         const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : finalOrderB;
+                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
                         if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
                     }
                     
@@ -2670,7 +2665,7 @@ const conceptOrder = [
                         const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
                         const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
                         const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : finalOrderB;
+                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
                         if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
                     }
                 return (a.subConceptName || '').localeCompare(b.subConceptName || '');
@@ -4001,13 +3996,9 @@ const conceptOrder = [
                                         )}
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button
-                                            onClick={handleSettlementSearch}
-                                            className="w-full"
-                                            disabled={isSettlementLoading || !settlementClient || !settlementDateRange}
-                                        >
-                                            {isSettlementLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                                             {selectedVersionId === 'original' ? 'Liquidar' : 'Cargar Versión'}
+                                         <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading || !settlementClient || !settlementDateRange}>
+                                            {isSettlementLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : selectedVersionId === 'original' ? <Search className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4"/>}
+                                            {selectedVersionId === 'original' ? 'Liquidar' : 'Cargar Versión'}
                                         </Button>
                                         <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); setSelectedVersionId('original'); setOriginalSettlementData([]); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                     </div>
@@ -4412,4 +4403,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
+
 
