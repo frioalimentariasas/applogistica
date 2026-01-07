@@ -13,7 +13,7 @@ import type { ClientInfo } from '@/app/actions/clients';
 import { searchVersions, updateVersionNote, deleteVersions, type VersionSearchResult } from './actions';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -98,8 +98,10 @@ export default function VersionManagementComponent({ clients }: { clients: Clien
     };
 
     const handleBulkDeleteConfirm = async () => {
+        if (selectedIds.size === 0) return;
         setIsBulkDeleting(true);
-        const result = await deleteVersions(Array.from(selectedIds));
+        const idsToDelete = Array.from(selectedIds);
+        const result = await deleteVersions(idsToDelete);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             setResults(prev => prev.filter(v => !selectedIds.has(v.id)));
@@ -198,7 +200,7 @@ export default function VersionManagementComponent({ clients }: { clients: Clien
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-12"><Checkbox checked={isAllDisplayedSelected} onCheckedChange={handleSelectAll} /></TableHead>
+                                        <TableHead className="w-12"><Checkbox checked={isAllDisplayedSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Rango Liquidación</TableHead>
                                         <TableHead>Guardado Por</TableHead>
