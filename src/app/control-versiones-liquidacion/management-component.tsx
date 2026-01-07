@@ -14,7 +14,7 @@ import { searchVersions, updateVersionNote, deleteVersions, type VersionSearchRe
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -34,7 +34,7 @@ export default function VersionManagementComponent({ clients }: { clients: Clien
     const router = useRouter();
     const { toast } = useToast();
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
-    const [selectedClient, setSelectedClient] = useState<string>('');
+    const [selectedClient, setSelectedClient] = useState<string>('all');
     const [results, setResults] = useState<VersionSearchResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searched, setSearched] = useState(false);
@@ -55,7 +55,7 @@ export default function VersionManagementComponent({ clients }: { clients: Clien
         setSearched(true);
         try {
             const criteria = {
-                clientName: selectedClient || undefined,
+                clientName: selectedClient === 'all' ? undefined : selectedClient,
                 dateRange: dateRange?.from && dateRange?.to ? { from: dateRange.from, to: dateRange.to } : undefined,
             };
             const searchResults = await searchVersions(criteria);
@@ -78,7 +78,7 @@ export default function VersionManagementComponent({ clients }: { clients: Clien
     
     const handleClear = () => {
         setDateRange(undefined);
-        setSelectedClient('');
+        setSelectedClient('all');
         setResults([]);
         setSearched(false);
     };
@@ -170,7 +170,7 @@ export default function VersionManagementComponent({ clients }: { clients: Clien
                                 <Select value={selectedClient} onValueChange={setSelectedClient}>
                                     <SelectTrigger><SelectValue placeholder="Todos los clientes" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Todos los clientes</SelectItem>
+                                        <SelectItem value="all">Todos los clientes</SelectItem>
                                         {clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
