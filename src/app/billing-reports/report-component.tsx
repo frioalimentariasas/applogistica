@@ -1646,6 +1646,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
             return;
         }
+        
+        if (selectedVersionId !== 'original') {
+            const version = settlementVersions.find(v => v.id === selectedVersionId);
+            if (version) {
+                const dataWithIds = (version.settlementData || []).map((row, index) => ({
+                    ...row,
+                    uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
+                }));
+                setSettlementReportData(dataWithIds);
+                setOriginalSettlementData(dataWithIds);
+            }
+            return;
+        }
 
         if (isSmylClient && lotIdsArray.length === 0 && selectedConcepts.length === 0) {
              toast({ variant: "destructive", title: "Filtro Inválido para SMYL", description: "Para SMYL, debe ingresar al menos un lote o seleccionar un concepto a liquidar." });
@@ -1673,7 +1686,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
             
             if (result.success && result.data) {
-                const dataWithIds = result.data.map((row, index) => ({...row, uniqueId: `${row.date}-${row.conceptName}-${index}`}));
+                const dataWithIds = result.data.map((row, index) => ({...row, uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`}));
                 setSettlementReportData(dataWithIds);
                 setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
                 if(result.data.length === 0) {
@@ -1698,7 +1711,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         } finally {
             setIsSettlementLoading(false);
         }
-    }, [settlementClient, settlementDateRange, selectedConcepts, settlementContainer, settlementLotIds, toast]);
+    }, [settlementClient, settlementDateRange, selectedConcepts, settlementContainer, settlementLotIds, toast, selectedVersionId, settlementVersions]);
 
     const handleSaveRowEdit = (updatedRow: ClientSettlementRow) => {
         setSettlementReportData(prevData =>
@@ -3989,21 +4002,12 @@ const conceptOrder = [
                                     </div>
                                     <div className="flex gap-2">
                                         <Button
-                                            onClick={selectedVersionId === 'original' ? handleSettlementSearch : () => {
-                                                const version = settlementVersions.find(v => v.id === selectedVersionId);
-                                                if (version) {
-                                                    const dataWithIds = (version.settlementData || []).map((row, index) => ({
-                                                        ...row,
-                                                        uniqueId: row.uniqueId || `${row.date}-${row.conceptName}-${index}`
-                                                    }));
-                                                    setSettlementReportData(dataWithIds);
-                                                }
-                                            }}
+                                            onClick={handleSettlementSearch}
                                             className="w-full"
                                             disabled={isSettlementLoading || !settlementClient || !settlementDateRange}
                                         >
                                             {isSettlementLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                                            {selectedVersionId === 'original' ? 'Liquidar' : 'Cargar Versión'}
+                                             {selectedVersionId === 'original' ? 'Liquidar' : 'Cargar Versión'}
                                         </Button>
                                         <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotIds(''); setHiddenRowIds(new Set()); setSelectedVersionId('original'); setOriginalSettlementData([]); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                     </div>
@@ -4408,3 +4412,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
