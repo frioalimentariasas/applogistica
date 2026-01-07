@@ -7,6 +7,8 @@ import { getClientBillingConcepts } from './actions';
 import { getStandardObservations } from '@/app/gestion-observaciones/actions';
 import { getPedidoTypes } from '@/app/gestion-tipos-pedido/actions';
 
+export const revalidate = 0;
+
 export default async function GestionConceptosClientesPage() {
     const [clients, concepts, standardObservations, pedidoTypes] = await Promise.all([
         getClients(),

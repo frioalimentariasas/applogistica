@@ -33,6 +33,7 @@ export async function addClient(razonSocial: string, paymentTerm?: number | stri
     const docRef = await clientesRef.add(newClientData);
     
     revalidatePath('/gestion-clientes');
+    revalidatePath('/gestion-conceptos-liquidacion-clientes');
     revalidatePath('/fixed-weight-form');
     revalidatePath('/variable-weight-form');
     revalidatePath('/variable-weight-reception-form');
@@ -93,6 +94,7 @@ export async function updateClient(id: string, newRazonSocial: string, paymentTe
     await batch.commit();
 
     revalidatePath('/gestion-clientes');
+    revalidatePath('/gestion-conceptos-liquidacion-clientes');
     revalidatePath('/gestion-articulos');
     revalidatePath('/fixed-weight-form');
     revalidatePath('/variable-weight-form');
@@ -127,6 +129,7 @@ export async function deleteClient(id: string): Promise<{ success: boolean; mess
     await clientRef.delete();
     
     revalidatePath('/gestion-clientes');
+    revalidatePath('/gestion-conceptos-liquidacion-clientes');
     revalidatePath('/fixed-weight-form');
     revalidatePath('/variable-weight-form');
     revalidatePath('/variable-weight-reception-form');
