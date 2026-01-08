@@ -445,12 +445,17 @@ function ClientMultiSelectDialog({
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
 
+  const allClientOptions = React.useMemo(() => [
+    { value: 'TODOS (Cualquier Cliente)', label: 'TODOS (Cualquier Cliente)' }, 
+    ...options
+  ], [options]);
+
   const filteredOptions = React.useMemo(() => {
-    if (!search) return options;
-    return options.filter((o) =>
+    if (!search) return allClientOptions;
+    return allClientOptions.filter((o) =>
       o.label.toLowerCase().includes(search.toLowerCase())
     );
-  }, [search, options]);
+  }, [search, allClientOptions]);
 
   const handleSelect = (valueToToggle: string) => {
     const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
@@ -464,8 +469,6 @@ function ClientMultiSelectDialog({
       onChange(newSelection);
     }
   };
-  
-  const allClientOptions = [{ value: 'TODOS (Cualquier Cliente)', label: 'TODOS (Cualquier Cliente)' }, ...options];
   
   const isAllSelected = selected.length === options.length && !selected.includes('TODOS (Cualquier Cliente)');
 
@@ -499,50 +502,35 @@ function ClientMultiSelectDialog({
             <DialogDescription>Seleccione los clientes para este evento de facturación.</DialogDescription>
         </DialogHeader>
         <div className="p-6 pt-0">
-          <Command>
-            <CommandInput
-              placeholder="Buscar cliente..."
-              value={search}
-              onValueChange={setSearch}
+            <Input
+                placeholder="Buscar cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="mb-4"
             />
-            <CommandList>
-              <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-              <CommandGroup>
-                <ScrollArea className="h-60">
-                    <div className="space-y-1 pr-4">
-                      <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent border-b">
-                        <Checkbox
-                          id="select-all-clients"
-                          checked={isAllSelected}
-                          onCheckedChange={handleSelectAll}
-                        />
-                        <Label htmlFor="select-all-clients" className="w-full cursor-pointer font-semibold">
-                          Seleccionar Todos
-                        </Label>
-                      </div>
-                      {allClientOptions.map((option) => (
-                        <div
-                          key={option.value}
-                          className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
-                        >
-                          <Checkbox
-                            id={`client-${option.value}`}
-                            checked={selected.includes(option.value)}
-                            onCheckedChange={() => handleSelect(option.value)}
-                          />
-                          <Label
-                            htmlFor={`client-${option.value}`}
-                            className="w-full cursor-pointer"
-                          >
-                            {option.label}
-                          </Label>
-                        </div>
-                      ))}
+            <ScrollArea className="h-60">
+                <div className="space-y-1 pr-4">
+                  {filteredOptions.map((option) => (
+                    <div
+                      key={option.value}
+                      className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
+                    >
+                      <Checkbox
+                        id={`client-${option.value}`}
+                        checked={selected.includes(option.value)}
+                        onCheckedChange={() => handleSelect(option.value)}
+                      />
+                      <Label
+                        htmlFor={`client-${option.value}`}
+                        className="w-full cursor-pointer"
+                      >
+                        {option.label}
+                      </Label>
                     </div>
-                </ScrollArea>
-              </CommandGroup>
-            </CommandList>
-          </Command>
+                  ))}
+                  {filteredOptions.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                </div>
+            </ScrollArea>
         </div>
         <DialogFooter className="p-6 pt-0">
             <Button onClick={() => setOpen(false)}>Cerrar</Button>
@@ -551,4 +539,3 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
-
