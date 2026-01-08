@@ -108,7 +108,10 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     }
   }, [currentMonth, fetchEvents, isClient]);
 
-  const openEventDialog = (date: Date, event?: BillingEvent) => {
+  const openEventDialog = (date: Date) => {
+    const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
+    const event = dayEvents[0]; // For now, just edit the first event of the day
+    
     setSelectedDate(date);
     setEventToEdit(event || null);
     form.reset({
@@ -151,12 +154,11 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = (props: { date: Date }) => {
-    const { date } = props;
+  const DayContent = ({ date, ...props }: { date: Date, displayMonth?: Date, activeModifiers?: any }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
-        <div className="relative h-full" onClick={() => openEventDialog(date)}>
+        <div {...props} className="relative h-full" onClick={() => openEventDialog(date)}>
             <time dateTime={date.toISOString()}>{format(date, 'd')}</time>
             <div className="absolute bottom-1 left-1 right-1 flex flex-wrap justify-center gap-1">
                 {dayEvents.slice(0, 3).map(event => {
@@ -193,7 +195,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             <CardHeader className="flex flex-row items-center justify-between">
                 <h2 className="text-xl font-semibold">{format(currentMonth, 'MMMM yyyy', { locale: es })}</h2>
                 <div className="flex items-center gap-1">
-                    <Button variant="outline" size="icon" onClick={() => setCurrentMonth(new Date())}><Dot className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())}>Hoy</Button>
                     <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft className="h-4 w-4" /></Button>
                     <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight className="h-4 w-4" /></Button>
                 </div>
@@ -215,7 +217,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                                 head_cell: "w-[14.2%] text-sm font-medium text-muted-foreground pb-2",
                                 row: "w-full",
                                 cell: "h-32 p-1 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
-                                day_today: "bg-accent/20",
+                                day_today: "bg-accent text-accent-foreground",
                                 day_outside: "text-muted-foreground opacity-50",
                             }}
                         />
