@@ -181,23 +181,27 @@ const DayContent = ({ date }: { date: Date }) => {
     const event = dayEvents[0];
     const statusInfo = event ? statusConfig[event.status] : null;
 
+    const allClientsSelected = event?.clients.includes('TODOS (Cualquier Cliente)');
+
     return (
         <div className="relative h-full flex flex-col p-1" onClick={() => openEventDialog(date)}>
             <time dateTime={date.toISOString()} className={cn("self-end", event && `flex items-center justify-center h-6 w-6 rounded-full font-bold ${statusInfo?.dayBg}`)}>
                 {format(date, 'd')}
             </time>
             {event && (
-                <div className="flex-grow mt-1 space-y-0.5 overflow-hidden">
-                    {event.clients.slice(0, 2).map((client, index) => (
-                        <div key={index} className="flex items-center gap-1.5">
+                 <div className="flex-grow mt-1 space-y-0.5 overflow-hidden">
+                    {allClientsSelected ? (
+                        <div className="flex items-center gap-1.5">
                             <span className={cn("block h-2 w-2 shrink-0 rounded-full", statusInfo?.color)}></span>
-                            <span className="text-xs truncate text-gray-700">{client}</span>
+                            <span className="text-xs font-bold truncate text-gray-700">TODOS LOS CLIENTES</span>
                         </div>
-                    ))}
-                    {event.clients.length > 2 && (
-                        <div className="text-xs text-gray-500 font-medium mt-1">
-                            + {event.clients.length - 2} más...
-                        </div>
+                    ) : (
+                        event.clients.map((client, index) => (
+                            <div key={index} className="flex items-center gap-1.5">
+                                <span className={cn("block h-2 w-2 shrink-0 rounded-full", statusInfo?.color)}></span>
+                                <span className="text-xs truncate text-gray-700">{client}</span>
+                            </div>
+                        ))
                     )}
                 </div>
             )}
@@ -449,19 +453,29 @@ function ClientMultiSelectDialog({
   }, [search, options]);
 
   const handleSelect = (valueToToggle: string) => {
-    const newSelection = selected.includes(valueToToggle)
-      ? selected.filter(s => s !== valueToToggle)
-      : [...selected, valueToToggle];
-    onChange(newSelection);
+    const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
+    
+    if (isTodos) {
+      onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
+    } else {
+      const newSelection = selected.includes(valueToToggle)
+        ? selected.filter(s => s !== valueToToggle)
+        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
+      onChange(newSelection);
+    }
   };
   
-  const isAllSelected = selected.length === options.length;
+  const allClientOptions = [{ value: 'TODOS (Cualquier Cliente)', label: 'TODOS (Cualquier Cliente)' }, ...options];
+  
+  const isAllSelected = selected.length === options.length && !selected.includes('TODOS (Cualquier Cliente)');
+
   const handleSelectAll = (isChecked: boolean) => {
     onChange(isChecked ? options.map(o => o.value) : []);
   };
 
   const getButtonLabel = () => {
     if (selected.length === 0) return placeholder;
+    if (selected.includes('TODOS (Cualquier Cliente)')) return 'TODOS (Cualquier Cliente)';
     if (selected.length === 1) return selected[0];
     if (isAllSelected) return "Todos los clientes seleccionados";
     return `${selected.length} clientes seleccionados`;
@@ -506,7 +520,7 @@ function ClientMultiSelectDialog({
                           Seleccionar Todos
                         </Label>
                       </div>
-                      {filteredOptions.map((option) => (
+                      {allClientOptions.map((option) => (
                         <div
                           key={option.value}
                           className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
