@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
@@ -58,7 +59,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronsLeft, ChevronLeft, ChevronsRight, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check } from 'lucide-react';
+import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronLeft, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check } from 'lucide-react';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { cn } from '@/lib/utils';
 
@@ -181,11 +182,11 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date, displayMonth }: { date: Date; displayMonth: Date, activeModifiers: {} }) => {
+  const DayContent = ({ date, ...props }: { date: Date; displayMonth: Date, activeModifiers: {} }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
-        <div className="relative h-full" onClick={() => openEventDialog(date)}>
+        <div {...props} className="relative h-full" onClick={() => openEventDialog(date)}>
             <time dateTime={date.toISOString()}>{format(date, 'd')}</time>
             <div className="absolute bottom-1 left-1 right-1 flex flex-wrap justify-center gap-1">
                 {dayEvents.slice(0, 3).map(event => {
@@ -440,10 +441,16 @@ function ClientMultiSelectDialog({
   }, [search, options]);
 
   const handleSelect = (valueToToggle: string) => {
-    const newSelection = selected.includes(valueToToggle)
-      ? selected.filter(s => s !== valueToToggle)
-      : [...selected, valueToToggle];
-    onChange(newSelection);
+    const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
+    
+    if (isTodos) {
+      onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
+    } else {
+      const newSelection = selected.includes(valueToToggle)
+        ? selected.filter(s => s !== valueToToggle)
+        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
+      onChange(newSelection);
+    }
   };
   
   const handleSelectAll = (isChecked: boolean) => {
