@@ -80,8 +80,9 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [eventToEdit, setEventToEdit] = useState<BillingEvent | null>(null);
 
-  const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<BillingEvent | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
   const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
   const [indexErrorMessage, setIndexErrorMessage] = useState('');
@@ -164,18 +165,19 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   const handleDeleteConfirm = async () => {
     if (!eventToDelete) return;
     setIsDeleting(true);
-    const result = await deleteBillingEvent(eventToDelete);
+    const result = await deleteBillingEvent(eventToDelete.id);
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setEvents(prev => prev.filter(e => e.id !== eventToDelete));
+      setEvents(prev => prev.filter(e => e.id !== eventToDelete!.id));
+      setIsEventDialogOpen(false); // Ensure main dialog is closed
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
     setEventToDelete(null);
-    setIsEventDialogOpen(false); // Make sure the main dialog closes
+    setIsConfirmDeleteOpen(false); // Close confirmation dialog
     setIsDeleting(false);
   };
-  
+
   const DayContent = ({ date, activeModifiers }: { date: Date, activeModifiers: any }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     const event = dayEvents[0];
@@ -184,7 +186,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     const allClientsSelected = event?.clients.includes('TODOS (Cualquier Cliente)');
 
     const isHoliday = holidays.some(holiday => isSameDay(date, holiday));
-    const isDaySunday = activeModifiers?.sunday;
+    const isDaySunday = activeModifiers && activeModifiers.sunday;
     const isNonWorkingDay = isHoliday || isDaySunday;
     
     const dayStyle: React.CSSProperties = {};
@@ -307,10 +309,29 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             date={selectedDate}
             eventToEdit={eventToEdit}
             clients={clients}
-            onDelete={(id) => setEventToDelete(id)}
-            isDeleting={isDeleting}
-            onConfirmDelete={handleDeleteConfirm}
+            onDelete={(event) => {
+              setEventToDelete(event);
+              setIsConfirmDeleteOpen(true);
+            }}
         />
+
+        <AlertDialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción eliminará el evento de facturación permanentemente. No se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className={buttonVariants({ variant: 'destructive' })}>
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                Sí, Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         
         <IndexCreationDialog isOpen={isIndexErrorOpen} onOpenChange={setIsIndexErrorOpen} errorMessage={indexErrorMessage} />
       </div>
@@ -318,7 +339,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   );
 }
 
-function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, clients, onDelete, isDeleting, onConfirmDelete }: {
+function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, clients, onDelete }: {
     isOpen: boolean,
     onOpenChange: (open: boolean) => void,
     onSubmit: (data: EventFormValues) => void,
@@ -326,9 +347,7 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
     date: Date | null,
     eventToEdit: BillingEvent | null,
     clients: ClientInfo[],
-    onDelete: (id: string) => void,
-    isDeleting: boolean,
-    onConfirmDelete: () => void
+    onDelete: (event: BillingEvent) => void,
 }) {
     const { formState: { isSubmitting } } = form;
 
@@ -404,28 +423,10 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                          <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between pt-4">
                             <div>
                                 {eventToEdit && (
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button type="button" variant="destructive">
-                                                <Trash2 className="mr-2 h-4 w-4"/>
-                                                Eliminar
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Esta acción eliminará el evento de facturación permanentemente. No se puede deshacer.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => onDelete(eventToEdit.id)} className={buttonVariants({ variant: 'destructive' })}>
-                                                    Sí, Eliminar
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                  <Button type="button" variant="destructive" onClick={() => onDelete(eventToEdit)}>
+                                    <Trash2 className="mr-2 h-4 w-4"/>
+                                    Eliminar
+                                  </Button>
                                 )}
                             </div>
                             <div className="flex gap-2">
