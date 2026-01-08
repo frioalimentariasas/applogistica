@@ -182,7 +182,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date }: { date: Date }) => {
+const DayContent = ({ date }: { date: Date }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
@@ -238,7 +238,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             showOutsideDays
                             fixedWeeks
                             components={{
-                                Day: (props) => <DayContent {...props} />,
+                                Day: DayContent,
                             }}
                             modifiers={{
                               holiday: colombianHolidays,
