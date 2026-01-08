@@ -1,5 +1,5 @@
 
-'use client';
+"use client";
 
 import * as React from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Calendar as DayPicker, type DateRange } from 'react-day-picker';
+import { DayPicker, type DateRange } from 'react-day-picker';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getBillingEvents, saveBillingEvent, deleteBillingEvent, type BillingEvent } from './actions';
 import type { ClientInfo } from '@/app/actions/clients';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -228,9 +228,11 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             eventToEdit={eventToEdit}
             clients={clients}
             onDelete={() => {
-                setIsEventDialogOpen(false);
-                setEventToDelete(eventToEdit!.id);
-                setIsConfirmDeleteOpen(true);
+                if (eventToEdit) {
+                    setIsEventDialogOpen(false);
+                    setEventToDelete(eventToEdit.id);
+                    setIsConfirmDeleteOpen(true);
+                }
             }}
         />
 
@@ -255,7 +257,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   );
 }
 
-function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, clients }: {
+function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, clients, onDelete }: {
     isOpen: boolean,
     onOpenChange: (open: boolean) => void,
     onSubmit: (data: EventFormValues) => void,
@@ -263,6 +265,7 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
     date: Date | null,
     eventToEdit: BillingEvent | null,
     clients: ClientInfo[],
+    onDelete: () => void,
 }) {
     const { formState: { isSubmitting } } = form;
     const [clientSearch, setClientSearch] = useState('');
@@ -366,7 +369,7 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                          <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between pt-4">
                             <div>
                                 {eventToEdit && (
-                                    <Button type="button" variant="destructive" onClick={() => (form.getValues('clients').length > 0) && onOpenChange(false) && props.onDelete()}>
+                                    <Button type="button" variant="destructive" onClick={onDelete}>
                                         <Trash2 className="mr-2 h-4 w-4"/>
                                         Eliminar
                                     </Button>
@@ -386,4 +389,3 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
         </Dialog>
     );
 }
-
