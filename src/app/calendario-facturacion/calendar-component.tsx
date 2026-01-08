@@ -176,7 +176,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-const DayContent = ({ date }: { date: Date }) => {
+  const DayContent = ({ date }: { date: Date }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     const event = dayEvents[0];
     const statusInfo = event ? statusConfig[event.status] : null;
@@ -185,7 +185,7 @@ const DayContent = ({ date }: { date: Date }) => {
 
     return (
         <div className="relative h-full flex flex-col p-1" onClick={() => openEventDialog(date)}>
-            <time dateTime={date.toISOString()} className={cn("self-end", event && `flex items-center justify-center h-6 w-6 rounded-full font-bold ${statusInfo?.dayBg}`)}>
+            <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`)}>
                 {format(date, 'd')}
             </time>
             {event && (
@@ -551,3 +551,4 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
