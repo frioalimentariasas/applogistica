@@ -8,13 +8,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { DayPicker, type DateRange } from 'react-day-picker';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSunday, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { getBillingEvents, saveBillingEvent, deleteBillingEvent, type BillingEvent } from './actions';
-import { getHolidaysInRange } from '../gestion-festivos/actions'; // Importar la nueva acción
+import { getHolidaysInRange } from '../gestion-festivos/actions';
 import type { ClientInfo } from '@/app/actions/clients';
 
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -45,6 +45,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronLeft, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check, Settings } from 'lucide-react';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
@@ -79,7 +80,6 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [eventToEdit, setEventToEdit] = useState<BillingEvent | null>(null);
 
-  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -110,7 +110,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
         getHolidaysInRange(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd')),
       ]);
       setEvents(fetchedEvents);
-      setHolidays(fetchedHolidays.map(h => new Date(h.date.replace(/-/g, '/')))); // Adjust for timezone
+      setHolidays(fetchedHolidays.map(h => new Date(h.date.replace(/-/g, '/'))));
     } catch (error: any) {
         if (typeof error.message === 'string' && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
             setIndexErrorMessage(error.message);
@@ -163,7 +163,6 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
   const handleDeleteConfirm = async () => {
     if (!eventToDelete) return;
-
     setIsDeleting(true);
     const result = await deleteBillingEvent(eventToDelete);
     if (result.success) {
@@ -172,8 +171,8 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
-    setIsConfirmDeleteOpen(false);
     setEventToDelete(null);
+    setIsEventDialogOpen(false); // Make sure the main dialog closes
     setIsDeleting(false);
   };
   
@@ -308,37 +307,18 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             date={selectedDate}
             eventToEdit={eventToEdit}
             clients={clients}
-            onDelete={() => {
-                if (eventToEdit) {
-                    setIsEventDialogOpen(false);
-                    setEventToDelete(eventToEdit.id);
-                    setIsConfirmDeleteOpen(true);
-                }
-            }}
+            onDelete={(id) => setEventToDelete(id)}
+            isDeleting={isDeleting}
+            onConfirmDelete={handleDeleteConfirm}
         />
-
-        <AlertDialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                    <AlertDialogDescription>Esta acción eliminará el evento de facturación permanentemente. No se puede deshacer.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteConfirm} className={buttonVariants({ variant: 'destructive' })} disabled={isDeleting}>
-                        {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Eliminar'}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-
+        
         <IndexCreationDialog isOpen={isIndexErrorOpen} onOpenChange={setIsIndexErrorOpen} errorMessage={indexErrorMessage} />
       </div>
     </div>
   );
 }
 
-function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, clients, onDelete }: {
+function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, clients, onDelete, isDeleting, onConfirmDelete }: {
     isOpen: boolean,
     onOpenChange: (open: boolean) => void,
     onSubmit: (data: EventFormValues) => void,
@@ -346,7 +326,9 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
     date: Date | null,
     eventToEdit: BillingEvent | null,
     clients: ClientInfo[],
-    onDelete: () => void,
+    onDelete: (id: string) => void,
+    isDeleting: boolean,
+    onConfirmDelete: () => void
 }) {
     const { formState: { isSubmitting } } = form;
 
@@ -422,10 +404,28 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                          <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between pt-4">
                             <div>
                                 {eventToEdit && (
-                                    <Button type="button" variant="destructive" onClick={onDelete}>
-                                        <Trash2 className="mr-2 h-4 w-4"/>
-                                        Eliminar
-                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button type="button" variant="destructive">
+                                                <Trash2 className="mr-2 h-4 w-4"/>
+                                                Eliminar
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Esta acción eliminará el evento de facturación permanentemente. No se puede deshacer.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => onDelete(eventToEdit.id)} className={buttonVariants({ variant: 'destructive' })}>
+                                                    Sí, Eliminar
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 )}
                             </div>
                             <div className="flex gap-2">
@@ -551,3 +551,4 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
