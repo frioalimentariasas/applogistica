@@ -177,11 +177,11 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date, ...props }: { date: Date, displayMonth: Date }) => {
+  const DayContent = ({ date }: { date: Date }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
-        <div {...props} className="relative h-full" onClick={() => openEventDialog(date)}>
+        <div className="relative h-full" onClick={() => openEventDialog(date)}>
             <time dateTime={date.toISOString()}>{format(date, 'd')}</time>
             <div className="absolute bottom-1 left-1 right-1 flex flex-wrap justify-center gap-1">
                 {dayEvents.slice(0, 3).map(event => {
