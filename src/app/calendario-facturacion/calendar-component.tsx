@@ -151,11 +151,12 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date, ...props }: { date: Date; displayMonth: Date; activeModifiers: any; } & React.HTMLAttributes<HTMLDivElement>) => {
+  const DayContent = (props: { date: Date }) => {
+    const { date } = props;
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
-        <div {...props} className="relative h-full" onClick={() => openEventDialog(date)}>
+        <div className="relative h-full" onClick={() => openEventDialog(date)}>
             <time dateTime={date.toISOString()}>{format(date, 'd')}</time>
             <div className="absolute bottom-1 left-1 right-1 flex flex-wrap justify-center gap-1">
                 {dayEvents.slice(0, 3).map(event => {
@@ -207,14 +208,13 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             showOutsideDays
                             fixedWeeks
                             components={{
-                                DayContent,
+                                Day: DayContent,
                             }}
                             classNames={{
                                 table: "w-full border-collapse",
                                 head_cell: "w-[14.2%] text-sm font-medium text-muted-foreground pb-2",
                                 row: "w-full",
                                 cell: "h-32 p-1 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
-                                day: "flex flex-col h-full p-2",
                                 day_today: "bg-accent/20",
                                 day_outside: "text-muted-foreground opacity-50",
                             }}
@@ -302,14 +302,14 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                             name="clients"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Cliente(s)</FormLabel>
-                                    <ClientMultiSelectDialog
-                                        options={clients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))}
-                                        selected={field.value}
-                                        onChange={field.onChange}
-                                        placeholder="Seleccione clientes..."
-                                    />
-                                    <FormMessage />
+                                <FormLabel>Cliente(s)</FormLabel>
+                                <ClientMultiSelectDialog
+                                    options={clients.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                                    selected={field.value}
+                                    onChange={field.onChange}
+                                    placeholder="Seleccione clientes..."
+                                />
+                                <FormMessage />
                                 </FormItem>
                             )}
                         />
