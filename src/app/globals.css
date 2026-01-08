@@ -85,4 +85,17 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+
+  .day-holiday {
+    @apply bg-red-100/80 text-red-900;
+  }
+  .dark .day-holiday {
+    @apply bg-red-900/30 text-red-300;
+  }
+  .day-sunday {
+      @apply bg-red-100/80 text-red-900;
+  }
+  .dark .day-sunday {
+      @apply bg-red-900/30 text-red-300;
+  }
 }

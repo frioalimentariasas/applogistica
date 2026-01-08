@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -102,5 +103,11 @@ export default {
       },
     },
   },
+  safelist: [
+    'day-holiday',
+    'day-sunday',
+    'dark:day-holiday',
+    'dark:day-sunday'
+  ],
   plugins: [require('tailwindcss-animate')],
 } satisfies Config;
