@@ -49,7 +49,7 @@ export interface AppPermissions {
   canManageArticles: boolean;
   canManageClients: boolean;
   canManageObservations: boolean;
-  canManageHolidays: boolean; // <-- NUEVA LÍNEA
+  canManageHolidays: boolean;
 
   // Parámetros y Seguridad
   canManageSessions: boolean;
@@ -91,7 +91,7 @@ export const defaultPermissions: AppPermissions = {
   canManageArticles: false,
   canManageClients: false,
   canManageObservations: false,
-  canManageHolidays: false, // <-- NUEVA LÍNEA
+  canManageHolidays: false,
 
   canManageSessions: false,
 };

@@ -92,7 +92,7 @@ export default function Home() {
   const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions, group: string }[] = [
     // Operaciones Logísticas
     { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms', group: 'Operaciones Logísticas' },
-    { label: 'Formatos Pendientes de Legalizar Peso Bruto (kg)', href: '/formatos-pendientes-legalizar', icon: ScrollText, permission: 'canConsultForms', group: 'Operaciones Logísticas' },
+    { label: 'Formatos Pendientes de Legalizar Peso Bruto (kg)', href: '/formatos-pendientes-legalizar', icon: ScrollText, permission: 'canViewPendingLegalization', group: 'Operaciones Logísticas' },
     { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport', group: 'Operaciones Logísticas' },
     { label: 'Trazabilidad de Paletas', href: '/pallet-movement-report', icon: TruckIcon, permission: 'canViewPalletTraceability', group: 'Operaciones Logísticas'},
     { label: 'Trazabilidad de Contenedor', href: '/container-traceability', icon: TruckIcon, permission: 'canViewContainerTraceability', group: 'Operaciones Logísticas'},
@@ -119,19 +119,21 @@ export default function Home() {
     { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles', group: 'Gestión de Maestros' },
     { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients', group: 'Gestión de Maestros' },
     { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageObservations', group: 'Gestión de Maestros' },
+    { label: 'Gestión de Días Festivos', href: '/gestion-festivos', icon: CalendarIcon, permission: 'canManageHolidays', group: 'Gestión de Maestros' },
+
 
     // Parámetros y Seguridad
     { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions', group: 'Parámetros y Seguridad' },
   ];
 
   const menuGroups: {
-      [key: string]: { icon: React.FC<any>; items: typeof menuItems; }
+      [key: string]: { icon: React.FC<any>; items: typeof menuItems; permission: keyof AppPermissions }
   } = {
-    'Operaciones Logísticas': { icon: FileCog, items: [] },
-    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [] },
-    'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [] },
-    'Gestión de Maestros': { icon: Wrench, items: [] },
-    'Parámetros y Seguridad': { icon: ShieldCheck, items: [] },
+    'Operaciones Logísticas': { icon: FileCog, items: [], permission: 'canAccessOperacionesLogísticas' },
+    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [], permission: 'canAccessGestionClientes' },
+    'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [], permission: 'canAccessGestionCuadrilla' },
+    'Gestión de Maestros': { icon: Wrench, items: [], permission: 'canAccessMaestros' },
+    'Parámetros y Seguridad': { icon: ShieldCheck, items: [], permission: 'canManageSessions' },
   };
 
   menuItems.forEach(item => {
@@ -140,7 +142,9 @@ export default function Home() {
     }
   });
 
-  const availableMenuGroups = Object.entries(menuGroups).filter(([, groupData]) => groupData.items.length > 0);
+  const availableMenuGroups = Object.entries(menuGroups).filter(([, groupData]) => 
+    permissions[groupData.permission] && groupData.items.length > 0
+  );
 
 
   if (loading || !user) {
