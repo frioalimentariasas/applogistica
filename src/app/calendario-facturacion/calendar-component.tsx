@@ -140,7 +140,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date, displayMonth, ...props }: { date: Date, displayMonth: Date } & any) => {
+  const DayContent = ({ date, activeModifiers, displayMonth, ...props }: { date: Date; activeModifiers: any, displayMonth: Date } & any) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
