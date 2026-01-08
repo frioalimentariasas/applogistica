@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Loader2, CalendarPlus, Trash2, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarPlus, Trash2, ShieldAlert, PlusCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const AccessDenied = () => (
