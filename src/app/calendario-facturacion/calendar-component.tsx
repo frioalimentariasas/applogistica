@@ -18,7 +18,15 @@ import type { ClientInfo } from '@/app/actions/clients';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -27,9 +35,29 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandList,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronsLeft, ChevronLeft, ChevronsRight, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check } from 'lucide-react';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { cn } from '@/lib/utils';
@@ -154,11 +182,11 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date, ...props }: { date: Date, displayMonth?: Date, activeModifiers?: any }) => {
+  const DayContent = ({ date }: { date: Date }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
-        <div {...props} className="relative h-full" onClick={() => openEventDialog(date)}>
+        <div className="relative h-full" onClick={() => openEventDialog(date)}>
             <time dateTime={date.toISOString()}>{format(date, 'd')}</time>
             <div className="absolute bottom-1 left-1 right-1 flex flex-wrap justify-center gap-1">
                 {dayEvents.slice(0, 3).map(event => {
@@ -392,10 +420,10 @@ function ClientMultiSelectDialog({
   onChange: (selected: string[]) => void;
   placeholder: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState("");
 
-  const filteredOptions = useMemo(() => {
+  const filteredOptions = React.useMemo(() => {
     if (!search) return options;
     return options.filter((o) =>
       o.label.toLowerCase().includes(search.toLowerCase())
