@@ -101,7 +101,7 @@ const permissionGroups: {
     permissions: [
       { key: 'canManageClientLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación' },
       { key: 'canManageClientManualOperations', label: 'Registro de Op. Manuales' },
-      { key: 'canViewBillingReports', label: 'Informes de Facturación' },
+      { key: 'canViewBillingReports', label: 'Informes de Facturación y Calendario' },
       { key: 'canManageLiquidationVersions', label: 'Control de Versiones de Liquidación' },
       { key: 'canViewSmylAssistant', label: 'Asistente de Liquidación SMYL' },
       { key: 'canViewInventoryAssistant', label: 'Asistente de Liquidación de Inventario' },
