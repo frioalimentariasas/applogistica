@@ -37,14 +37,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandList,
-  CommandItem,
-} from "@/components/ui/command";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -68,9 +60,9 @@ const eventSchema = z.object({
 type EventFormValues = z.infer<typeof eventSchema>;
 
 const statusConfig = {
-  pending: { label: 'Pendiente', color: 'bg-yellow-400', textColor: 'text-yellow-900', borderColor: 'border-yellow-500', icon: Clock, dayBg: 'bg-yellow-100' },
-  in_progress: { label: 'En Proceso', color: 'bg-blue-400', textColor: 'text-blue-900', borderColor: 'border-blue-500', icon: Loader2, dayBg: 'bg-blue-100' },
-  completed: { label: 'Facturado', color: 'bg-green-400', textColor: 'text-green-900', borderColor: 'border-green-500', icon: CheckCircle, dayBg: 'bg-green-100' },
+  pending: { label: 'Pendiente', color: 'bg-yellow-400', textColor: 'text-yellow-900', dayBg: 'bg-yellow-100' },
+  in_progress: { label: 'En Proceso', color: 'bg-blue-400', textColor: 'text-blue-900', dayBg: 'bg-blue-100' },
+  completed: { label: 'Facturado', color: 'bg-green-400', textColor: 'text-green-900', dayBg: 'bg-green-100' },
 };
 
 export default function CalendarComponent({ clients }: { clients: ClientInfo[] }) {
@@ -253,9 +245,9 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                               holiday: colombianHolidays,
                               sunday: { dayOfWeek: [0] },
                             }}
-                            modifiersClassNames={{
-                              holiday: "day-holiday",
-                              sunday: "day-sunday",
+                            modifiersStyles={{
+                              holiday: { backgroundColor: '#fee2e2', color: '#991b1b' },
+                              sunday: { backgroundColor: '#fee2e2', color: '#991b1b' },
                             }}
                             classNames={{
                                 table: "w-full border-collapse",
@@ -274,16 +266,16 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                     )}
                 </div>
                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="block h-3 w-3 rounded-full bg-red-100 border border-red-300"></span>
+                      <span className="text-xs font-medium">Dominical y/o Festivo</span>
+                    </div>
                     {Object.entries(statusConfig).map(([key, { label, dayBg }]) => (
                         <div key={key} className="flex items-center gap-2">
                             <span className={cn('block h-3 w-3 rounded-full', dayBg)}></span>
                             <span className="text-xs font-medium">{label}</span>
                         </div>
                     ))}
-                    <div className="flex items-center gap-2">
-                      <span className="block h-3 w-3 rounded-full bg-red-100 border border-red-300"></span>
-                      <span className="text-xs font-medium">Domingo / Festivo</span>
-                    </div>
                 </div>
             </CardContent>
         </Card>
