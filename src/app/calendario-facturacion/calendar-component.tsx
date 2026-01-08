@@ -81,7 +81,6 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
   const [eventToDelete, setEventToDelete] = useState<BillingEvent | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
   const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
   const [indexErrorMessage, setIndexErrorMessage] = useState('');
@@ -177,9 +176,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
         toast({ variant: 'destructive', title: 'Error', description: msg });
     } finally {
         setIsDeleting(false);
-        setEventToDelete(null); // Reset state
-        setIsConfirmDeleteOpen(false); // Close confirmation dialog
-        setIsEventDialogOpen(false); // Ensure main dialog is also closed
+        setEventToDelete(null);
     }
   };
 
@@ -192,23 +189,43 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     const allClientsSelected = event?.clients.includes('TODOS (Cualquier Cliente)');
 
     const isHoliday = holidays.some(holiday => isSameDay(date, holiday));
-    const isDaySunday = activeModifiers && activeModifiers.sunday;
+    const isDaySunday = activeModifiers?.sunday;
     const isNonWorkingDay = isHoliday || isDaySunday;
     
     const dayStyle: React.CSSProperties = {};
     if (isNonWorkingDay && !statusInfo) {
-        dayStyle.backgroundColor = 'rgba(254, 226, 226, 0.7)'; // Tailwind's red-100/70
-    }
-    if (activeModifiers?.selected) {
-        dayStyle.backgroundColor = 'var(--accent)';
-        dayStyle.color = 'var(--accent-foreground)';
+        dayStyle.backgroundColor = 'rgba(254, 226, 226, 0.7)';
     }
 
+    const handleDayClick = (e: React.MouseEvent) => {
+      // Check if the click target or its parent is the delete button
+      if ((e.target as HTMLElement).closest('[data-delete-button]')) {
+        return; // Don't open the edit dialog if delete was clicked
+      }
+      openEventDialog(date);
+    };
+
+    const handleDeleteClick = (e: React.MouseEvent, eventToDelete: BillingEvent) => {
+      e.stopPropagation(); // Prevent the day click from firing
+      setEventToDelete(eventToDelete);
+    };
+
     return (
-        <div style={dayStyle} className="relative h-full flex flex-col p-1" onClick={() => openEventDialog(date)}>
+        <div style={dayStyle} className="relative h-full flex flex-col p-1 group" onClick={handleDayClick}>
             <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`, isNonWorkingDay && !statusInfo && 'text-red-800', activeModifiers?.selected && 'bg-primary text-primary-foreground')}>
                 {format(date, 'd')}
             </time>
+             {event && permissions.canManageHolidays && (
+              <button
+                data-delete-button
+                onClick={(e) => handleDeleteClick(e, event)}
+                className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 hover:bg-destructive/20"
+                aria-label="Eliminar evento"
+                title="Eliminar evento"
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </button>
+            )}
             {event && (
                  <div className="flex-grow mt-1 space-y-0.5 overflow-hidden">
                     {allClientsSelected ? (
@@ -317,13 +334,9 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             date={selectedDate}
             eventToEdit={eventToEdit}
             clients={clients}
-            onDelete={(event) => {
-              setEventToDelete(event);
-              setIsConfirmDeleteOpen(true);
-            }}
         />
 
-        <AlertDialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
+        <AlertDialog open={!!eventToDelete} onOpenChange={(open) => !open && setEventToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
@@ -347,15 +360,14 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   );
 }
 
-function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, clients, onDelete }: {
+function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, clients }: {
     isOpen: boolean,
     onOpenChange: (open: boolean) => void,
     onSubmit: (data: EventFormValues) => void,
     form: ReturnType<typeof useForm<EventFormValues>>,
     date: Date | null,
     eventToEdit: BillingEvent | null,
-    clients: ClientInfo[],
-    onDelete: (event: BillingEvent) => void,
+    clients: ClientInfo[]
 }) {
     const { formState: { isSubmitting } } = form;
 
@@ -428,15 +440,7 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                                 </FormItem>
                             )}
                         />
-                         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between pt-4">
-                            <div>
-                                {eventToEdit && (
-                                  <Button type="button" variant="destructive" onClick={() => onDelete(eventToEdit)}>
-                                    <Trash2 className="mr-2 h-4 w-4"/>
-                                    Eliminar
-                                  </Button>
-                                )}
-                            </div>
+                         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end pt-4">
                             <div className="flex gap-2">
                                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
                                 <Button type="submit" disabled={isSubmitting}>
