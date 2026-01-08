@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { getBillingEvents, saveBillingEvent, deleteBillingEvent, type BillingEvent } from './actions';
 import type { ClientInfo } from '@/app/actions/clients';
+import { colombianHolidays } from '@/lib/holidays';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -24,7 +25,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -96,7 +96,6 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
   const [indexErrorMessage, setIndexErrorMessage] = useState('');
 
-  // Hydration fix
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
     setIsClient(true);
@@ -138,7 +137,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
   const openEventDialog = (date: Date) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
-    const event = dayEvents[0]; // For now, just edit the first event of the day
+    const event = dayEvents[0];
     
     setSelectedDate(date);
     setEventToEdit(event || null);
@@ -162,7 +161,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     if(result.success) {
         toast({ title: 'Éxito', description: result.message });
         setIsEventDialogOpen(false);
-        fetchEvents(currentMonth); // Refresh events
+        fetchEvents(currentMonth);
     } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -182,7 +181,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date }: { date: Date }) => {
+  const DayContent = ({ date, displayMonth }: { date: Date; displayMonth: Date, activeModifiers: {} }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
@@ -238,7 +237,11 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             showOutsideDays
                             fixedWeeks
                             components={{
-                                Day: DayContent,
+                                Day: (props) => <DayContent {...props} />,
+                            }}
+                            modifiers={{
+                              holiday: colombianHolidays,
+                              sunday: { dayOfWeek: [0] },
                             }}
                             classNames={{
                                 table: "w-full border-collapse",
@@ -247,6 +250,8 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                                 cell: "h-32 p-1 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
                                 day_today: "bg-accent text-accent-foreground",
                                 day_outside: "text-muted-foreground opacity-50",
+                                day_holiday: "bg-red-100/80 text-red-900 dark:bg-red-900/30 dark:text-red-300",
+                                day_sunday: "bg-red-100/80 text-red-900 dark:bg-red-900/30 dark:text-red-300",
                             }}
                         />
                     ) : (
@@ -262,6 +267,10 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             <span className="text-xs font-medium">{label}</span>
                         </div>
                     ))}
+                    <div className="flex items-center gap-2">
+                      <span className="block h-3 w-3 rounded-full bg-red-100 border border-red-300"></span>
+                      <span className="text-xs font-medium">Domingo / Festivo</span>
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -451,8 +460,8 @@ function ClientMultiSelectDialog({
   const isAllSelected = selected.length === options.length;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         <Button
           variant="outline"
           className="w-full justify-between text-left font-normal"
@@ -460,43 +469,52 @@ function ClientMultiSelectDialog({
           <span className="truncate">{getButtonLabel()}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
-          <CommandInput
-            placeholder="Buscar cliente..."
-            value={search}
-            onValueChange={setSearch}
-          />
-          <CommandList>
-            <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-            <CommandGroup>
-              <CommandItem onSelect={() => handleSelectAll(!isAllSelected)} className="font-semibold">
-                <Check className={cn("mr-2 h-4 w-4", isAllSelected ? "opacity-100" : "opacity-0")} />
-                Seleccionar Todos
-              </CommandItem>
-              <ScrollArea className="h-60">
-                {filteredOptions.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => handleSelect(option.value)}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selected.includes(option.value)
-                          ? "opacity-100"
-                          : "opacity-0"
-                      )}
-                    />
-                    {option.label}
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogHeader className="p-6 pb-2">
+            <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+            <DialogDescription>Seleccione los clientes para este evento de facturación.</DialogDescription>
+        </DialogHeader>
+        <div className="p-6 pt-0">
+            <Command>
+              <CommandInput
+                placeholder="Buscar cliente..."
+                value={search}
+                onValueChange={setSearch}
+              />
+              <CommandList>
+                <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem onSelect={() => handleSelectAll(!isAllSelected)} className="font-semibold">
+                    <Check className={cn("mr-2 h-4 w-4", isAllSelected ? "opacity-100" : "opacity-0")} />
+                    Seleccionar Todos
                   </CommandItem>
-                ))}
-              </ScrollArea>
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                  <ScrollArea className="h-60">
+                    {filteredOptions.map((option) => (
+                      <CommandItem
+                        key={option.value}
+                        onSelect={() => handleSelect(option.value)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selected.includes(option.value)
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {option.label}
+                      </CommandItem>
+                    ))}
+                  </ScrollArea>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+        </div>
+        <DialogFooter className="p-6 pt-0">
+            <Button onClick={() => setOpen(false)}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
