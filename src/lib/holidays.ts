@@ -90,7 +90,8 @@ const getHolidaysForYear = (year: number): Date[] => {
 // Genera festivos para el año actual y el siguiente
 const currentYear = new Date().getFullYear();
 export const colombianHolidays: Date[] = [
+  ...getHolidaysForYear(currentYear - 1),
   ...getHolidaysForYear(currentYear),
   ...getHolidaysForYear(currentYear + 1),
-  ...getHolidaysForYear(currentYear - 1),
+  ...getHolidaysForYear(currentYear + 2), // Add an extra year for good measure
 ];

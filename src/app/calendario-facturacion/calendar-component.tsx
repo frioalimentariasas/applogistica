@@ -81,7 +81,6 @@ const statusConfig = {
 export default function CalendarComponent({ clients }: { clients: ClientInfo[] }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuth();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<BillingEvent[]>([]);
@@ -244,11 +243,16 @@ const DayContent = ({ date }: { date: Date }) => {
                               holiday: colombianHolidays,
                               sunday: { dayOfWeek: [0] },
                             }}
+                            modifiersClassNames={{
+                              holiday: "day-holiday",
+                              sunday: "day-sunday",
+                            }}
                             classNames={{
                                 table: "w-full border-collapse",
                                 head_cell: "w-[14.2%] text-sm font-medium text-muted-foreground pb-2",
                                 row: "w-full",
                                 cell: "h-32 p-1 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
+                                day: "h-full w-full p-1",
                                 day_today: "bg-accent text-accent-foreground",
                                 day_outside: "text-muted-foreground opacity-50",
                                 day_holiday: "bg-red-100/80 text-red-900 dark:bg-red-900/30 dark:text-red-300",
@@ -262,7 +266,7 @@ const DayContent = ({ date }: { date: Date }) => {
                     )}
                 </div>
                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-                    {Object.entries(statusConfig).map(([key, { label, color, textColor }]) => (
+                    {Object.entries(statusConfig).map(([key, { label, color }]) => (
                         <div key={key} className="flex items-center gap-2">
                             <span className={`block h-3 w-3 rounded-full ${color}`}></span>
                             <span className="text-xs font-medium">{label}</span>
@@ -378,7 +382,7 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                                     value={field.value}
                                     className="flex flex-col space-y-1"
                                     >
-                                    {Object.entries(statusConfig).map(([key, { label, color, icon: Icon }]) => (
+                                    {Object.entries(statusConfig).map(([key, { label, color }]) => (
                                         <FormItem key={key} className="flex items-center space-x-3 space-y-0">
                                         <FormControl>
                                             <RadioGroupItem value={key} />
@@ -525,4 +529,3 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
-
