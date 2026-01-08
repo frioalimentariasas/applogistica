@@ -163,25 +163,26 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
   const handleDeleteConfirm = async () => {
     if (!eventToDelete) return;
-
     setIsDeleting(true);
     try {
         const result = await deleteBillingEvent(eventToDelete.id);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            setEvents(prev => prev.filter(e => e.id !== eventToDelete!.id));
+            fetchEvents(currentMonth); // Refresh the calendar data
         } else {
-            toast({ variant: 'destructive', title: 'Error', description: result.message });
+            throw new Error(result.message);
         }
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Ocurrió un error al eliminar el evento.' });
+        const msg = error instanceof Error ? error.message : "No se pudo eliminar el evento."
+        toast({ variant: 'destructive', title: 'Error', description: msg });
     } finally {
         setIsDeleting(false);
-        setIsConfirmDeleteOpen(false);
-        setEventToDelete(null);
-        setIsEventDialogOpen(false); // Ensure the main dialog is closed
+        setEventToDelete(null); // Reset state
+        setIsConfirmDeleteOpen(false); // Close confirmation dialog
+        setIsEventDialogOpen(false); // Ensure main dialog is also closed
     }
-};
+  };
+
 
   const DayContent = ({ date, activeModifiers }: { date: Date, activeModifiers: any }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
@@ -198,9 +199,9 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     if (isNonWorkingDay && !statusInfo) {
         dayStyle.backgroundColor = 'rgba(254, 226, 226, 0.7)'; // Tailwind's red-100/70
     }
-     if (activeModifiers?.selected) {
-      dayStyle.backgroundColor = 'var(--accent)';
-      dayStyle.color = 'var(--accent-foreground)';
+    if (activeModifiers?.selected) {
+        dayStyle.backgroundColor = 'var(--accent)';
+        dayStyle.color = 'var(--accent-foreground)';
     }
 
     return (
