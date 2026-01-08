@@ -28,7 +28,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronsLeft, ChevronLeft, ChevronsRight, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check } from 'lucide-react';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
@@ -151,7 +151,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date, activeModifiers, displayMonth, ...props }: { date: Date; displayMonth: Date; activeModifiers: any; } & React.HTMLAttributes<HTMLDivElement>) => {
+  const DayContent = ({ date, ...props }: { date: Date; displayMonth: Date; activeModifiers: any; } & React.HTMLAttributes<HTMLDivElement>) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
@@ -285,11 +285,6 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
     onDelete: () => void,
 }) {
     const { formState: { isSubmitting } } = form;
-    const [clientSearch, setClientSearch] = useState('');
-    const filteredClients = useMemo(() => {
-        if (!clientSearch) return clients;
-        return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
-    }, [clientSearch, clients]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
