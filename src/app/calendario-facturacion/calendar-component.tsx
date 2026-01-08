@@ -36,14 +36,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
-  CommandItem,
   CommandList,
+  CommandItem,
 } from "@/components/ui/command";
 import {
   AlertDialog,
@@ -190,8 +189,9 @@ const DayContent = ({ date }: { date: Date }) => {
             {event && (
                 <div className="flex-grow mt-1 space-y-0.5 overflow-hidden">
                     {event.clients.slice(0, 2).map((client, index) => (
-                        <div key={index} className="text-xs truncate text-gray-700 bg-gray-100 rounded px-1">
-                            {client}
+                        <div key={index} className="flex items-center gap-1.5">
+                            <span className={cn("block h-2 w-2 shrink-0 rounded-full", statusInfo?.color)}></span>
+                            <span className="text-xs truncate text-gray-700">{client}</span>
                         </div>
                     ))}
                     {event.clients.length > 2 && (
@@ -455,6 +455,7 @@ function ClientMultiSelectDialog({
     onChange(newSelection);
   };
   
+  const isAllSelected = selected.length === options.length;
   const handleSelectAll = (isChecked: boolean) => {
     onChange(isChecked ? options.map(o => o.value) : []);
   };
@@ -462,11 +463,10 @@ function ClientMultiSelectDialog({
   const getButtonLabel = () => {
     if (selected.length === 0) return placeholder;
     if (selected.length === 1) return selected[0];
-    if (selected.length === options.length) return "Todos los clientes seleccionados";
+    if (isAllSelected) return "Todos los clientes seleccionados";
     return `${selected.length} clientes seleccionados`;
   };
   
-  const isAllSelected = selected.length === options.length;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
