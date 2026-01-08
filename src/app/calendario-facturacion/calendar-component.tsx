@@ -69,9 +69,9 @@ const eventSchema = z.object({
 type EventFormValues = z.infer<typeof eventSchema>;
 
 const statusConfig = {
-  pending: { label: 'Pendiente', color: 'bg-yellow-400', textColor: 'text-yellow-900', borderColor: 'border-yellow-500', icon: Clock },
-  in_progress: { label: 'En Proceso', color: 'bg-blue-400', textColor: 'text-blue-900', borderColor: 'border-blue-500', icon: Loader2 },
-  completed: { label: 'Facturado', color: 'bg-green-400', textColor: 'text-green-900', borderColor: 'border-green-500', icon: CheckCircle },
+  pending: { label: 'Pendiente', color: 'bg-yellow-400', textColor: 'text-yellow-900', borderColor: 'border-yellow-500', icon: Clock, dayBg: 'bg-yellow-100' },
+  in_progress: { label: 'En Proceso', color: 'bg-blue-400', textColor: 'text-blue-900', borderColor: 'border-blue-500', icon: Loader2, dayBg: 'bg-blue-100' },
+  completed: { label: 'Facturado', color: 'bg-green-400', textColor: 'text-green-900', borderColor: 'border-green-500', icon: CheckCircle, dayBg: 'bg-green-100' },
 };
 
 export default function CalendarComponent({ clients }: { clients: ClientInfo[] }) {
@@ -177,20 +177,30 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date }: { date: Date }) => {
+const DayContent = ({ date }: { date: Date }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
-    
+    const event = dayEvents[0];
+    const statusInfo = event ? statusConfig[event.status] : null;
+
     return (
-        <div className="relative h-full" onClick={() => openEventDialog(date)}>
-            <time dateTime={date.toISOString()}>{format(date, 'd')}</time>
-            <div className="absolute bottom-1 left-1 right-1 flex flex-wrap justify-center gap-1">
-                {dayEvents.slice(0, 3).map(event => {
-                    const statusInfo = statusConfig[event.status];
-                    return (
-                        <span key={event.id} title={event.note || statusInfo.label} className={`block h-2 w-2 rounded-full ${statusInfo.color}`}></span>
-                    );
-                })}
-            </div>
+        <div className="relative h-full flex flex-col p-1" onClick={() => openEventDialog(date)}>
+            <time dateTime={date.toISOString()} className={cn("self-end", event && `flex items-center justify-center h-6 w-6 rounded-full font-bold ${statusInfo?.dayBg}`)}>
+                {format(date, 'd')}
+            </time>
+            {event && (
+                <div className="flex-grow mt-1 space-y-0.5 overflow-hidden">
+                    {event.clients.slice(0, 2).map((client, index) => (
+                        <div key={index} className="text-xs truncate text-gray-700 bg-gray-100 rounded px-1">
+                            {client}
+                        </div>
+                    ))}
+                    {event.clients.length > 2 && (
+                        <div className="text-xs text-gray-500 font-medium mt-1">
+                            + {event.clients.length - 2} más...
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
@@ -216,7 +226,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
         
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                <h2 className="text-xl font-semibold">{format(currentMonth, 'MMMM yyyy', { locale: es })}</h2>
+                <h2 className="text-xl font-semibold capitalize">{format(currentMonth, 'MMMM yyyy', { locale: es })}</h2>
                 <div className="flex items-center gap-1">
                     <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())}>Hoy</Button>
                     <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft className="h-4 w-4" /></Button>
@@ -247,8 +257,8 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                                 table: "w-full border-collapse",
                                 head_cell: "w-[14.2%] text-sm font-medium text-muted-foreground pb-2",
                                 row: "w-full",
-                                cell: "h-32 p-1 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
-                                day: "h-full w-full p-1",
+                                cell: "h-32 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
+                                day: "h-full w-full",
                                 day_today: "bg-accent text-accent-foreground",
                                 day_outside: "text-muted-foreground opacity-50",
                             }}
@@ -260,9 +270,9 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                     )}
                 </div>
                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-                    {Object.entries(statusConfig).map(([key, { label, color }]) => (
+                    {Object.entries(statusConfig).map(([key, { label, dayBg }]) => (
                         <div key={key} className="flex items-center gap-2">
-                            <span className={`block h-3 w-3 rounded-full ${color}`}></span>
+                            <span className={cn('block h-3 w-3 rounded-full', dayBg)}></span>
                             <span className="text-xs font-medium">{label}</span>
                         </div>
                     ))}
@@ -439,16 +449,10 @@ function ClientMultiSelectDialog({
   }, [search, options]);
 
   const handleSelect = (valueToToggle: string) => {
-    const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
-    
-    if (isTodos) {
-      onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
-    } else {
-      const newSelection = selected.includes(valueToToggle)
-        ? selected.filter(s => s !== valueToToggle)
-        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
-      onChange(newSelection);
-    }
+    const newSelection = selected.includes(valueToToggle)
+      ? selected.filter(s => s !== valueToToggle)
+      : [...selected, valueToToggle];
+    onChange(newSelection);
   };
   
   const handleSelectAll = (isChecked: boolean) => {
@@ -481,43 +485,50 @@ function ClientMultiSelectDialog({
             <DialogDescription>Seleccione los clientes para este evento de facturación.</DialogDescription>
         </DialogHeader>
         <div className="p-6 pt-0">
-            <Command>
-              <CommandInput
-                placeholder="Buscar cliente..."
-                value={search}
-                onValueChange={setSearch}
-              />
-              <CommandList>
-                <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem onSelect={() => handleSelectAll(!isAllSelected)} className="font-semibold">
-                    <Check className={cn("mr-2 h-4 w-4", isAllSelected ? "opacity-100" : "opacity-0")} />
-                    Seleccionar Todos
-                  </CommandItem>
-                  <ScrollArea className="h-60">
-                    {filteredOptions.map((option) => (
-                      <div
-                        key={option.value}
-                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
-                        onClick={() => handleSelect(option.value)}
-                      >
+          <Command>
+            <CommandInput
+              placeholder="Buscar cliente..."
+              value={search}
+              onValueChange={setSearch}
+            />
+            <CommandList>
+              <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+              <CommandGroup>
+                <ScrollArea className="h-60">
+                    <div className="space-y-1 pr-4">
+                      <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent border-b">
                         <Checkbox
-                          id={`client-${option.value}`}
-                          checked={selected.includes(option.value)}
-                          onCheckedChange={() => handleSelect(option.value)}
+                          id="select-all-clients"
+                          checked={isAllSelected}
+                          onCheckedChange={handleSelectAll}
                         />
-                        <Label
-                          htmlFor={`client-${option.value}`}
-                          className="w-full cursor-pointer"
-                        >
-                          {option.label}
+                        <Label htmlFor="select-all-clients" className="w-full cursor-pointer font-semibold">
+                          Seleccionar Todos
                         </Label>
                       </div>
-                    ))}
-                  </ScrollArea>
-                </CommandGroup>
-              </CommandList>
-            </Command>
+                      {filteredOptions.map((option) => (
+                        <div
+                          key={option.value}
+                          className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
+                        >
+                          <Checkbox
+                            id={`client-${option.value}`}
+                            checked={selected.includes(option.value)}
+                            onCheckedChange={() => handleSelect(option.value)}
+                          />
+                          <Label
+                            htmlFor={`client-${option.value}`}
+                            className="w-full cursor-pointer"
+                          >
+                            {option.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                </ScrollArea>
+              </CommandGroup>
+            </CommandList>
+          </Command>
         </div>
         <DialogFooter className="p-6 pt-0">
             <Button onClick={() => setOpen(false)}>Cerrar</Button>
