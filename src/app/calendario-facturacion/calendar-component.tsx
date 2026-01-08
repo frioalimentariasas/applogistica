@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { DayPicker, type DateRange } from 'react-day-picker';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSunday, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
@@ -168,16 +168,23 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date }: { date: Date }) => {
+  const DayContent = ({ date, displayMonth }: { date: Date, displayMonth: Date }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     const event = dayEvents[0];
     const statusInfo = event ? statusConfig[event.status] : null;
 
     const allClientsSelected = event?.clients.includes('TODOS (Cualquier Cliente)');
 
+    const isHoliday = colombianHolidays.some(holiday => isSameDay(date, holiday));
+    const isDaySunday = isSunday(date);
+    const isNonWorkingDay = isHoliday || isDaySunday;
+    const isOutside = date.getMonth() !== displayMonth.getMonth();
+
+    const dayStyle = isNonWorkingDay ? { backgroundColor: '#fee2e2' } : {};
+
     return (
-        <div className="relative h-full flex flex-col p-1" onClick={() => openEventDialog(date)}>
-            <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`)}>
+        <div style={dayStyle} className={cn("relative h-full flex flex-col p-1", isOutside && "opacity-50")} onClick={() => openEventDialog(date)}>
+            <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`, isNonWorkingDay && !statusInfo && 'text-red-800')}>
                 {format(date, 'd')}
             </time>
             {event && (
@@ -241,14 +248,6 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             components={{
                                 Day: DayContent,
                             }}
-                            modifiers={{
-                              holiday: colombianHolidays,
-                              sunday: { dayOfWeek: [0] },
-                            }}
-                            modifiersStyles={{
-                              holiday: { backgroundColor: '#fee2e2', color: '#991b1b' },
-                              sunday: { backgroundColor: '#fee2e2', color: '#991b1b' },
-                            }}
                             classNames={{
                                 table: "w-full border-collapse",
                                 head_cell: "w-[14.2%] text-sm font-medium text-muted-foreground pb-2",
@@ -256,7 +255,6 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                                 cell: "h-32 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
                                 day: "h-full w-full",
                                 day_today: "bg-accent text-accent-foreground",
-                                day_outside: "text-muted-foreground opacity-50",
                             }}
                         />
                     ) : (
@@ -267,7 +265,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                 </div>
                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="block h-3 w-3 rounded-full bg-red-100 border border-red-300"></span>
+                      <span className="block h-3 w-3 rounded-full" style={{ backgroundColor: '#fee2e2' }}></span>
                       <span className="text-xs font-medium">Dominical y/o Festivo</span>
                     </div>
                     {Object.entries(statusConfig).map(([key, { label, dayBg }]) => (
@@ -531,3 +529,5 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
+    
