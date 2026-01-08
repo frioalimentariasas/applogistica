@@ -27,8 +27,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronsLeft, ChevronLeft, ChevronsRight, ChevronRight, CheckCircle, Clock, CircleAlert, Dot } from 'lucide-react';
+import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronsLeft, ChevronLeft, ChevronsRight, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown } from 'lucide-react';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 
 
@@ -100,8 +102,10 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   }, [toast]);
 
   useEffect(() => {
-    fetchEvents(currentMonth);
-  }, [currentMonth, fetchEvents]);
+    if (isClient) {
+      fetchEvents(currentMonth);
+    }
+  }, [currentMonth, fetchEvents, isClient]);
 
   const openEventDialog = (date: Date, event?: BillingEvent) => {
     setSelectedDate(date);
@@ -202,7 +206,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             showOutsideDays
                             fixedWeeks
                             components={{
-                                DayContent: DayContent,
+                                DayContent,
                             }}
                             classNames={{
                                 table: "w-full border-collapse",
@@ -313,23 +317,32 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                                         </FormControl>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Input placeholder="Buscar cliente..." value={clientSearch} onChange={e => setClientSearch(e.target.value)} className="m-2 w-[calc(100%-1rem)]" />
-                                        <ScrollArea className="h-48">
-                                            {filteredClients.map(client => (
-                                                <div key={client.id} className="flex items-center space-x-2 px-4 py-2">
-                                                    <Checkbox
-                                                        id={client.id}
-                                                        checked={field.value.includes(client.razonSocial)}
-                                                        onCheckedChange={(checked) => {
-                                                            return checked
-                                                                ? field.onChange([...field.value, client.razonSocial])
-                                                                : field.onChange(field.value?.filter(value => value !== client.razonSocial));
-                                                        }}
-                                                    />
-                                                    <Label htmlFor={client.id} className="w-full cursor-pointer">{client.razonSocial}</Label>
-                                                </div>
-                                            ))}
-                                        </ScrollArea>
+                                        <Command>
+                                            <CommandInput placeholder="Buscar cliente..." value={clientSearch} onValueChange={setClientSearch} />
+                                            <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                                            <CommandGroup>
+                                                <ScrollArea className="h-48">
+                                                    {filteredClients.map(client => (
+                                                        <CommandItem
+                                                            value={client.razonSocial}
+                                                            key={client.id}
+                                                            onSelect={() => {
+                                                                const currentValue = field.value || [];
+                                                                const isSelected = currentValue.includes(client.razonSocial);
+                                                                if (isSelected) {
+                                                                    field.onChange(currentValue.filter(c => c !== client.razonSocial));
+                                                                } else {
+                                                                    field.onChange([...currentValue, client.razonSocial]);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Check className={cn("mr-2 h-4 w-4", field.value?.includes(client.razonSocial) ? "opacity-100" : "opacity-0")}/>
+                                                            {client.razonSocial}
+                                                        </CommandItem>
+                                                    ))}
+                                                </ScrollArea>
+                                            </CommandGroup>
+                                        </Command>
                                     </PopoverContent>
                                 </Popover>
                                 <FormMessage />
