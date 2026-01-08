@@ -185,21 +185,21 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     const allClientsSelected = event?.clients.includes('TODOS (Cualquier Cliente)');
 
     const isHoliday = holidays.some(holiday => isSameDay(date, holiday));
-    const isDaySunday = activeModifiers.sunday;
+    const isDaySunday = activeModifiers?.sunday;
     const isNonWorkingDay = isHoliday || isDaySunday;
     
     const dayStyle: React.CSSProperties = {};
     if (isNonWorkingDay && !statusInfo) {
         dayStyle.backgroundColor = 'rgba(254, 226, 226, 0.7)'; // Tailwind's red-100/70
     }
-     if (activeModifiers.selected) {
+     if (activeModifiers?.selected) {
       dayStyle.backgroundColor = 'var(--accent)';
       dayStyle.color = 'var(--accent-foreground)';
     }
 
     return (
         <div style={dayStyle} className="relative h-full flex flex-col p-1" onClick={() => openEventDialog(date)}>
-            <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`, isNonWorkingDay && !statusInfo && 'text-red-800', activeModifiers.selected && 'bg-primary text-primary-foreground')}>
+            <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`, isNonWorkingDay && !statusInfo && 'text-red-800', activeModifiers?.selected && 'bg-primary text-primary-foreground')}>
                 {format(date, 'd')}
             </time>
             {event && (
