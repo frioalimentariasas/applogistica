@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { getBillingEvents, saveBillingEvent, deleteBillingEvent, type BillingEvent } from './actions';
 import type { ClientInfo } from '@/app/actions/clients';
-import { colombianHolidays } from '@/lib/holidays';
+import { isColombianHoliday } from '@/lib/holidays';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -168,22 +168,22 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date, displayMonth }: { date: Date, displayMonth: Date }) => {
+  const DayContent = ({ date }: { date: Date }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     const event = dayEvents[0];
     const statusInfo = event ? statusConfig[event.status] : null;
 
     const allClientsSelected = event?.clients.includes('TODOS (Cualquier Cliente)');
 
-    const isHoliday = colombianHolidays.some(holiday => isSameDay(date, holiday));
-    const isDaySunday = isSunday(date);
-    const isNonWorkingDay = isHoliday || isDaySunday;
-    const isOutside = date.getMonth() !== displayMonth.getMonth();
-
-    const dayStyle = isNonWorkingDay ? { backgroundColor: '#fee2e2' } : {};
+    const isNonWorkingDay = isSunday(date) || isColombianHoliday(date);
+    
+    const dayStyle: React.CSSProperties = {};
+    if (isNonWorkingDay) {
+        dayStyle.backgroundColor = 'rgba(254, 226, 226, 0.8)'; // Tailwind's red-100/80
+    }
 
     return (
-        <div style={dayStyle} className={cn("relative h-full flex flex-col p-1", isOutside && "opacity-50")} onClick={() => openEventDialog(date)}>
+        <div style={dayStyle} className="relative h-full flex flex-col p-1" onClick={() => openEventDialog(date)}>
             <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`, isNonWorkingDay && !statusInfo && 'text-red-800')}>
                 {format(date, 'd')}
             </time>
@@ -255,6 +255,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                                 cell: "h-32 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
                                 day: "h-full w-full",
                                 day_today: "bg-accent text-accent-foreground",
+                                day_outside: "text-muted-foreground opacity-50",
                             }}
                         />
                     ) : (
