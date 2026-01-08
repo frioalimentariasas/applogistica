@@ -65,6 +65,12 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
   const [indexErrorMessage, setIndexErrorMessage] = useState('');
 
+  // Hydration fix
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
@@ -140,7 +146,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date, activeModifiers, displayMonth, ...props }: { date: Date; activeModifiers: any, displayMonth: Date } & any) => {
+  const DayContent = ({ date, displayMonth, activeModifiers, ...props }: { date: Date; displayMonth: Date; activeModifiers: any; } & React.HTMLAttributes<HTMLDivElement>) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
@@ -188,25 +194,31 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
-                    <DayPicker
-                        month={currentMonth}
-                        onMonthChange={setCurrentMonth}
-                        locale={es}
-                        showOutsideDays
-                        fixedWeeks
-                        components={{
-                            DayContent: DayContent,
-                        }}
-                        classNames={{
-                            table: "w-full border-collapse",
-                            head_cell: "w-[14.2%] text-sm font-medium text-muted-foreground pb-2",
-                            row: "w-full",
-                            cell: "h-32 p-1 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
-                            day: "flex flex-col h-full p-2",
-                            day_today: "bg-accent/20",
-                            day_outside: "text-muted-foreground opacity-50",
-                        }}
-                    />
+                    {isClient ? (
+                        <DayPicker
+                            month={currentMonth}
+                            onMonthChange={setCurrentMonth}
+                            locale={es}
+                            showOutsideDays
+                            fixedWeeks
+                            components={{
+                                DayContent: DayContent,
+                            }}
+                            classNames={{
+                                table: "w-full border-collapse",
+                                head_cell: "w-[14.2%] text-sm font-medium text-muted-foreground pb-2",
+                                row: "w-full",
+                                cell: "h-32 p-1 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
+                                day: "flex flex-col h-full p-2",
+                                day_today: "bg-accent/20",
+                                day_outside: "text-muted-foreground opacity-50",
+                            }}
+                        />
+                    ) : (
+                        <div className="h-[498px] flex items-center justify-center">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                    )}
                 </div>
                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
                     {Object.entries(statusConfig).map(([key, { label, color, textColor }]) => (
