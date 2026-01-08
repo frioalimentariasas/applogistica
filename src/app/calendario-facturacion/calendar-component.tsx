@@ -81,6 +81,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
   const [indexErrorMessage, setIndexErrorMessage] = useState('');
@@ -163,6 +164,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   const handleDeleteConfirm = async () => {
     if (!eventToDelete) return;
 
+    setIsDeleting(true);
     const result = await deleteBillingEvent(eventToDelete);
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
@@ -172,9 +174,10 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     }
     setIsConfirmDeleteOpen(false);
     setEventToDelete(null);
+    setIsDeleting(false);
   };
   
-  const DayContent = ({ date }: { date: Date }) => {
+  const DayContent = ({ date, activeModifiers }: { date: Date, activeModifiers: any }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     const event = dayEvents[0];
     const statusInfo = event ? statusConfig[event.status] : null;
@@ -182,17 +185,21 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     const allClientsSelected = event?.clients.includes('TODOS (Cualquier Cliente)');
 
     const isHoliday = holidays.some(holiday => isSameDay(date, holiday));
-    const isDaySunday = isSunday(date);
+    const isDaySunday = activeModifiers.sunday;
     const isNonWorkingDay = isHoliday || isDaySunday;
     
     const dayStyle: React.CSSProperties = {};
-    if (isNonWorkingDay) {
+    if (isNonWorkingDay && !statusInfo) {
         dayStyle.backgroundColor = 'rgba(254, 226, 226, 0.7)'; // Tailwind's red-100/70
+    }
+     if (activeModifiers.selected) {
+      dayStyle.backgroundColor = 'var(--accent)';
+      dayStyle.color = 'var(--accent-foreground)';
     }
 
     return (
         <div style={dayStyle} className="relative h-full flex flex-col p-1" onClick={() => openEventDialog(date)}>
-            <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`, isNonWorkingDay && !statusInfo && 'text-red-800')}>
+            <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`, isNonWorkingDay && !statusInfo && 'text-red-800', activeModifiers.selected && 'bg-primary text-primary-foreground')}>
                 {format(date, 'd')}
             </time>
             {event && (
@@ -221,7 +228,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
             <div className="relative flex items-center justify-center text-center">
-                <Button variant="ghost" className="absolute left-0" onClick={() => router.push('/')}>
+                 <Button variant="ghost" className="absolute left-0" onClick={() => router.push('/')}>
                     <Home className="mr-2 h-4 w-4" /> Ir al Inicio
                 </Button>
                 <div>
@@ -257,6 +264,11 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             locale={es}
                             showOutsideDays
                             fixedWeeks
+                            modifiers={{ sunday: { dayOfWeek: [0] }, holiday: holidays }}
+                            modifiersClassNames={{
+                                sunday: 'day-sunday',
+                                holiday: 'day-holiday',
+                            }}
                             components={{ Day: DayContent }}
                             classNames={{
                                 table: "w-full border-collapse",
@@ -313,8 +325,8 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteConfirm} className={buttonVariants({ variant: 'destructive' })}>
-                        Eliminar
+                    <AlertDialogAction onClick={handleDeleteConfirm} className={buttonVariants({ variant: 'destructive' })} disabled={isDeleting}>
+                        {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Eliminar'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
