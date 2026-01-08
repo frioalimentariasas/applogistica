@@ -482,15 +482,14 @@ export interface TunelWeightReport {
 }
 
 
-const calculateTotalPesoBrutoKg = (formType: string, formData: any): number => {
+const calculateTotalWeightForTunelReport = (formType: string, formData: any): number => {
     if (formType.startsWith('fixed-weight')) {
-        return Number(formData.totalPesoBrutoKg) || 0;
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     if (formType.startsWith('variable-weight')) {
          const allItems = (formData.items || [])
             .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
-        const totalPesoBruto = allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
-        return totalPesoBruto;
+        return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoNeto) || 0), 0);
     }
     return 0;
 };
@@ -531,7 +530,7 @@ export async function getTunelWeightReport(
             const dateData = resultsByDate.get(dateStr)!;
             
             const currentWeight = dateData.get(clientName) || 0;
-            const newWeight = calculateTotalPesoBrutoKg(data.formType, data.formData);
+            const newWeight = calculateTotalWeightForTunelReport(data.formType, data.formData);
             dateData.set(clientName, currentWeight + newWeight);
         });
         
@@ -565,6 +564,7 @@ export async function getTunelWeightReport(
     
 
     
+
 
 
 

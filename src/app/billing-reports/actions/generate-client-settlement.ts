@@ -1545,9 +1545,46 @@ export async function generateClientSettlement(criteria: {
     }
 
     settlementRows.forEach(row => {
+
+        //UNIFICACIÓN DE CONCEPTOS
         const upperConceptName = row.conceptName.toUpperCase().replace('AREA', 'ÁREA');
         if (upperConceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA') {
             row.conceptName = 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
+        }
+        // --- LÓGICA A AGREGAR ---
+        const conceptoUnificadoFrias = 'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/CONGELADO';
+        // Verificamos si el concepto es uno de los que queremos unificar
+        if (row.conceptName === 'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (CONGELADO)' || row.conceptName === 'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/CONGELADO') {
+        // Si es así, le asignamos el nombre de concepto estandarizado
+        row.conceptName = conceptoUnificadoFrias;
+        }
+        // --- LÓGICA A AGREGAR ---
+        const conceptoUnificadoarinent = 'ARIN DE INGRESO ZFPC';
+        // Verificamos si el concepto es uno de los que queremos unificar
+        if (row.conceptName === 'ARIN DE INGRESO ZFPC (MANUAL)' || row.conceptName === 'ARIN DE INGRESO ZFPC') {
+        // Si es así, le asignamos el nombre de concepto estandarizado
+        row.conceptName = conceptoUnificadoarinent;
+        }
+        // --- LÓGICA A AGREGAR ---
+        const conceptoUnificadoarinsal = 'ARIN DE SALIDA ZFPC';
+        // Verificamos si el concepto es uno de los que queremos unificar
+        if (row.conceptName === 'ARIN DE SALIDA ZFPC (MANUAL)' || row.conceptName === 'ARIN DE SALIDA ZFPC') {
+        // Si es así, le asignamos el nombre de concepto estandarizado
+        row.conceptName = conceptoUnificadoarinsal;
+        }
+        // --- LÓGICA A AGREGAR ---
+        const conceptoUnificadofmment = 'FMM DE INGRESO ZFPC';
+        // Verificamos si el concepto es uno de los que queremos unificar
+        if (row.conceptName === 'FMM DE INGRESO ZFPC (MANUAL)' || row.conceptName === 'FMM DE INGRESO ZFPC') {
+        // Si es así, le asignamos el nombre de concepto estandarizado
+        row.conceptName = conceptoUnificadofmment;
+        }
+        // --- LÓGICA A AGREGAR ---
+        const conceptoUnificadofmmsal = 'FMM DE SALIDA ZFPC';
+        // Verificamos si el concepto es uno de los que queremos unificar
+        if (row.conceptName === 'FMM DE SALIDA ZFPC (MANUAL)' || row.conceptName === 'FMM DE SALIDA ZFPC') {
+        // Si es así, le asignamos el nombre de concepto estandarizado
+        row.conceptName = conceptoUnificadofmmsal;
         }
 
         const op = allOperations.find(o => o.type === 'form' && o.data.formData.pedidoSislog === row.pedidoSislog);
