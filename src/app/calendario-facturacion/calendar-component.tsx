@@ -151,7 +151,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     setEventToDelete(null);
   };
   
-  const DayContent = ({ date, displayMonth, activeModifiers, ...props }: { date: Date; displayMonth: Date; activeModifiers: any; } & React.HTMLAttributes<HTMLDivElement>) => {
+  const DayContent = ({ date, activeModifiers, displayMonth, ...props }: { date: Date; displayMonth: Date; activeModifiers: any; } & React.HTMLAttributes<HTMLDivElement>) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
     
     return (
@@ -307,46 +307,14 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                             name="clients"
                             render={({ field }) => (
                                 <FormItem>
-                                <FormLabel>Cliente(s)</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button variant="outline" role="combobox" className="w-full justify-between">
-                                                <span className="truncate">{field.value?.length > 0 ? field.value.join(', ') : 'Seleccione cliente(s)...'}</span>
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Buscar cliente..." value={clientSearch} onValueChange={setClientSearch} />
-                                            <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-                                            <CommandGroup>
-                                                <ScrollArea className="h-48">
-                                                    {filteredClients.map(client => (
-                                                        <CommandItem
-                                                            value={client.razonSocial}
-                                                            key={client.id}
-                                                            onSelect={() => {
-                                                                const currentValue = field.value || [];
-                                                                const isSelected = currentValue.includes(client.razonSocial);
-                                                                if (isSelected) {
-                                                                    field.onChange(currentValue.filter(c => c !== client.razonSocial));
-                                                                } else {
-                                                                    field.onChange([...currentValue, client.razonSocial]);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Check className={cn("mr-2 h-4 w-4", field.value?.includes(client.razonSocial) ? "opacity-100" : "opacity-0")}/>
-                                                            {client.razonSocial}
-                                                        </CommandItem>
-                                                    ))}
-                                                </ScrollArea>
-                                            </CommandGroup>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
+                                    <FormLabel>Cliente(s)</FormLabel>
+                                    <ClientMultiSelectDialog
+                                        options={clients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))}
+                                        selected={field.value}
+                                        onChange={field.onChange}
+                                        placeholder="Seleccione clientes..."
+                                    />
+                                    <FormMessage />
                                 </FormItem>
                             )}
                         />
@@ -414,4 +382,96 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
             </DialogContent>
         </Dialog>
     );
+}
+
+function ClientMultiSelectDialog({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    return options.filter((o) =>
+      o.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search, options]);
+
+  const handleSelect = (valueToToggle: string) => {
+    const newSelection = selected.includes(valueToToggle)
+      ? selected.filter(s => s !== valueToToggle)
+      : [...selected, valueToToggle];
+    onChange(newSelection);
+  };
+  
+  const handleSelectAll = (isChecked: boolean) => {
+    onChange(isChecked ? options.map(o => o.value) : []);
+  };
+
+  const getButtonLabel = () => {
+    if (selected.length === 0) return placeholder;
+    if (selected.length === 1) return selected[0];
+    if (selected.length === options.length) return "Todos los clientes seleccionados";
+    return `${selected.length} clientes seleccionados`;
+  };
+  
+  const isAllSelected = selected.length === options.length;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full justify-between text-left font-normal"
+        >
+          <span className="truncate">{getButtonLabel()}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput
+            placeholder="Buscar cliente..."
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem onSelect={() => handleSelectAll(!isAllSelected)} className="font-semibold">
+                <Check className={cn("mr-2 h-4 w-4", isAllSelected ? "opacity-100" : "opacity-0")} />
+                Seleccionar Todos
+              </CommandItem>
+              <ScrollArea className="h-60">
+                {filteredOptions.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    onSelect={() => handleSelect(option.value)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selected.includes(option.value)
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                    {option.label}
+                  </CommandItem>
+                ))}
+              </ScrollArea>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
