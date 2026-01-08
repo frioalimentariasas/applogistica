@@ -14,8 +14,8 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { getBillingEvents, saveBillingEvent, deleteBillingEvent, type BillingEvent } from './actions';
+import { getHolidaysInRange } from '../gestion-festivos/actions'; // Importar la nueva acción
 import type { ClientInfo } from '@/app/actions/clients';
-import { isColombianHoliday } from '@/lib/holidays';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -46,7 +46,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronLeft, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check } from 'lucide-react';
+import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronLeft, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check, Settings } from 'lucide-react';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { cn } from '@/lib/utils';
 
@@ -68,9 +68,11 @@ const statusConfig = {
 export default function CalendarComponent({ clients }: { clients: ClientInfo[] }) {
   const router = useRouter();
   const { toast } = useToast();
+  const { permissions } = useAuth();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<BillingEvent[]>([]);
+  const [holidays, setHolidays] = useState<Date[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
@@ -102,14 +104,18 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     try {
       const start = startOfMonth(month);
       const end = endOfMonth(month);
-      const fetchedEvents = await getBillingEvents(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'));
+      const [fetchedEvents, fetchedHolidays] = await Promise.all([
+        getBillingEvents(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd')),
+        getHolidaysInRange(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd')),
+      ]);
       setEvents(fetchedEvents);
+      setHolidays(fetchedHolidays.map(h => new Date(h.date.replace(/-/g, '/')))); // Adjust for timezone
     } catch (error: any) {
         if (typeof error.message === 'string' && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
             setIndexErrorMessage(error.message);
             setIsIndexErrorOpen(true);
         } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los eventos del calendario.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos del calendario.' });
         }
     } finally {
       setIsLoading(false);
@@ -175,11 +181,13 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
     const allClientsSelected = event?.clients.includes('TODOS (Cualquier Cliente)');
 
-    const isNonWorkingDay = isSunday(date) || isColombianHoliday(date);
+    const isHoliday = holidays.some(holiday => isSameDay(date, holiday));
+    const isDaySunday = isSunday(date);
+    const isNonWorkingDay = isHoliday || isDaySunday;
     
     const dayStyle: React.CSSProperties = {};
     if (isNonWorkingDay) {
-        dayStyle.backgroundColor = 'rgba(254, 226, 226, 0.8)'; // Tailwind's red-100/80
+        dayStyle.backgroundColor = 'rgba(254, 226, 226, 0.7)'; // Tailwind's red-100/70
     }
 
     return (
@@ -206,8 +214,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             )}
         </div>
     );
-};
-
+  };
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -224,6 +231,11 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                     </div>
                     <p className="text-sm text-gray-500">Programe y visualice las tareas de liquidación de clientes.</p>
                 </div>
+                 {permissions.canManageHolidays && (
+                    <Button variant="outline" className="absolute right-0" onClick={() => router.push('/gestion-festivos')}>
+                        <Settings className="mr-2 h-4 w-4" /> Gestionar Festivos
+                    </Button>
+                )}
             </div>
         </header>
         
@@ -245,17 +257,14 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             locale={es}
                             showOutsideDays
                             fixedWeeks
-                            components={{
-                                Day: DayContent,
-                            }}
+                            components={{ Day: DayContent }}
                             classNames={{
                                 table: "w-full border-collapse",
                                 head_cell: "w-[14.2%] text-sm font-medium text-muted-foreground pb-2",
                                 row: "w-full",
                                 cell: "h-32 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
                                 day: "h-full w-full",
-                                day_today: "bg-accent text-accent-foreground",
-                                day_outside: "text-muted-foreground opacity-50",
+                                day_today: "bg-accent/50 text-accent-foreground",
                             }}
                         />
                     ) : (
@@ -266,7 +275,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                 </div>
                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="block h-3 w-3 rounded-full" style={{ backgroundColor: '#fee2e2' }}></span>
+                      <span className="block h-3 w-3 rounded-full" style={{ backgroundColor: 'rgba(254, 226, 226, 0.7)' }}></span>
                       <span className="text-xs font-medium">Dominical y/o Festivo</span>
                     </div>
                     {Object.entries(statusConfig).map(([key, { label, dayBg }]) => (
@@ -530,5 +539,3 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
-
-    

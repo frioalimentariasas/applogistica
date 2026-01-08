@@ -41,7 +41,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench, Edit, FileCog, Briefcase, HardHat, TruckIcon } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench, Edit, FileCog, Briefcase, HardHat, TruckIcon, CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -102,6 +102,7 @@ const permissionGroups: {
       { key: 'canManageClientLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación' },
       { key: 'canManageClientManualOperations', label: 'Registro de Op. Manuales' },
       { key: 'canViewBillingReports', label: 'Informes de Facturación' },
+      { key: 'canManageLiquidationVersions', label: 'Control de Versiones de Liquidación' },
       { key: 'canViewSmylAssistant', label: 'Asistente de Liquidación SMYL' },
       { key: 'canViewInventoryAssistant', label: 'Asistente de Liquidación de Inventario' },
     ]
@@ -128,6 +129,7 @@ const permissionGroups: {
       { key: 'canManageArticles', label: 'Gestión de Artículos' },
       { key: 'canManageClients', label: 'Gestión de Clientes' },
       { key: 'canManageObservations', label: 'Gestión de Observaciones' },
+      { key: 'canManageHolidays', label: 'Gestión de Días Festivos' },
     ]
   },
 ];
