@@ -45,7 +45,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronLeft, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check, Settings } from 'lucide-react';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
@@ -164,19 +163,25 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
   const handleDeleteConfirm = async () => {
     if (!eventToDelete) return;
+
     setIsDeleting(true);
-    const result = await deleteBillingEvent(eventToDelete.id);
-    if (result.success) {
-      toast({ title: 'Éxito', description: result.message });
-      setEvents(prev => prev.filter(e => e.id !== eventToDelete!.id));
-      setIsEventDialogOpen(false); // Ensure main dialog is closed
-    } else {
-      toast({ variant: 'destructive', title: 'Error', description: result.message });
+    try {
+        const result = await deleteBillingEvent(eventToDelete.id);
+        if (result.success) {
+            toast({ title: 'Éxito', description: result.message });
+            setEvents(prev => prev.filter(e => e.id !== eventToDelete!.id));
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Ocurrió un error al eliminar el evento.' });
+    } finally {
+        setIsDeleting(false);
+        setIsConfirmDeleteOpen(false);
+        setEventToDelete(null);
+        setIsEventDialogOpen(false); // Ensure the main dialog is closed
     }
-    setEventToDelete(null);
-    setIsConfirmDeleteOpen(false); // Close confirmation dialog
-    setIsDeleting(false);
-  };
+};
 
   const DayContent = ({ date, activeModifiers }: { date: Date, activeModifiers: any }) => {
     const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
@@ -239,11 +244,13 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                     </div>
                     <p className="text-sm text-gray-500">Programe y visualice las tareas de liquidación de clientes.</p>
                 </div>
-                 {permissions.canManageHolidays && (
-                    <Button variant="outline" className="absolute right-0" onClick={() => router.push('/gestion-festivos')}>
-                        <Settings className="mr-2 h-4 w-4" /> Gestionar Festivos
-                    </Button>
-                )}
+                <div className="absolute right-0">
+                    {permissions.canManageHolidays && (
+                        <Button variant="outline" onClick={() => router.push('/gestion-festivos')}>
+                            <Settings className="mr-2 h-4 w-4" /> Gestionar Festivos
+                        </Button>
+                    )}
+                </div>
             </div>
         </header>
         
@@ -552,4 +559,3 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
-
