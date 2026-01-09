@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -340,7 +341,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             
             const conceptTariffs = selectedConceptInfo?.specificTariffs || [];
             
+            // --- INICIO DE LA LÍNEA A AJUSTAR ---
+            const currentBulkRoles = form.getValues('bulkRoles') || [];
+            // --- FIN DE LA LÍNEA A AJUSTAR ---
+
             const bulkRoles = roles.map(r => {
+                const existingRole = currentBulkRoles.find(cr => cr.roleName === r.role);
                 const diurnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes(r.diurna));
                 const nocturnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes(r.nocturna));
                 return {
@@ -351,7 +357,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     nocturnaLabel: nocturnaTariff?.name || 'No encontrado',
                     diurnaValue: diurnaTariff?.value || 0,
                     nocturnaValue: nocturnaTariff?.value || 0,
-                    numPersonas: 0
+                    numPersonas: existingRole?.numPersonas || 0, // Preserve existing value if available
                 };
             });
             
@@ -770,7 +776,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                     <Edit className="h-8 w-8 text-primary" />
                                     <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Clientes</h1>
                                 </div>
-                                <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales de facturación a clientes.</p>
+                                <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales.</p>
                         </div>
                     </div>
                 </header>
@@ -1646,3 +1652,4 @@ function ExtraHoursDialog({
     );
 }
 // --- FIN DEL NUEVO COMPONENTE DIALOG ---
+
