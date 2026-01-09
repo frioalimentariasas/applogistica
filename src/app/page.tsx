@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -127,13 +128,13 @@ export default function Home() {
   ];
 
   const menuGroups: {
-      [key: string]: { icon: React.FC<any>; items: typeof menuItems; permission: keyof AppPermissions }
+      [key: string]: { icon: React.FC<any>; items: typeof menuItems; }
   } = {
-    'Operaciones Logísticas': { icon: FileCog, items: [], permission: 'canAccessOperacionesLogísticas' },
-    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [], permission: 'canAccessGestionClientes' },
-    'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [], permission: 'canAccessGestionCuadrilla' },
-    'Gestión de Maestros': { icon: Wrench, items: [], permission: 'canAccessMaestros' },
-    'Parámetros y Seguridad': { icon: ShieldCheck, items: [], permission: 'canManageSessions' },
+    'Operaciones Logísticas': { icon: FileCog, items: [] },
+    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [] },
+    'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [] },
+    'Gestión de Maestros': { icon: Wrench, items: [] },
+    'Parámetros y Seguridad': { icon: ShieldCheck, items: [] },
   };
 
   menuItems.forEach(item => {
@@ -143,7 +144,7 @@ export default function Home() {
   });
 
   const availableMenuGroups = Object.entries(menuGroups).filter(([, groupData]) => 
-    permissions[groupData.permission] && groupData.items.length > 0
+    groupData.items.length > 0
   );
 
 
