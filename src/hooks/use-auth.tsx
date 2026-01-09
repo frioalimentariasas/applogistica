@@ -32,6 +32,7 @@ export interface AppPermissions {
   canManageClientLiquidationConcepts: boolean;
   canManageClientManualOperations: boolean;
   canViewBillingReports: boolean;
+  canViewBillingCalendar: boolean;
   canManageLiquidationVersions: boolean;
   canViewSmylAssistant: boolean;
   canViewInventoryAssistant: boolean;
@@ -76,6 +77,7 @@ export const defaultPermissions: AppPermissions = {
   canManageClientLiquidationConcepts: false,
   canManageClientManualOperations: false,
   canViewBillingReports: false,
+  canViewBillingCalendar: false,
   canManageLiquidationVersions: false,
   canViewSmylAssistant: false,
   canViewInventoryAssistant: false,

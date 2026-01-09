@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -103,7 +102,7 @@ const permissionGroups: {
       { key: 'canManageClientLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación' },
       { key: 'canManageClientManualOperations', label: 'Registro de Op. Manuales' },
       { key: 'canViewBillingReports', label: 'Informes de Facturación' },
-      { key: 'canViewBillingReports', label: 'Calendario de Facturación' },
+      { key: 'canViewBillingCalendar', label: 'Calendario de Facturación' },
       { key: 'canManageLiquidationVersions', label: 'Control de Versiones de Liquidación' },
       { key: 'canViewSmylAssistant', label: 'Asistente de Liquidación SMYL' },
       { key: 'canViewInventoryAssistant', label: 'Asistente de Liquidación de Inventario' },
@@ -565,7 +564,7 @@ export default function SessionManagementComponent() {
                                                 </div>
                                                 <AccordionContent className="pl-8 space-y-3 pt-2">
                                                      {group.permissions.map(({ key, label }) => (
-                                                        <div key={key} className="flex flex-row items-center justify-between">
+                                                        <div key={`${key}-${label}`} className="flex flex-row items-center justify-between">
                                                             <Label htmlFor={key} className="text-sm font-normal text-muted-foreground">{label}</Label>
                                                              <Controller
                                                                 key={key}
