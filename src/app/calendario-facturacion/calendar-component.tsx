@@ -185,6 +185,13 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     const eventForDay = events.find(e => e.date === format(date, 'yyyy-MM-dd'));
     const statusesInDay = useMemo(() => {
       if (!eventForDay || !eventForDay.clientStatuses) return [];
+      
+      const isForAllClients = eventForDay.clientStatuses.length === 1 && eventForDay.clientStatuses[0].clientName === 'TODOS (Cualquier Cliente)';
+      if (isForAllClients) {
+          const status = eventForDay.clientStatuses[0].status as keyof typeof statusConfig;
+          return [{ status, clients: ['Todos los clientes'] }];
+      }
+
       const grouped: Record<string, string[]> = {};
       eventForDay.clientStatuses.forEach(cs => {
         if (!grouped[cs.status]) {
@@ -216,7 +223,9 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
     const handleDeleteClick = (e: React.MouseEvent, eventToDelete: BillingEvent) => {
       e.stopPropagation();
-      setEventToDelete(eventToDelete);
+      if(permissions.canViewBillingCalendar) {
+        setEventToDelete(eventToDelete);
+      }
     };
 
     return (
@@ -376,21 +385,27 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
     clients: ClientInfo[]
 }) {
     const { formState: { isSubmitting } } = form;
-    const { fields, append, remove, replace } = useFieldArray({
+    const { fields, replace } = useFieldArray({
       control: form.control,
       name: "clientStatuses",
     });
 
     const watchedClients = useMemo(() => fields.map(f => f.clientName), [fields]);
+    const isAllClientsSelected = watchedClients.length === 1 && watchedClients[0] === 'TODOS (Cualquier Cliente)';
 
     const handleClientSelection = (selectedClients: string[]) => {
-      const newClientStatuses = selectedClients.map(clientName => {
-        const existing = fields.find(f => f.clientName === clientName);
-        return existing || { clientName, status: 'pending' as const };
-      });
-      replace(newClientStatuses);
+      if (selectedClients.includes('TODOS (Cualquier Cliente)')) {
+        const existing = fields.find(f => f.clientName === 'TODOS (Cualquier Cliente)');
+        replace([existing || { clientName: 'TODOS (Cualquier Cliente)', status: 'pending' as const }]);
+      } else {
+        const newClientStatuses = selectedClients.map(clientName => {
+            const existing = fields.find(f => f.clientName === clientName);
+            return existing || { clientName, status: 'pending' as const };
+        });
+        replace(newClientStatuses);
+      }
     };
-
+    
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl">
@@ -403,43 +418,53 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                         <ClientMultiSelectDialog
-                            options={clients.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                            options={[{value: 'TODOS (Cualquier Cliente)', label: 'TODOS (Cualquier Cliente)'}, ...clients.map(c => ({value: c.razonSocial, label: c.razonSocial}))]}
                             selected={watchedClients}
                             onChange={handleClientSelection}
                             placeholder="Seleccione clientes..."
                         />
                         <FormMessage>{form.formState.errors.clientStatuses?.message}</FormMessage>
-
-                        {fields.length > 0 && (
-                          <ScrollArea className="h-60 border rounded-md p-4">
+                        
+                        <ScrollArea className="h-60 border rounded-md p-4">
                             <div className="space-y-4">
-                            {fields.map((field, index) => (
-                                <div key={field.id} className="flex items-center justify-between gap-4">
-                                  <Label className="flex-1 truncate" title={field.clientName}>{field.clientName}</Label>
-                                  <FormField
-                                    control={form.control}
-                                    name={`clientStatuses.${index}.status`}
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormControl>
-                                          <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-2">
-                                            {Object.entries(statusConfig).map(([key, { color }]) => (
-                                              <FormItem key={key} className="flex items-center">
-                                                <FormControl>
-                                                  <RadioGroupItem value={key} className={cn('h-6 w-6 border-2', field.value === key && color)} />
-                                                </FormControl>
-                                              </FormItem>
-                                            ))}
-                                          </RadioGroup>
-                                        </FormControl>
-                                      </FormItem>
-                                    )}
-                                  />
-                                </div>
-                            ))}
+                                {fields.length > 0 ? fields.map((field, index) => (
+                                    <div key={field.id} className="flex items-center justify-between gap-4">
+                                      <Label className="flex-1 truncate font-semibold" title={field.clientName}>
+                                          {field.clientName === 'TODOS (Cualquier Cliente)' ? 'Todos los Clientes' : field.clientName}
+                                      </Label>
+                                      <FormField
+                                        control={form.control}
+                                        name={`clientStatuses.${index}.status`}
+                                        render={({ field }) => (
+                                          <FormItem>
+                                            <FormControl>
+                                              <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-2">
+                                                {Object.entries(statusConfig).map(([key, { color, label }]) => (
+                                                  <TooltipProvider key={key}>
+                                                    <Tooltip>
+                                                      <TooltipTrigger asChild>
+                                                        <FormItem className="flex items-center">
+                                                            <FormControl>
+                                                              <RadioGroupItem value={key} className={cn('h-6 w-6 border-2', field.value === key && color)} />
+                                                            </FormControl>
+                                                        </FormItem>
+                                                      </TooltipTrigger>
+                                                      <TooltipContent><p>{label}</p></TooltipContent>
+                                                    </Tooltip>
+                                                  </TooltipProvider>
+                                                ))}
+                                              </RadioGroup>
+                                            </FormControl>
+                                          </FormItem>
+                                        )}
+                                      />
+                                    </div>
+                                )) : (
+                                    <p className="text-center text-muted-foreground pt-20">Seleccione clientes para asignarles un estado.</p>
+                                )}
                             </div>
-                          </ScrollArea>
-                        )}
+                        </ScrollArea>
+                        
                         <FormField
                             control={form.control}
                             name="note"
@@ -489,20 +514,23 @@ function ClientMultiSelectDialog({
   }, [search, options]);
 
   const handleSelect = (valueToToggle: string) => {
-      const newSelection = selected.includes(valueToToggle)
-        ? selected.filter(s => s !== valueToToggle)
-        : [...selected, valueToToggle];
-      onChange(newSelection);
+      const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
+      
+      if (isTodos) {
+          onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
+      } else {
+          const newSelection = selected.includes(valueToToggle)
+            ? selected.filter(s => s !== valueToToggle)
+            : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
+          onChange(newSelection);
+      }
   };
   
-  const handleSelectAll = (isChecked: boolean) => {
-    onChange(isChecked ? options.map(o => o.value) : []);
-  };
-
   const getButtonLabel = () => {
     if (selected.length === 0) return placeholder;
     if (selected.length === 1) return selected[0];
-    if (selected.length === options.length) return "Todos los clientes seleccionados";
+    if (selected.includes('TODOS (Cualquier Cliente)')) return "TODOS (Cualquier Cliente)";
+    if (selected.length === options.length - 1) return "Todos los clientes seleccionados"; // -1 for 'TODOS'
     return `${selected.length} clientes seleccionados`;
   };
   
@@ -532,26 +560,19 @@ function ClientMultiSelectDialog({
             />
             <ScrollArea className="h-60">
                 <div className="space-y-1 pr-4">
-                  <div className="flex items-center space-x-3 p-2 rounded-md hover:bg-accent border-b">
-                    <Checkbox
-                      id="select-all-clients-dialog"
-                      checked={selected.length === options.length}
-                      onCheckedChange={(checked) => handleSelectAll(checked === true)}
-                    />
-                    <Label htmlFor="select-all-clients-dialog" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
-                  </div>
                   {filteredOptions.map((option) => (
                     <div
                       key={option.value}
                       className="flex items-center space-x-3 p-2 rounded-md hover:bg-accent"
                     >
                       <Checkbox
-                        id={`client-${option.value}`}
+                        id={`client-ms-${option.value}`}
                         checked={selected.includes(option.value)}
                         onCheckedChange={() => handleSelect(option.value)}
+                        disabled={selected.includes('TODOS (Cualquier Cliente)') && option.value !== 'TODOS (Cualquier Cliente)'}
                       />
                       <Label
-                        htmlFor={`client-${option.value}`}
+                        htmlFor={`client-ms-${option.value}`}
                         className="w-full cursor-pointer"
                       >
                         {option.label}
