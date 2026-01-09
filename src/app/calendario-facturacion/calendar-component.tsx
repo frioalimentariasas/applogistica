@@ -215,7 +215,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`, isNonWorkingDay && !statusInfo && 'text-red-800', activeModifiers?.selected && 'bg-primary text-primary-foreground')}>
                 {format(date, 'd')}
             </time>
-             {event && permissions.canManageHolidays && (
+             {event && permissions.canViewBillingCalendar && (
               <button
                 data-delete-button
                 onClick={(e) => handleDeleteClick(e, event)}
