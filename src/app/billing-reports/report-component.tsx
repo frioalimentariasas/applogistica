@@ -2060,6 +2060,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
             { header: 'Valor Total', key: 'totalValue', width: 20 },
+            { header: 'Justificación', key: 'justification', width: 50 },
         ];
     
         detailWorksheet.columns = detailColumns.map(c => ({ key: c.key, width: c.width }));
@@ -2144,6 +2145,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             quantity: row.quantity,
                             unitValue: row.unitValue,
                             totalValue: row.totalValue,
+                            justification: row.justification || '',
                             ...row,
                         }).eachCell((cell, colNumber) => { /* Formatting */ });
                     });
@@ -2191,7 +2193,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         quantity: row.quantity,
                         unitOfMeasure: row.unitOfMeasure,
                         unitValue: row.unitValue,
-                        totalValue: row.totalValue
+                        totalValue: row.totalValue,
+                        justification: row.justification || '',
                     }).eachCell((cell, colNumber) => {
                         const colKey = detailColumns[colNumber - 1].key;
                         if (['quantity', 'unitValue', 'totalValue'].includes(colKey)) {
@@ -2608,7 +2611,8 @@ const conceptOrder = [
             row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
             formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
             row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+            row.justification || '',
         ];
 
         const groupedByLotAndConcept = visibleRows.reduce((acc, row) => {
@@ -2640,7 +2644,7 @@ const conceptOrder = [
              
              // If not a lot-based concept, just show the concept name as the header
              if (!group.lotId) {
-                detailBody.push([{ content: groupTitle, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+                detailBody.push([{ content: groupTitle, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
              }
             
             const sortedRowsForGroup = group.rows.sort((a, b) => {
@@ -2660,7 +2664,7 @@ const conceptOrder = [
             
             // Add a header for the lot if it exists
             if (group.lotId) {
-                detailBody.push([{ content: groupTitle, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+                detailBody.push([{ content: groupTitle, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
             }
             
             sortedRowsForGroup.forEach(row => {
@@ -2674,18 +2678,20 @@ const conceptOrder = [
                 { content: `Subtotal ${group.lotId ? `Lote ${group.lotId}` : group.conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: groupSubtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: '', colSpan: 2 },
-                { content: groupSubtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+                { content: groupSubtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: '' }
             ]);
         }
         
         autoTable(doc, {
-            head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
+            head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total', 'Justificación']],
             body: detailBody,
             foot: [[
                 { content: 'TOTAL GENERAL:', colSpan: 12, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: '', colSpan: 2, styles: {fillColor: [26, 144, 200]} },
-                { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
+                { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: '', styles: {fillColor: [26, 144, 200]}}
             ]],
             startY: lastY,
             margin: { left: 20, right: 10 },
@@ -4045,21 +4051,22 @@ const conceptOrder = [
                                                 <TableRow>
                                                     <TableHead className="text-xs p-2">Fecha</TableHead>
                                                     <TableHead className="text-xs p-2">Concepto</TableHead>
-                                                    <TableHead className="text-xs p-2">Detalle Concepto</TableHead>
-                                                    <TableHead className="text-xs p-2">No. Personas</TableHead>
-                                                    <TableHead className="text-xs p-2">Total Paletas</TableHead>
+                                                    <TableHead className="text-xs p-2">Detalle</TableHead>
+                                                    <TableHead className="text-xs p-2">No. Pers.</TableHead>
+                                                    <TableHead className="text-xs p-2">#Paletas</TableHead>
                                                     <TableHead className="text-xs p-2">Placa</TableHead>
                                                     <TableHead className="text-xs p-2">Cámara</TableHead>
                                                     <TableHead className="text-xs p-2">Contenedor</TableHead>
-                                                    <TableHead className="text-xs p-2">Pedido SISLOG</TableHead>
-                                                    <TableHead className="text-xs p-2">Op. Logística</TableHead>
-                                                    <TableHead className="text-xs p-2">Tipo Vehículo</TableHead>
+                                                    <TableHead className="text-xs p-2">Pedido</TableHead>
+                                                    <TableHead className="text-xs p-2">Op. Log.</TableHead>
+                                                    <TableHead className="text-xs p-2">T. Vehículo</TableHead>
                                                     <TableHead className="text-xs p-2">H. Inicio</TableHead>
                                                     <TableHead className="text-xs p-2">H. Fin</TableHead>
                                                     <TableHead className="text-xs p-2">Cantidad</TableHead>
                                                     <TableHead className="text-xs p-2">Unidad</TableHead>
-                                                    <TableHead className="text-right text-xs p-2">Valor Unitario</TableHead>
-                                                    <TableHead className="text-right text-xs p-2">Valor Total</TableHead>
+                                                    <TableHead className="text-right text-xs p-2">Vlr. Unit.</TableHead>
+                                                    <TableHead className="text-right text-xs p-2">Vlr. Total</TableHead>
+                                                    <TableHead className="text-xs p-2">Justificación</TableHead>
                                                     <TableHead className="text-right text-xs p-2">Acciones</TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -4083,7 +4090,7 @@ const conceptOrder = [
                                                                 <tbody key={title}>
                                                                     {title && (
                                                                         <TableRow className="bg-muted hover:bg-muted/90">
-                                                                            <TableCell colSpan={18} className="font-semibold text-primary text-sm p-2">{title}</TableCell>
+                                                                            <TableCell colSpan={19} className="font-semibold text-primary text-sm p-2">{title}</TableCell>
                                                                         </TableRow>
                                                                     )}
                                                                     {rows.map((row) => {
@@ -4094,7 +4101,7 @@ const conceptOrder = [
                                                                             <>
                                                                                 <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                                                 <TableCell className="text-xs p-2 whitespace-normal font-semibold">{row.conceptName}</TableCell>
-                                                                                <TableCell colSpan={14}>
+                                                                                <TableCell colSpan={17}>
                                                                                     <Alert variant="destructive" className="py-2 px-3">
                                                                                         <AlertTriangle className="h-4 w-4" />
                                                                                         <AlertDescription className="flex items-center">
@@ -4123,6 +4130,7 @@ const conceptOrder = [
                                                                                 <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
                                                                                 <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                                                 <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                                <TableCell className="text-xs p-2 max-w-[150px] truncate" title={row.justification}>{row.justification}</TableCell>
                                                                                 <TableCell className="text-right p-1">
                                                                                     <div className="flex items-center justify-end gap-0">
                                                                                         {row.isEdited && !isProjected && (
@@ -4153,7 +4161,8 @@ const conceptOrder = [
                                                                             <TableCell colSpan={13} className="text-right text-xs p-2">{subtotalLabel}</TableCell>
                                                                             <TableCell className="text-xs p-2 text-right">{rows.reduce((s, r) => s + r.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                             <TableCell colSpan={2}></TableCell>
-                                                                            <TableCell colSpan={2} className="text-right text-xs p-2">{rows.reduce((s, r) => s + r.totalValue, 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                                            <TableCell className="text-right text-xs p-2">{rows.reduce((s, r) => s + r.totalValue, 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                                            <TableCell colSpan={2}></TableCell>
                                                                         </TableRow>
                                                                     )}
                                                                 </tbody>
@@ -4186,13 +4195,14 @@ const conceptOrder = [
                                                             <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
                                                             <TableCell className="text-right p-2">{visibleSettlementData.reduce((sum, row) => sum + row.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                             <TableCell colSpan={2}></TableCell>
-                                                            <TableCell className="text-right p-2" colSpan={2}>{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                            <TableCell className="text-right p-2">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                            <TableCell colSpan={2}></TableCell>
                                                         </TableRow>
                                                         </TableBody>
                                                     </>
                                                 ) : (
                                                     <TableBody>
-                                                    <TableRow><TableCell colSpan={18} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={19} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                     </TableBody>
                                                 )}
                                         </Table>
@@ -4376,8 +4386,8 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
                         <Input id="unitValue" name="unitValue" type="number" value={editedRow.unitValue} onChange={handleChange} />
                     </div>
                      <div className="space-y-2">
-                        <Label>Comentarios de justificación</Label>
-                        <Textarea placeholder="Opcional: explique por qué se realizó este cambio manual." />
+                        <Label htmlFor="justification">Comentarios de justificación</Label>
+                        <Textarea id="justification" name="justification" placeholder="Opcional: explique por qué se realizó este cambio manual." value={editedRow.justification || ''} onChange={handleChange} />
                     </div>
                 </div>
                 <DialogFooter>
@@ -4394,3 +4404,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+
+    

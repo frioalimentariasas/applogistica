@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -62,6 +63,7 @@ export interface ClientSettlementRow {
   submissionId?: string; // Para saber a qué formulario enlazar
   formType?: string; // NUEVA LÍNEA
   lotId?: string; // Para agrupar SMYL
+  justification?: string;
 }
 
 export interface ClientSettlementResult {
@@ -1746,3 +1748,6 @@ const minutesToTime = (minutes: number): string => {
 };
 
 
+
+
+    
