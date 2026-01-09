@@ -184,7 +184,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   const DayContent = ({ date, activeModifiers }: { date: Date, activeModifiers: any }) => {
     const eventForDay = events.find(e => e.date === format(date, 'yyyy-MM-dd'));
     const statusesInDay = useMemo(() => {
-      if (!eventForDay) return [];
+      if (!eventForDay || !eventForDay.clientStatuses) return [];
       const grouped: Record<string, string[]> = {};
       eventForDay.clientStatuses.forEach(cs => {
         if (!grouped[cs.status]) {
@@ -224,7 +224,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", eventForDay && 'bg-primary text-primary-foreground', isNonWorkingDay && !eventForDay && 'text-red-800')}>
                 {format(date, 'd')}
             </time>
-             {eventForDay && permissions.canManageHolidays && (
+             {eventForDay && permissions.canViewBillingCalendar && (
               <button
                 data-delete-button
                 onClick={(e) => handleDeleteClick(e, eventForDay)}
@@ -569,3 +569,5 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
+    
