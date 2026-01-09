@@ -5,12 +5,16 @@ import { firestore } from '@/lib/firebase-admin';
 import admin from 'firebase-admin';
 import { revalidatePath } from 'next/cache';
 
+export interface ClientStatus {
+  clientName: string;
+  status: 'pending' | 'in_progress' | 'completed';
+}
+
 export interface BillingEvent {
   id: string;
   date: string; // YYYY-MM-DD
-  clients: string[]; // List of client names
+  clientStatuses: ClientStatus[];
   note: string;
-  status: 'pending' | 'in_progress' | 'completed';
 }
 
 export interface BillingEventData extends Omit<BillingEvent, 'id' | 'date'> {
@@ -62,9 +66,13 @@ export async function saveBillingEvent(
   }
 
   try {
+    // Ensure date is stored as a Timestamp at the beginning of the day in UTC
+    const dateParts = event.date.split('-').map(Number);
+    const utcDate = new Date(Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2]));
+
     const eventData = {
       ...event,
-      date: admin.firestore.Timestamp.fromDate(new Date(event.date)), // Store as Timestamp
+      date: admin.firestore.Timestamp.fromDate(utcDate),
     };
 
     if (eventId) {

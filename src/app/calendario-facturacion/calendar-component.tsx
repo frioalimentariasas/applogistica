@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { DayPicker, type DateRange } from 'react-day-picker';
@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { getBillingEvents, saveBillingEvent, deleteBillingEvent, type BillingEvent } from './actions';
+import { getBillingEvents, saveBillingEvent, deleteBillingEvent, type BillingEvent, type ClientStatus } from './actions';
 import { getHolidaysInRange } from '../gestion-festivos/actions';
 import type { ClientInfo } from '@/app/actions/clients';
 
@@ -50,11 +50,14 @@ import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home,
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { cn } from '@/lib/utils';
 
+const clientStatusSchema = z.object({
+  clientName: z.string(),
+  status: z.enum(['pending', 'in_progress', 'completed']),
+});
 
 const eventSchema = z.object({
-  clients: z.array(z.string()).min(1, 'Debe seleccionar al menos un cliente.'),
+  clientStatuses: z.array(clientStatusSchema).min(1, 'Debe seleccionar al menos un cliente.'),
   note: z.string().max(300, 'La nota no puede exceder los 300 caracteres.').optional(),
-  status: z.enum(['pending', 'in_progress', 'completed'], { required_error: 'Debe seleccionar un estado.' }),
 });
 
 type EventFormValues = z.infer<typeof eventSchema>;
@@ -93,9 +96,8 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
-      clients: [],
+      clientStatuses: [],
       note: '',
-      status: 'pending',
     },
   });
 
@@ -129,15 +131,13 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   }, [currentMonth, fetchEvents, isClient]);
 
   const openEventDialog = (date: Date) => {
-    const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
-    const event = dayEvents[0];
+    const eventForDay = events.find(e => e.date === format(date, 'yyyy-MM-dd'));
     
     setSelectedDate(date);
-    setEventToEdit(event || null);
+    setEventToEdit(eventForDay || null);
     form.reset({
-      clients: event?.clients || [],
-      note: event?.note || '',
-      status: event?.status || 'pending',
+      clientStatuses: eventForDay?.clientStatuses || [],
+      note: eventForDay?.note || '',
     });
     setIsEventDialogOpen(true);
   };
@@ -182,43 +182,52 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
 
   const DayContent = ({ date, activeModifiers }: { date: Date, activeModifiers: any }) => {
-    const dayEvents = events.filter(e => e.date === format(date, 'yyyy-MM-dd'));
-    const event = dayEvents[0];
-    const statusInfo = event ? statusConfig[event.status] : null;
-
-    const allClientsSelected = event?.clients.includes('TODOS (Cualquier Cliente)');
+    const eventForDay = events.find(e => e.date === format(date, 'yyyy-MM-dd'));
+    const statusesInDay = useMemo(() => {
+      if (!eventForDay) return [];
+      const grouped: Record<string, string[]> = {};
+      eventForDay.clientStatuses.forEach(cs => {
+        if (!grouped[cs.status]) {
+          grouped[cs.status] = [];
+        }
+        grouped[cs.status].push(cs.clientName);
+      });
+      return Object.entries(grouped).map(([status, clientList]) => ({
+        status: status as keyof typeof statusConfig,
+        clients: clientList
+      }));
+    }, [eventForDay]);
 
     const isHoliday = holidays.some(holiday => isSameDay(date, holiday));
     const isDaySunday = activeModifiers?.sunday;
     const isNonWorkingDay = isHoliday || isDaySunday;
     
     const dayStyle: React.CSSProperties = {};
-    if (isNonWorkingDay && !statusInfo) {
+    if (isNonWorkingDay && !eventForDay) {
         dayStyle.backgroundColor = 'rgba(254, 226, 226, 0.7)';
     }
 
     const handleDayClick = (e: React.MouseEvent) => {
-      // Check if the click target or its parent is the delete button
       if ((e.target as HTMLElement).closest('[data-delete-button]')) {
-        return; // Don't open the edit dialog if delete was clicked
+        return;
       }
       openEventDialog(date);
     };
 
     const handleDeleteClick = (e: React.MouseEvent, eventToDelete: BillingEvent) => {
-      e.stopPropagation(); // Prevent the day click from firing
+      e.stopPropagation();
       setEventToDelete(eventToDelete);
     };
 
     return (
         <div style={dayStyle} className="relative h-full flex flex-col p-1 group" onClick={handleDayClick}>
-            <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", statusInfo && `${statusInfo.dayBg} ${statusInfo.textColor}`, isNonWorkingDay && !statusInfo && 'text-red-800', activeModifiers?.selected && 'bg-primary text-primary-foreground')}>
+            <time dateTime={date.toISOString()} className={cn("self-end flex items-center justify-center h-6 w-6 rounded-full font-semibold", eventForDay && 'bg-primary text-primary-foreground', isNonWorkingDay && !eventForDay && 'text-red-800')}>
                 {format(date, 'd')}
             </time>
-             {event && permissions.canViewBillingCalendar && (
+             {eventForDay && permissions.canManageHolidays && (
               <button
                 data-delete-button
-                onClick={(e) => handleDeleteClick(e, event)}
+                onClick={(e) => handleDeleteClick(e, eventForDay)}
                 className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 hover:bg-destructive/20"
                 aria-label="Eliminar evento"
                 title="Eliminar evento"
@@ -226,21 +235,18 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                 <Trash2 className="h-4 w-4 text-destructive" />
               </button>
             )}
-            {event && (
+            {eventForDay && (
                  <div className="flex-grow mt-1 space-y-0.5 overflow-hidden">
-                    {allClientsSelected ? (
-                        <div className="flex items-center gap-1.5">
-                            <span className={cn("block h-2 w-2 shrink-0 rounded-full", statusInfo?.color)}></span>
-                            <span className="text-xs font-bold truncate text-gray-700">TODOS LOS CLIENTES</span>
+                    {statusesInDay.map(({ status, clients }) => (
+                      <div key={status} className="flex items-start gap-1.5">
+                        <span className={cn("block h-2 w-2 shrink-0 rounded-full mt-1", statusConfig[status]?.color)}></span>
+                        <div className="flex flex-wrap gap-x-1">
+                          {clients.map((client, index) => (
+                              <span key={index} className="text-xs truncate text-gray-700">{client}{index < clients.length - 1 ? ',' : ''}</span>
+                          ))}
                         </div>
-                    ) : (
-                        event.clients.map((client, index) => (
-                            <div key={index} className="flex items-center gap-1.5">
-                                <span className={cn("block h-2 w-2 shrink-0 rounded-full", statusInfo?.color)}></span>
-                                <span className="text-xs truncate text-gray-700">{client}</span>
-                            </div>
-                        ))
-                    )}
+                      </div>
+                    ))}
                 </div>
             )}
         </div>
@@ -316,9 +322,9 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                       <span className="block h-3 w-3 rounded-full" style={{ backgroundColor: 'rgba(254, 226, 226, 0.7)' }}></span>
                       <span className="text-xs font-medium">Dominical y/o Festivo</span>
                     </div>
-                    {Object.entries(statusConfig).map(([key, { label, dayBg }]) => (
+                    {Object.entries(statusConfig).map(([key, { label, color }]) => (
                         <div key={key} className="flex items-center gap-2">
-                            <span className={cn('block h-3 w-3 rounded-full', dayBg)}></span>
+                            <span className={cn('block h-3 w-3 rounded-full', color)}></span>
                             <span className="text-xs font-medium">{label}</span>
                         </div>
                     ))}
@@ -370,10 +376,24 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
     clients: ClientInfo[]
 }) {
     const { formState: { isSubmitting } } = form;
+    const { fields, append, remove, replace } = useFieldArray({
+      control: form.control,
+      name: "clientStatuses",
+    });
+
+    const watchedClients = useMemo(() => fields.map(f => f.clientName), [fields]);
+
+    const handleClientSelection = (selectedClients: string[]) => {
+      const newClientStatuses = selectedClients.map(clientName => {
+        const existing = fields.find(f => f.clientName === clientName);
+        return existing || { clientName, status: 'pending' as const };
+      });
+      replace(newClientStatuses);
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>{eventToEdit ? 'Editar' : 'Programar'} Facturación</DialogTitle>
                     <DialogDescription>
@@ -381,73 +401,64 @@ function EventDialog({ isOpen, onOpenChange, onSubmit, form, date, eventToEdit, 
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                            control={form.control}
-                            name="clients"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Cliente(s)</FormLabel>
-                                <ClientMultiSelectDialog
-                                    options={clients.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
-                                    selected={field.value}
-                                    onChange={field.onChange}
-                                    placeholder="Seleccione clientes..."
-                                />
-                                <FormMessage />
-                                </FormItem>
-                            )}
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <ClientMultiSelectDialog
+                            options={clients.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                            selected={watchedClients}
+                            onChange={handleClientSelection}
+                            placeholder="Seleccione clientes..."
                         />
+                        <FormMessage>{form.formState.errors.clientStatuses?.message}</FormMessage>
+
+                        {fields.length > 0 && (
+                          <ScrollArea className="h-60 border rounded-md p-4">
+                            <div className="space-y-4">
+                            {fields.map((field, index) => (
+                                <div key={field.id} className="flex items-center justify-between gap-4">
+                                  <Label className="flex-1 truncate" title={field.clientName}>{field.clientName}</Label>
+                                  <FormField
+                                    control={form.control}
+                                    name={`clientStatuses.${index}.status`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormControl>
+                                          <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-2">
+                                            {Object.entries(statusConfig).map(([key, { color }]) => (
+                                              <FormItem key={key} className="flex items-center">
+                                                <FormControl>
+                                                  <RadioGroupItem value={key} className={cn('h-6 w-6 border-2', field.value === key && color)} />
+                                                </FormControl>
+                                              </FormItem>
+                                            ))}
+                                          </RadioGroup>
+                                        </FormControl>
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                            ))}
+                            </div>
+                          </ScrollArea>
+                        )}
                         <FormField
                             control={form.control}
                             name="note"
                             render={({ field }) => (
                                 <FormItem>
-                                <FormLabel>Nota</FormLabel>
+                                <FormLabel>Nota Adicional</FormLabel>
                                 <FormControl>
-                                    <Textarea placeholder="Añadir una nota o descripción..." {...field} />
+                                    <Textarea placeholder="Añadir una nota o descripción para este evento..." {...field} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>
                             )}
                         />
-                        <FormField
-                            control={form.control}
-                            name="status"
-                            render={({ field }) => (
-                                <FormItem className="space-y-3">
-                                <FormLabel>Estado</FormLabel>
-                                <FormControl>
-                                    <RadioGroup
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                    className="flex flex-col space-y-1"
-                                    >
-                                    {Object.entries(statusConfig).map(([key, { label, color }]) => (
-                                        <FormItem key={key} className="flex items-center space-x-3 space-y-0">
-                                        <FormControl>
-                                            <RadioGroupItem value={key} />
-                                        </FormControl>
-                                        <Label className="font-normal flex items-center gap-2">
-                                            <span className={`block h-3 w-3 rounded-full ${color}`}></span>
-                                            {label}
-                                        </Label>
-                                        </FormItem>
-                                    ))}
-                                    </RadioGroup>
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end pt-4">
-                            <div className="flex gap-2">
-                                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                                <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Guardar
-                                </Button>
-                            </div>
+                         <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Guardar Evento
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>
@@ -470,42 +481,28 @@ function ClientMultiSelectDialog({
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
 
-  const allClientOptions = React.useMemo(() => [
-    { value: 'TODOS (Cualquier Cliente)', label: 'TODOS (Cualquier Cliente)' }, 
-    ...options
-  ], [options]);
-
-  const filteredOptions = React.useMemo(() => {
-    if (!search) return allClientOptions;
-    return allClientOptions.filter((o) =>
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    return options.filter((o) =>
       o.label.toLowerCase().includes(search.toLowerCase())
     );
-  }, [search, allClientOptions]);
+  }, [search, options]);
 
   const handleSelect = (valueToToggle: string) => {
-    const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
-    
-    if (isTodos) {
-      onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
-    } else {
       const newSelection = selected.includes(valueToToggle)
         ? selected.filter(s => s !== valueToToggle)
-        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
+        : [...selected, valueToToggle];
       onChange(newSelection);
-    }
   };
   
-  const isAllSelected = selected.length === options.length && !selected.includes('TODOS (Cualquier Cliente)');
-
   const handleSelectAll = (isChecked: boolean) => {
     onChange(isChecked ? options.map(o => o.value) : []);
   };
 
   const getButtonLabel = () => {
     if (selected.length === 0) return placeholder;
-    if (selected.includes('TODOS (Cualquier Cliente)')) return 'TODOS (Cualquier Cliente)';
     if (selected.length === 1) return selected[0];
-    if (isAllSelected) return "Todos los clientes seleccionados";
+    if (selected.length === options.length) return "Todos los clientes seleccionados";
     return `${selected.length} clientes seleccionados`;
   };
   
@@ -535,10 +532,18 @@ function ClientMultiSelectDialog({
             />
             <ScrollArea className="h-60">
                 <div className="space-y-1 pr-4">
+                  <div className="flex items-center space-x-3 p-2 rounded-md hover:bg-accent border-b">
+                    <Checkbox
+                      id="select-all-clients-dialog"
+                      checked={selected.length === options.length}
+                      onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                    />
+                    <Label htmlFor="select-all-clients-dialog" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
+                  </div>
                   {filteredOptions.map((option) => (
                     <div
                       key={option.value}
-                      className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
+                      className="flex items-center space-x-3 p-2 rounded-md hover:bg-accent"
                     >
                       <Checkbox
                         id={`client-${option.value}`}
