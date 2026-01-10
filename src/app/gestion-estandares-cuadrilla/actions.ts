@@ -63,6 +63,30 @@ export async function addPerformanceStandard(data: StandardData): Promise<{ succ
     const batch = firestore.batch();
     const newStandards: PerformanceStandard[] = [];
     
+    // --- START: Duplicate check logic ---
+    const standardsRef = firestore.collection('performance_standards');
+    for (const clientName of clientNames) {
+        for (const range of ranges) {
+             const query = standardsRef
+                .where('clientName', '==', clientName)
+                .where('operationType', '==', operationType)
+                .where('productType', '==', productType)
+                .where('minTons', '==', Number(range.minTons))
+                .where('maxTons', '==', Number(range.maxTons));
+
+            const existingSnapshot = await query.get();
+            if (!existingSnapshot.empty) {
+                // An exact duplicate was found for this combination
+                return { 
+                    success: false, 
+                    message: `Ya existe un estándar para "${clientName}" con el rango de ${range.minTons}-${range.maxTons} Toneladas y los mismos tipos de operación/producto. No se crearon nuevos estándares.`
+                };
+            }
+        }
+    }
+    // --- END: Duplicate check logic ---
+
+
     for (const clientName of clientNames) {
         for (const range of ranges) {
             const docRef = firestore.collection('performance_standards').doc();
@@ -233,3 +257,4 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     
     return null; // No matching standard found
 }
+

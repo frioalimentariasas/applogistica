@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -13,7 +14,7 @@ import { addPerformanceStandard, updatePerformanceStandard, deleteMultipleStanda
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ChevronsUpDown, ShieldAlert, Settings, Search } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ChevronsUpDown, ShieldAlert, Settings, Search, Copy } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -32,6 +33,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import type { ClientInfo } from '@/app/actions/clients';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 
 const tonnageRangeSchema = z.object({
@@ -114,6 +117,8 @@ export default function StandardManagementComponent({ initialClients, initialSta
   
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
+  const formCardRef = useRef<HTMLDivElement>(null);
+
 
   const form = useForm<StandardFormValues>({
     resolver: zodResolver(standardSchema),
@@ -145,6 +150,10 @@ export default function StandardManagementComponent({ initialClients, initialSta
           baseMinutes: undefined
       }
   });
+
+  const clientsWithStandards = useMemo(() => {
+    return new Set(standards.map(s => s.clientName));
+  }, [standards]);
   
   const clientOptions: ClientInfo[] = useMemo(() => [
     { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
@@ -252,6 +261,23 @@ export default function StandardManagementComponent({ initialClients, initialSta
     editForm.reset(standard);
   };
 
+  const handleClone = (standard: PerformanceStandard) => {
+    form.reset({
+      clientNames: [],
+      operationType: standard.operationType,
+      productType: standard.productType,
+      description: standard.description,
+      ranges: standard.minTons && standard.maxTons && standard.baseMinutes
+        ? [{ minTons: standard.minTons, maxTons: standard.maxTons, baseMinutes: standard.baseMinutes }]
+        : [],
+    });
+    toast({
+      title: 'Registro Clonado',
+      description: 'Datos cargados en el formulario. Seleccione un nuevo cliente.',
+    });
+    formCardRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const handleRowSelect = (id: string, checked: boolean) => {
     const newSet = new Set(selectedIds);
     if (checked) newSet.add(id); else newSet.delete(id);
@@ -313,7 +339,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
         </header>
 
         <div className="space-y-8">
-             <Card>
+             <Card ref={formCardRef}>
                 <CardHeader>
                     <CardTitle>Nuevo Estándar</CardTitle>
                     <CardDescription>Cree una o más reglas de tiempo para una combinación de operación.</CardDescription>
@@ -335,10 +361,12 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                     </Button>
                                                 </DialogTrigger>
-                                                <DialogContent className="sm:max-w-[425px]">
+                                                <DialogContent className="sm:max-w-md">
                                                     <DialogHeader>
                                                         <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
-                                                        <DialogDescription>Seleccione los clientes para este estándar.</DialogDescription>
+                                                        <DialogDescription>
+                                                          Seleccione los clientes para este estándar. Los clientes sin estándares configurados se muestran en naranja.
+                                                        </DialogDescription>
                                                     </DialogHeader>
                                                     <Input
                                                         placeholder="Buscar cliente..."
@@ -358,7 +386,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                                                 />
                                                                 <Label htmlFor="select-all-add" className="w-full cursor-pointer font-semibold">TODOS (Cualquier Cliente)</Label>
                                                             </div>
-                                                            {initialClients.map((client) => (
+                                                            {filteredClients.filter(c => c.id !== 'TODOS').map((client) => (
                                                                 <div key={client.id} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
                                                                     <Checkbox
                                                                         id={`client-${client.id}`}
@@ -371,7 +399,8 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                                                         }}
                                                                          disabled={field.value.includes('TODOS (Cualquier Cliente)')}
                                                                     />
-                                                                    <Label htmlFor={`client-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
+                                                                    <Label htmlFor={`client-${client.id}`} className={cn("w-full cursor-pointer", !clientsWithStandards.has(client.razonSocial) && "text-orange-600 font-medium")}>{client.razonSocial}</Label>
+                                                                    {!clientsWithStandards.has(client.razonSocial) && <Badge variant="outline" className="text-orange-600 border-orange-400">Nuevo</Badge>}
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -487,7 +516,10 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                             <TableCell>{s.minTons} - {s.maxTons}</TableCell>
                                             <TableCell>{s.baseMinutes} min</TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => openEditDialog(s)}><Edit className="h-4 w-4 text-blue-600" /></Button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button variant="ghost" size="icon" title="Clonar" onClick={() => handleClone(s)}><Copy className="h-4 w-4 text-gray-600" /></Button>
+                                                    <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(s)}><Edit className="h-4 w-4 text-blue-600" /></Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                         ))
