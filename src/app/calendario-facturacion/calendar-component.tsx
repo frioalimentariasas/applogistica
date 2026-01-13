@@ -8,7 +8,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { DayPicker, type DateRange } from 'react-day-picker';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameDay, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
@@ -187,7 +187,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   };
 
 
-  const DayContent = ({ date, activeModifiers }: { date: Date, activeModifiers: any }) => {
+  const DayContent = ({ date }: { date: Date }) => {
     const eventForDay = events.find(e => e.date === format(date, 'yyyy-MM-dd'));
     const statusesInDay = useMemo(() => {
       if (!eventForDay || !eventForDay.clientStatuses) return [];
@@ -212,7 +212,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
     }, [eventForDay]);
 
     const isHoliday = holidays.some(holiday => isSameDay(date, holiday));
-    const isDaySunday = activeModifiers?.sunday;
+    const isDaySunday = getDay(date) === 0;
     const isNonWorkingDay = isHoliday || isDaySunday;
     
     const dayStyle: React.CSSProperties = {};
