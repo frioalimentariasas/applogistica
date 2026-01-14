@@ -41,6 +41,8 @@ export interface FixedTimeConfig {
     weekdayEndTime?: string;
     saturdayStartTime?: string;
     saturdayEndTime?: string;
+    sundayHolidayStartTime?: string;
+    sundayHolidayEndTime?: string;
     dayShiftEndTime?: string;
 }
 
@@ -335,7 +337,7 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         weekdayDayShiftEnd: data.weekdayDayShiftEnd || data.dayShiftEnd,
         saturdayDayShiftStart: data.saturdayDayShiftStart,
         saturdayDayShiftEnd: data.saturdayDayShiftEnd,
-
+        
         tariffRanges: Array.isArray(data.tariffRanges) ? data.tariffRanges : [],
         tariffRangesTemperature: Array.isArray(data.tariffRangesTemperature) ? data.tariffRangesTemperature : [],
         specificTariffs: Array.isArray(data.specificTariffs) ? data.specificTariffs : [],
