@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -119,11 +118,12 @@ const conceptSchema = z.object({
   value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser >= 0").optional(),
   billingPeriod: z.enum(['DIARIO', 'QUINCENAL', 'MENSUAL']).optional(),
   
+  // New granular shift times
   weekdayDayShiftStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
   weekdayDayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
   saturdayDayShiftStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
   saturdayDayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
-
+  
   tariffRanges: z.array(tariffRangeSchema).optional(),
   tariffRangesTemperature: z.array(temperatureTariffRangeSchema).optional(),
   specificTariffs: z.array(specificTariffSchema).optional(),
@@ -1180,12 +1180,3 @@ function PedidoTypeMultiSelect({
   );
 }
 
-
-
-
-    
-
-
-
-
-  
