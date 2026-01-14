@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -468,6 +467,7 @@ async function generateSmylLiquidation(
                   totalValue: freezingTotal,
                   placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Servicio Logístico', 
                   pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialReception.pallets,
+                  justification: '',
               });
   
               allLotRows.push({
@@ -479,6 +479,7 @@ async function generateSmylLiquidation(
                   quantity: 1, unitOfMeasure: 'UNIDAD', unitValue: manipulationTotal, totalValue: manipulationTotal,
                   placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Servicio Logístico', 
                   pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: 0,
+                  justification: '',
               });
           }
           
@@ -500,7 +501,8 @@ async function generateSmylLiquidation(
                       unitValue: dailyPalletRate,
                       totalValue: day.finalBalance * dailyPalletRate,
                       placa: '', container: initialReception.container, camara: 'CO', operacionLogistica: 'Servicio Congelación',
-                      pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: day.finalBalance
+                      pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: day.finalBalance,
+                      justification: '',
                   });
               }
           }
@@ -629,6 +631,7 @@ async function processCargueAlmacenamiento(
                                totalValue: valorTotalConceptoPrincipal,
                                horaInicio: recepcion.formData.horaInicio,
                                horaFin: recepcion.formData.horaFin,
+                               justification: '',
                            });
                        } else {
                            const totalCongelacion = totalPaletasRecepcion * congelacionTariff;
@@ -652,6 +655,7 @@ async function processCargueAlmacenamiento(
                                totalValue: totalCongelacion,
                                horaInicio: recepcion.formData.horaInicio,
                                horaFin: recepcion.formData.horaFin,
+                               justification: '',
                            });
                            
                            settlementRows.push({
@@ -672,6 +676,7 @@ async function processCargueAlmacenamiento(
                                totalValue: totalManipulacion,
                                horaInicio: recepcion.formData.horaInicio,
                                horaFin: recepcion.formData.horaFin,
+                               justification: '',
                            });
                        }
                         processedCrossDockLots.add(loteId);
@@ -731,6 +736,7 @@ async function processAvicolaMaquila(
                 totalValue: quantity * (concept.value || 0),
                 horaInicio: recepcion.formData.horaInicio,
                 horaFin: recepcion.formData.horaFin,
+                justification: '',
             });
         }
     }
@@ -868,6 +874,7 @@ export async function generateClientSettlement(criteria: {
                     totalValue: unitValue,
                     horaInicio: opData.startTime,
                     horaFin: op.data.endTime,
+                    justification: '',
                 });
             }
         }
@@ -963,7 +970,8 @@ export async function generateClientSettlement(criteria: {
                     quantity: 0,
                     unitOfMeasure: concept.unitOfMeasure,
                     unitValue: 0,
-                    totalValue: 0
+                    totalValue: 0,
+                    justification: '',
                 });
                 continue; 
             }
@@ -1089,6 +1097,7 @@ export async function generateClientSettlement(criteria: {
                 totalValue: quantity * unitValue,
                 horaInicio: submission.formData.horaInicio,
                 horaFin: submission.formData.horaFin,
+                justification: '',
             });
         }
     }
@@ -1128,6 +1137,7 @@ export async function generateClientSettlement(criteria: {
                         totalValue: quantity * (concept.value || 0),
                         horaInicio: op.data.formData.horaInicio,
                         horaFin: op.data.formData.horaFin,
+                        justification: '',
                     });
                 }
             }
@@ -1229,6 +1239,7 @@ export async function generateClientSettlement(criteria: {
                                 numeroPersonas: numPersonas, unitOfMeasure: diurnaTariff.unit, unitValue: diurnaTariff.value || 0,
                                 totalValue: quantityHours * (diurnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(baseStart, 'HH:mm'), horaFin: format(addMinutes(baseStart, totalDiurnoMinutes), 'HH:mm'),
+                                justification: '',
                             });
                         }
                         if (totalNocturnoMinutes > 0 && nocturnaTariff) {
@@ -1241,6 +1252,7 @@ export async function generateClientSettlement(criteria: {
                                 numeroPersonas: numPersonas, unitOfMeasure: nocturnaTariff.unit, unitValue: nocturnaTariff.value || 0,
                                 totalValue: quantityHours * (nocturnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: format(addMinutes(dayShiftEnd, totalNocturnoMinutes), 'HH:mm'),
+                                justification: '',
                             });
                         }
                     }
@@ -1264,8 +1276,8 @@ export async function generateClientSettlement(criteria: {
                 roles.forEach((role: any) => {
                     const numPersonas = role.numPersonas;
                     if (numPersonas > 0) {
-                        const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
-                        const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
+                        const diurnaTariff = concept.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA"));
+                        const nocturnaTariff = concept.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA"));
 
                         const totalDiurnoMinutes = Math.max(0, differenceInMinutes(Math.min(end.getTime(), dayShiftEnd.getTime()), start.getTime()));
                         const totalNocturnoMinutes = Math.max(0, differenceInMinutes(end, Math.max(start.getTime(), dayShiftEnd.getTime())));
@@ -1280,6 +1292,7 @@ export async function generateClientSettlement(criteria: {
                                 quantity: quantity, numeroPersonas: numPersonas, unitOfMeasure: diurnaTariff.unit,
                                 unitValue: diurnaTariff.value || 0, totalValue: quantity * (diurnaTariff.value || 0) * numPersonas,
                                 horaInicio: startTime, horaFin: format(addMinutes(start, totalDiurnoMinutes), 'HH:mm'),
+                                justification: '',
                             });
                         }
                         if (totalNocturnoMinutes > 0 && nocturnaTariff) {
@@ -1292,6 +1305,7 @@ export async function generateClientSettlement(criteria: {
                                 quantity: quantity, numeroPersonas: numPersonas, unitOfMeasure: nocturnaTariff.unit,
                                 unitValue: nocturnaTariff.value || 0, totalValue: quantity * (nocturnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: endTime,
+                                justification: '',
                             });
                         }
                     }
@@ -1342,6 +1356,7 @@ export async function generateClientSettlement(criteria: {
                             horaInicio: opData.details?.startTime || 'N/A',
                             horaFin: opData.details?.endTime || 'N/A',
                             numeroPersonas: numeroPersonasParaReporte,
+                            justification: '',
                         });
                     }
                 });
@@ -1371,6 +1386,7 @@ export async function generateClientSettlement(criteria: {
                         horaInicio: opData.details?.startTime || 'N/A',
                         horaFin: opData.details?.endTime || 'N/A',
                         numeroPersonas: numPersonas,
+                        justification: '',
                     });
                 }
             } else if (concept.tariffType === 'UNICA') {
@@ -1441,6 +1457,7 @@ export async function generateClientSettlement(criteria: {
                     horaInicio: horaInicio,
                     horaFin: horaFin,
                     numeroPersonas: numeroPersonasParaReporte,
+                    justification: '',
                 });
             }
         }
@@ -1508,6 +1525,7 @@ export async function generateClientSettlement(criteria: {
                             unitOfMeasure: concept.unitOfMeasure,
                             unitValue: concept.value,
                             totalValue: balance * concept.value,
+                            justification: '',
                         });
                     }
                 }
@@ -1540,6 +1558,7 @@ export async function generateClientSettlement(criteria: {
                   unitOfMeasure: concept.unitOfMeasure,
                   unitValue: concept.value,
                   totalValue: totalPalletsForDay * concept.value,
+                  justification: '',
                 });
               }
             }
