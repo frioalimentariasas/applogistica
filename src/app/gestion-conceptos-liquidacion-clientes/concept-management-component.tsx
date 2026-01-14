@@ -82,6 +82,8 @@ const fixedTimeConfigSchema = z.object({
     weekdayEndTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
     saturdayStartTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
     saturdayEndTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
+    sundayHolidayStartTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
+    sundayHolidayEndTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
     dayShiftEndTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
 });
 
@@ -214,6 +216,8 @@ const addFormDefaultValues: ConceptFormValues = {
     weekdayEndTime: "22:00",
     saturdayStartTime: "12:00",
     saturdayEndTime: "17:00",
+    sundayHolidayStartTime: "07:00",
+    sundayHolidayEndTime: "13:00",
     dayShiftEndTime: "19:00",
   },
 };
@@ -324,7 +328,20 @@ export default function ConceptManagementClientComponent({ initialClients, initi
 
   const openEditDialog = (concept: ClientBillingConcept) => {
     setConceptToEdit(concept);
-    editForm.reset(concept);
+    const formValues: ConceptFormValues = {
+        ...addFormDefaultValues, // Start with a fully defined structure
+        ...concept,
+        filterByArticleCodes: concept.filterByArticleCodes || '',
+        weekdayDayShiftStart: concept.weekdayDayShiftStart || '07:00',
+        weekdayDayShiftEnd: concept.weekdayDayShiftEnd || '19:00',
+        saturdayDayShiftStart: concept.saturdayDayShiftStart || '07:00',
+        saturdayDayShiftEnd: concept.saturdayDayShiftEnd || '13:00',
+        fixedTimeConfig: {
+          ...addFormDefaultValues.fixedTimeConfig,
+          ...concept.fixedTimeConfig,
+        }
+    };
+    editForm.reset(formValues);
   };
 
   const handleRowSelect = (id: string, checked: boolean) => {
@@ -773,7 +790,7 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
                     <>
                       <FormField control={form.control} name="filterByArticleCodes" render={({ field }) => (<FormItem>
                           <FormLabel>Filtrar por Códigos de Artículo (Opcional)</FormLabel>
-                          <FormControl><Input placeholder="Ej: 03, 10-A, 25B" {...field} /></FormControl>
+                          <FormControl><Input placeholder="Ej: 03, 10-A, 25B" {...field} value={field.value ?? ''} /></FormControl>
                           <FormDescription>Separe múltiples códigos con comas.</FormDescription>
                           <FormMessage />
                       </FormItem>)}/>
@@ -806,7 +823,7 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
 
           {watchedTariffType === 'UNICA' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField control={form.control} name="value" render={({ field }) => (<FormItem><FormLabel>Tarifa Única (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                  <FormField control={form.control} name="value" render={({ field }) => (<FormItem><FormLabel>Tarifa Única (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
                   {(watchedConceptName === 'IN-HOUSE INSPECTOR ZFPC' || watchedConceptName === 'ALQUILER IMPRESORA ETIQUETADO' || watchedConceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') && (
                       <FormField control={form.control} name="billingPeriod" render={({ field }) => (<FormItem><FormLabel>Período de Facturación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="DIARIO">Diario</SelectItem><SelectItem value="QUINCENAL">Quincenal</SelectItem><SelectItem value="MENSUAL">Mensual</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                   )}
@@ -818,12 +835,12 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
                   <div className="space-y-2">
                       <FormLabel>Definición de Turno Diurno</FormLabel>
                       <div className="grid grid-cols-2 gap-4 border-b pb-4">
-                          <FormField control={form.control} name="weekdayDayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio L-V</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="weekdayDayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin L-V</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="weekdayDayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio L-V</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="weekdayDayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin L-V</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                       </div>
                        <div className="grid grid-cols-2 gap-4 pt-2">
-                          <FormField control={form.control} name="saturdayDayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio Sáb</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="saturdayDayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin Sáb</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="saturdayDayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio Sáb</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="saturdayDayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin Sáb</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                       </div>
                       <FormDescription>Lo que esté fuera del rango de L-V será "Nocturno". Fuera del rango de Sábado o en Domingo será "Extra".</FormDescription>
                   </div>
@@ -874,12 +891,14 @@ function ConceptFormBody(props: { form: any; clientOptions: ClientInfo[]; standa
                       <div className="space-y-4 mb-4 pb-4 border-b">
                           <FormLabel>Configuración de Horarios Fijos</FormLabel>
                           <div className="grid grid-cols-2 gap-4">
-                              <FormField control={form.control} name="fixedTimeConfig.weekdayStartTime" render={({ field }) => (<FormItem><FormLabel>Inicio L-V</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                              <FormField control={form.control} name="fixedTimeConfig.weekdayEndTime" render={({ field }) => (<FormItem><FormLabel>Fin L-V</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                              <FormField control={form.control} name="fixedTimeConfig.saturdayStartTime" render={({ field }) => (<FormItem><FormLabel>Inicio Sáb.</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                              <FormField control={form.control} name="fixedTimeConfig.saturdayEndTime" render={({ field }) => (<FormItem><FormLabel>Fin Sáb.</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                              <FormField control={form.control} name="fixedTimeConfig.weekdayStartTime" render={({ field }) => (<FormItem><FormLabel>Inicio L-V</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                              <FormField control={form.control} name="fixedTimeConfig.weekdayEndTime" render={({ field }) => (<FormItem><FormLabel>Fin L-V</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                              <FormField control={form.control} name="fixedTimeConfig.saturdayStartTime" render={({ field }) => (<FormItem><FormLabel>Inicio Sáb.</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                              <FormField control={form.control} name="fixedTimeConfig.saturdayEndTime" render={({ field }) => (<FormItem><FormLabel>Fin Sáb.</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                              <FormField control={form.control} name="fixedTimeConfig.sundayHolidayStartTime" render={({ field }) => (<FormItem><FormLabel>Inicio Dom/Fes</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                              <FormField control={form.control} name="fixedTimeConfig.sundayHolidayEndTime" render={({ field }) => (<FormItem><FormLabel>Fin Dom/Fes</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                           </div>
-                          <FormField control={form.control} name="fixedTimeConfig.dayShiftEndTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormDescription>Para calcular horas nocturnas.</FormDescription><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="fixedTimeConfig.dayShiftEndTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} /></FormControl><FormDescription>Para calcular horas nocturnas.</FormDescription><FormMessage /></FormItem>)} />
                       </div>
                   )}
                   <FormLabel>Tarifas Específicas</FormLabel>
@@ -1003,12 +1022,15 @@ function ClientMultiSelectDialog({
   const handleSelect = (valueToToggle: string) => {
     const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
     
+    // If "TODOS" is clicked
     if (isTodos) {
+      // If it's already selected, unselect it. Otherwise, select only it.
       onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
     } else {
+      // If a specific client is clicked
       const newSelection = selected.includes(valueToToggle)
-        ? selected.filter(s => s !== valueToToggle)
-        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
+        ? selected.filter(s => s !== valueToToggle) // Unselect it
+        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle]; // Select it and remove "TODOS"
       onChange(newSelection);
     }
   };
@@ -1164,3 +1186,6 @@ function PedidoTypeMultiSelect({
     
 
 
+
+
+  

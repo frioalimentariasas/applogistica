@@ -5,13 +5,15 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { getDaysInMonth, startOfDay, endOfDay, parseISO, differenceInHours, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, isEqual } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, isEqual } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
 import { getSmylLotAssistantReport, type AssistantReport } from '@/app/smyl-liquidation-assistant/actions';
 import { getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
+import { getHolidaysInRange } from '@/app/gestion-festivos/actions';
+
 const assistantConcepts = [
     'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
     'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
@@ -373,11 +375,15 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
             throw new Error(`La configuración para el concepto "${concept}" no fue encontrada.`);
         }
 
-        const { weekdayStartTime, weekdayEndTime, saturdayStartTime, saturdayEndTime, dayShiftEndTime } = conceptConfig.fixedTimeConfig;
+        const { weekdayStartTime, weekdayEndTime, saturdayStartTime, saturdayEndTime, sundayHolidayStartTime, sundayHolidayEndTime, dayShiftEndTime } = conceptConfig.fixedTimeConfig;
 
         if (!weekdayStartTime || !weekdayEndTime || !saturdayStartTime || !saturdayEndTime || !dayShiftEndTime) {
             throw new Error(`La configuración de horarios para "${concept}" está incompleta.`);
         }
+        
+        const holidaysInRange = await getHolidaysInRange(dates[0], dates[dates.length - 1]);
+        const holidaySet = new Set(holidaysInRange.map(h => h.date));
+
 
         const timeToMinutes = (time: string): number => {
             const [hours, minutes] = time.split(':').map(Number);
@@ -393,12 +399,20 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         for (const dateString of dates) {
             const localDate = new Date(dateString + 'T05:00:00.000Z');
             const dayOfWeek = getDay(localDate);
+            const isSundayOrHoliday = dayOfWeek === 0 || holidaySet.has(dateString);
 
-            if (isSunday(localDate)) continue;
+            let baseStartTimeStr, baseEndTimeStr: string;
 
-            const isSaturday = dayOfWeek === 6;
-            const baseStartTimeStr = isSaturday ? saturdayStartTime : weekdayStartTime;
-            const baseEndTimeStr = isSaturday ? saturdayEndTime : weekdayEndTime;
+            if (isSundayOrHoliday) {
+                baseStartTimeStr = sundayHolidayStartTime || weekdayStartTime; // Fallback
+                baseEndTimeStr = sundayHolidayEndTime || weekdayEndTime; // Fallback
+            } else if (dayOfWeek === 6) { // Saturday
+                baseStartTimeStr = saturdayStartTime;
+                baseEndTimeStr = saturdayEndTime;
+            } else { // Weekday
+                baseStartTimeStr = weekdayStartTime;
+                baseEndTimeStr = weekdayEndTime;
+            }
             
             const dayStringForMap = format(localDate, 'yyyy-MM-dd');
             const excedentHours = excedentesMap.get(dayStringForMap) || 0;
@@ -412,16 +426,26 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
                     const nocturnoStartPoint = dayShiftEndMinutes;
-
+                    
                     const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
                     const totalNocturnoMinutes = Math.max(0, finalEndMinutes - nocturnoStartPoint);
                     
                     const tariffs = [];
-                    if (totalDiurnoMinutes > 0) {
-                        tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                    let diurnaTariff, nocturnaTariff;
+
+                    if (isSundayOrHoliday) {
+                        diurnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA DOMINGO Y FESTIVO"));
+                        nocturnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA DOMINGO Y FESTIVO"));
+                    } else {
+                        diurnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA") && !t.name.includes("DOMINGO"));
+                        nocturnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA") && !t.name.includes("DOMINGO"));
                     }
-                    if (totalNocturnoMinutes > 0) {
-                         tariffs.push({ tariffId: role.nocturnaId, quantity: totalNocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                    
+                    if (totalDiurnoMinutes > 0 && diurnaTariff) {
+                        tariffs.push({ tariffId: diurnaTariff.id, quantity: totalDiurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                    }
+                    if (totalNocturnoMinutes > 0 && nocturnaTariff) {
+                         tariffs.push({ tariffId: nocturnaTariff.id, quantity: totalNocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
                     }
                     
                     return tariffs;
@@ -643,28 +667,45 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
              const allConcepts = await getClientBillingConcepts();
             const conceptConfig = allConcepts.find(c => c.conceptName === data.concept);
             if (!conceptConfig || !conceptConfig.fixedTimeConfig) throw new Error("Config for TIEMPO EXTRA FRIOAL not found");
-            const { dayShiftEndTime } = conceptConfig.fixedTimeConfig;
-            if (!dayShiftEndTime || !data.details?.startTime || !data.details?.endTime) throw new Error("Missing times for TIEMPO EXTRA FRIOAL calculation");
+            const { dayShiftEndTime, sundayHolidayStartTime, sundayHolidayEndTime } = conceptConfig.fixedTimeConfig;
+            if (!dayShiftEndTime || !data.details?.startTime || !data.details?.endTime || !data.operationDate) throw new Error("Missing times for TIEMPO EXTRA FRIOAL calculation");
+
+            const opDate = new Date(data.operationDate);
+            const isSundayOrHoliday = opDate.getUTCDay() === 0 || (await getHolidaysInRange(format(opDate, 'yyyy-MM-dd'), format(opDate, 'yyyy-MM-dd'))).length > 0;
 
             const timeToMinutes = (time: string): number => { const [hours, minutes] = time.split(':').map(Number); return hours * 60 + minutes; };
-            const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime);
             
             const startMinutes = timeToMinutes(data.details.startTime);
             let endMinutes = timeToMinutes(data.details.endTime);
             if (endMinutes <= startMinutes) {
                 endMinutes += 24 * 60; // Add 24 hours in minutes if it's an overnight shift
             }
+            
+            let diurnoStartMinutes, diurnoEndMinutes: number;
+            if(isSundayOrHoliday && sundayHolidayStartTime && sundayHolidayEndTime) {
+                diurnoStartMinutes = timeToMinutes(sundayHolidayStartTime);
+                diurnoEndMinutes = timeToMinutes(sundayHolidayEndTime);
+            } else {
+                 diurnoStartMinutes = timeToMinutes(conceptConfig.fixedTimeConfig.weekdayStartTime || "00:00");
+                 diurnoEndMinutes = timeToMinutes(dayShiftEndTime);
+            }
 
-            const nocturnoStartPoint = dayShiftEndMinutes;
+            const totalDiurnoMinutes = Math.max(0, Math.min(endMinutes, diurnoEndMinutes) - Math.max(startMinutes, diurnoStartMinutes));
+            const totalNocturnoMinutes = Math.max(0, endMinutes - Math.max(startMinutes, diurnoEndMinutes));
 
-            const totalDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
-            const totalNocturnoMinutes = Math.max(0, endMinutes - nocturnoStartPoint);
 
             const roles = data.bulkRoles || [];
 
             finalSpecificTariffs = roles.flatMap(role => {
-                 const diurnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA"));
-                const nocturnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA"));
+                let diurnaTariff, nocturnaTariff: SpecificTariff | undefined;
+
+                if (isSundayOrHoliday) {
+                    diurnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA DOMINGO Y FESTIVO"));
+                    nocturnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA DOMINGO Y FESTIVO"));
+                } else {
+                    diurnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA") && !t.name.includes("DOMINGO"));
+                    nocturnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA") && !t.name.includes("DOMINGO"));
+                }
 
                 const tariffs = [];
                  if (totalDiurnoMinutes > 0 && diurnaTariff) {
@@ -1313,3 +1354,5 @@ export async function uploadInspeccionOperations(
     return { success: false, message: errorMessage, createdCount: 0, errorCount: rows.length, errors: [errorMessage], extraHoursData: [] };
   }
 }
+
+  
