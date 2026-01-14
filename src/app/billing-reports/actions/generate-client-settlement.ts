@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -11,6 +12,7 @@ import { getConsolidatedMovementReport } from '@/app/actions/consolidated-moveme
 import { processTunelCongelacionData } from '@/lib/report-utils';
 import { getSmylLotAssistantReport, type AssistantReport } from '@/app/smyl-liquidation-assistant/actions';
 import { getDetailedInventoryForExport } from '@/app/actions/inventory-report';
+import { getHolidaysInRange } from '@/app/gestion-festivos/actions';
 
 
 export async function getAllManualClientOperations(): Promise<any[]> {
@@ -782,6 +784,8 @@ export async function generateClientSettlement(criteria: {
     
     const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
     const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
+    const holidaysInRange = await getHolidaysInRange(startDate, endDate);
+    const holidaySet = new Set(holidaysInRange.map(h => h.date));
     
     const allSubmissionsSnapshot = await firestore.collection('submissions')
         .where('formData.fecha', '<=', serverQueryEndDate)
@@ -1262,9 +1266,14 @@ export async function generateClientSettlement(criteria: {
                 const { startTime, endTime } = opData.details || {};
                 if (!startTime || !endTime) continue;
                 
-                const { dayShiftEndTime } = concept.fixedTimeConfig || { dayShiftEndTime: '19:00' };
+                const { dayShiftEndTime, sundayHolidayStartTime, sundayHolidayEndTime, weekdayStartTime, weekdayEndTime, saturdayStartTime, saturdayEndTime } = concept.fixedTimeConfig || {};
+
+                if (!dayShiftEndTime || !sundayHolidayStartTime || !sundayHolidayEndTime || !weekdayStartTime || !weekdayEndTime || !saturdayStartTime || !saturdayEndTime) continue;
 
                 const opDate = parseISO(opData.operationDate);
+                const isSunday = getDay(opDate) === 0;
+                const isHoliday = holidaySet.has(format(opDate, 'yyyy-MM-dd'));
+
                 const start = parse(startTime, 'HH:mm', opDate);
                 let end = parse(endTime, 'HH:mm', opDate);
                 if (end <= start) end = addDays(end, 1);
@@ -1276,8 +1285,15 @@ export async function generateClientSettlement(criteria: {
                 roles.forEach((role: any) => {
                     const numPersonas = role.numPersonas;
                     if (numPersonas > 0) {
-                        const diurnaTariff = concept.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA"));
-                        const nocturnaTariff = concept.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA"));
+                        let diurnaTariff, nocturnaTariff;
+
+                        if (isSunday || isHoliday) {
+                            diurnaTariff = concept.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA DOMINGO Y FESTIVO"));
+                            nocturnaTariff = concept.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA DOMINGO Y FESTIVO"));
+                        } else {
+                            diurnaTariff = concept.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA") && !t.name.includes("DOMINGO"));
+                            nocturnaTariff = concept.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA") && !t.name.includes("DOMINGO"));
+                        }
 
                         const totalDiurnoMinutes = Math.max(0, differenceInMinutes(Math.min(end.getTime(), dayShiftEnd.getTime()), start.getTime()));
                         const totalNocturnoMinutes = Math.max(0, differenceInMinutes(end, Math.max(start.getTime(), dayShiftEnd.getTime())));
