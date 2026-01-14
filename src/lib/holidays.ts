@@ -1,4 +1,5 @@
 
+
 import { eachDayOfInterval, addDays, nextMonday, getDay, isSameDay } from 'date-fns';
 
 // Festivos de base fija (DD-MM) que no se mueven
@@ -61,7 +62,7 @@ const getEasterSunday = (year: number): Date => {
 };
 
 // Genera todos los festivos para un año dado
-const getHolidaysForYear = (year: number): Date[] => {
+export const getHolidaysForYear = (year: number): Date[] => {
   const holidays = new Set<string>();
 
   // 1. Festivos fijos (no se mueven)
