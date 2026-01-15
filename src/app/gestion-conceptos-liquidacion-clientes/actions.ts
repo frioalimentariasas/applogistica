@@ -11,6 +11,7 @@ import { getConsolidatedMovementReport } from '@/app/actions/consolidated-moveme
 import { processTunelCongelacionData } from '@/lib/report-utils';
 import { getSmylLotAssistantReport, type AssistantReport } from '@/app/smyl-liquidation-assistant/actions';
 import { getDetailedInventoryForExport } from '@/app/actions/inventory-report';
+import { getHolidaysInRange } from '@/app/gestion-festivos/actions';
 
 
 export interface TariffRange {
@@ -356,14 +357,16 @@ export async function addClientBillingConcept(data: Omit<ClientBillingConcept, '
   
   try {
     const conceptsRef = firestore.collection('client_billing_concepts');
-    const querySnapshot = await conceptsRef
-      .where('conceptName', '==', data.conceptName)
-      .where('clientNames', 'array-contains-any', data.clientNames)
-      .get();
-      
-    if (!querySnapshot.empty) {
-      const conflictingClient = querySnapshot.docs[0].data().clientNames.find((c: string) => data.clientNames.includes(c));
-      return { success: false, message: `El concepto "${data.conceptName}" ya tiene una configuración para el cliente "${conflictingClient}". Edite el concepto existente en lugar de crear uno nuevo.` };
+    // Simplified validation: only check for "TODOS" conflict
+    if (!data.clientNames.includes('TODOS (Cualquier Cliente)')) {
+        const querySnapshot = await conceptsRef
+            .where('conceptName', '==', data.conceptName)
+            .where('clientNames', 'array-contains', 'TODOS (Cualquier Cliente)')
+            .get();
+
+        if (!querySnapshot.empty) {
+            return { success: false, message: `El concepto "${data.conceptName}" ya tiene una configuración global para "TODOS". No puede crear una específica.` };
+        }
     }
 
     const dataToSave = { ...data, status: 'activo' };
@@ -382,19 +385,19 @@ export async function updateClientBillingConcept(id: string, data: Omit<ClientBi
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
   try {
-     const conceptsRef = firestore.collection('client_billing_concepts');
-    const querySnapshot = await conceptsRef
-      .where('conceptName', '==', data.conceptName)
-      .where('clientNames', 'array-contains-any', data.clientNames)
-      .get();
+    const conceptsRef = firestore.collection('client_billing_concepts');
+     // Simplified validation: only check for "TODOS" conflict
+    if (!data.clientNames.includes('TODOS (Cualquier Cliente)')) {
+        const querySnapshot = await conceptsRef
+            .where('conceptName', '==', data.conceptName)
+            .where('clientNames', 'array-contains', 'TODOS (Cualquier Cliente)')
+            .get();
 
-    // Find if there's a conflicting document that is not the one we are editing
-    const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== id);
-
-    if (conflictingDoc) {
-      const conflictingClient = conflictingDoc.data().clientNames.find((c: string) => data.clientNames.includes(c));
-      return { success: false, message: `El concepto "${data.conceptName}" ya tiene una configuración para el cliente "${conflictingClient}". No se puede duplicar.` };
+        if (!querySnapshot.empty) {
+            return { success: false, message: `El concepto "${data.conceptName}" ya tiene una configuración global para "TODOS". No puede crear una específica.` };
+        }
     }
+
 
     await firestore.collection('client_billing_concepts').doc(id).update(data);
     revalidatePath('/gestion-conceptos-liquidacion-clientes');

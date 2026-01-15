@@ -1272,7 +1272,8 @@ export async function generateClientSettlement(criteria: {
 
                 const opDate = parseISO(opData.operationDate);
                 const isSunday = getDay(opDate) === 0;
-                const isHoliday = holidaySet.has(format(opDate, 'yyyy-MM-dd'));
+                const opDateString = format(opDate, 'yyyy-MM-dd');
+                const isHoliday = holidaySet.has(opDateString);
 
                 const start = parse(startTime, 'HH:mm', opDate);
                 let end = parse(endTime, 'HH:mm', opDate);
@@ -1793,9 +1794,3 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
-
-
-
-
-    
-
