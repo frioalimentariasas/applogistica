@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -228,17 +227,17 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
         })).sort((a,b) => b.date.getTime() - a.date.getTime())
     });
   };
-
-  const handleUploadFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setFileName(file.name);
+      setUploadFileName(file.name);
       setUploadFormError(null);
     } else {
-      setFileName('');
+      setUploadFileName('');
     }
   };
-  
+
   async function handleUploadFormAction(formData: FormData) {
     const file = formData.get('file') as File;
     if (!file || file.size === 0) {
@@ -253,7 +252,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
         title: "¡Éxito!",
         description: `${result.message} La lista de clientes se está actualizando.`,
       });
-      setFileName('');
+      setUploadFileName('');
       const form = document.getElementById('upload-clients-form') as HTMLFormElement;
       form?.reset();
       // Refresh the list
@@ -401,8 +400,8 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                             onChange={handleFileChange}
                             className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                         />
-                        {fileName && <p className="text-xs text-muted-foreground">Archivo seleccionado: {fileName}</p>}
-                        {formError && <p className="text-sm font-medium text-destructive">{formError}</p>}
+                        {uploadFileName && <p className="text-xs text-muted-foreground">Archivo seleccionado: {uploadFileName}</p>}
+                        {uploadFormError && <p className="text-sm font-medium text-destructive">{uploadFormError}</p>}
                     </div>
                     <UploadSubmitButton />
                 </form>
@@ -437,177 +436,178 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                         {searched ? "Refrescar" : "Buscar Todos"}
                     </Button>
                 </div>
-
-              <ScrollArea className="h-96">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Razón Social</TableHead>
-                      <TableHead>Plazo de Vencimiento</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLoading ? (
-                         <TableRow>
-                            <TableCell colSpan={3} className="h-24 text-center">
-                                <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
-                                <p className="text-muted-foreground">Cargando...</p>
-                            </TableCell>
-                        </TableRow>
-                    ) : searched && filteredClients.length > 0 ? (
-                      filteredClients.map((client) => (
-                        <TableRow key={client.id}>
-                          <TableCell>{client.razonSocial}</TableCell>
-                          <TableCell>
-                            {client.paymentTermDays != null 
-                              ? (typeof client.paymentTermDays === 'number' ? `${client.paymentTermDays} días` : client.paymentTermDays) 
-                              : 'No definido'}
-                          </TableCell>
-                          <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                    <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(client)}>
-                                        <Edit className="h-4 w-4 text-blue-600" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setClientToDelete(client)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
+  
+                <ScrollArea className="h-96">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                          {searched ? "No se encontraron clientes." : "Haga clic en 'Buscar' para ver los clientes."}
-                        </TableCell>
+                        <TableHead>Razón Social</TableHead>
+                        <TableHead>Plazo de Vencimiento</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoading ? (
+                           <TableRow>
+                              <TableCell colSpan={3} className="h-24 text-center">
+                                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                                  <p className="text-muted-foreground">Cargando...</p>
+                              </TableCell>
+                          </TableRow>
+                      ) : searched && filteredClients.length > 0 ? (
+                        filteredClients.map((client) => (
+                          <TableRow key={client.id}>
+                            <TableCell>{client.razonSocial}</TableCell>
+                            <TableCell>
+                              {client.paymentTermDays != null 
+                                ? (typeof client.paymentTermDays === 'number' ? `${client.paymentTermDays} días` : client.paymentTermDays) 
+                                : 'No definido'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                      <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(client)}>
+                                          <Edit className="h-4 w-4 text-blue-600" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setClientToDelete(client)}>
+                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                  </div>
+                              </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                            {searched ? "No se encontraron clientes." : "Haga clic en 'Buscar' para ver los clientes."}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
-      
-      {/* Edit Dialog */}
-      <Dialog open={!!clientToEdit} onOpenChange={(isOpen) => !isOpen && setClientToEdit(null)}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Editar Cliente</DialogTitle>
-            <DialogDescription>
-              Modifique la razón social, el plazo de pago y el historial de posiciones fijas del cliente.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
-              <FormField
-                control={editForm.control}
-                name="razonSocial"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Razón Social</FormLabel>
-                    <FormControl><Input placeholder="Colocar nombre Propietario SISLOG" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="paymentTermDays"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Plazo de Vencimiento</FormLabel>
-                    <FormControl>
-                      <Input type="text" placeholder="Ej: 30 o Contado" {...field} value={field.value ?? ''}/>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Separator />
-               <div>
-                <Label className="text-base font-semibold">Historial de Posiciones Fijas (Congelados)</Label>
-                <p className="text-sm text-muted-foreground">Solo aplica para clientes con esta configuración especial, como GRUPO ATLANTIC.</p>
-              </div>
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="flex items-end gap-2 p-2 border rounded-md">
-                    <FormField
-                      control={editForm.control}
-                      name={`posicionesFijasHistory.${index}.date`}
-                      render={({ field }) => (
-                        <FormItem className="flex-grow">
-                          <FormLabel>Fecha de Inicio</FormLabel>
-                          <DatePickerDialog
-                            value={field.value}
-                            onChange={field.onChange}
-                          />
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={editForm.control}
-                      name={`posicionesFijasHistory.${index}.positions`}
-                      render={({ field }) => (
-                        <FormItem className="flex-grow">
-                          <FormLabel>Posiciones</FormLabel>
-                          <FormControl>
-                            <Input type="number" min="0" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="shrink-0 text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => append({ date: new Date(), positions: 0 })}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Agregar Valor Histórico
-              </Button>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setClientToEdit(null)}>Cancelar</Button>
-                <Button type="submit" disabled={isEditing}>
-                  {isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Guardar Cambios
+        
+        {/* Edit Dialog */}
+        <Dialog open={!!clientToEdit} onOpenChange={(isOpen) => !isOpen && setClientToEdit(null)}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Editar Cliente</DialogTitle>
+              <DialogDescription>
+                Modifique la razón social, el plazo de pago y el historial de posiciones fijas del cliente.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
+                <FormField
+                  control={editForm.control}
+                  name="razonSocial"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Razón Social</FormLabel>
+                      <FormControl><Input placeholder="Colocar nombre Propietario SISLOG" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="paymentTermDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Plazo de Vencimiento</FormLabel>
+                      <FormControl>
+                        <Input type="text" placeholder="Ej: 30 o Contado" {...field} value={field.value ?? ''}/>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Separator />
+                 <div>
+                  <Label className="text-base font-semibold">Historial de Posiciones Fijas (Congelados)</Label>
+                  <p className="text-sm text-muted-foreground">Solo aplica para clientes con esta configuración especial, como GRUPO ATLANTIC.</p>
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="flex items-end gap-2 p-2 border rounded-md">
+                      <FormField
+                        control={editForm.control}
+                        name={`posicionesFijasHistory.${index}.date`}
+                        render={({ field }) => (
+                          <FormItem className="flex-grow">
+                            <FormLabel>Fecha de Inicio</FormLabel>
+                            <DatePickerDialog
+                              value={field.value}
+                              onChange={field.onChange}
+                            />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={editForm.control}
+                        name={`posicionesFijasHistory.${index}.positions`}
+                        render={({ field }) => (
+                          <FormItem className="flex-grow">
+                            <FormLabel>Posiciones</FormLabel>
+                            <FormControl>
+                              <Input type="number" min="0" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="shrink-0 text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ date: new Date(), positions: 0 })}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Agregar Valor Histórico
                 </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Delete Alert Dialog */}
-       <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
-          <AlertDialogContent>
-              <AlertDialogHeader>
-              <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-              <AlertDialogDescription>
-                  Esta acción no se puede deshacer. Se eliminará permanentemente el cliente:
-                  <div className="mt-2 p-2 bg-muted rounded-md">
-                    <strong>{clientToDelete?.razonSocial}</strong>
-                  </div>
-              </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setClientToDelete(null)}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction 
-                  onClick={handleDeleteConfirm} 
-                  disabled={isDeleting}
-                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-              >
-                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Eliminar
-              </AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setClientToEdit(null)}>Cancelar</Button>
+                  <Button type="submit" disabled={isEditing}>
+                    {isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Guardar Cambios
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Delete Alert Dialog */}
+         <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Se eliminará permanentemente el cliente:
+                    <div className="mt-2 p-2 bg-muted rounded-md">
+                      <strong>{clientToDelete?.razonSocial}</strong>
+                    </div>
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setClientToDelete(null)}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                    onClick={handleDeleteConfirm} 
+                    disabled={isDeleting}
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                >
+                    {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Eliminar
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
+  
