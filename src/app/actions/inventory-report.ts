@@ -561,9 +561,38 @@ export async function getTunelWeightReport(
     }
 }
     
-    
+export async function getAvailableInventoryYears(): Promise<number[]> {
+    if (!firestore) {
+        console.error('Firebase Admin not initialized. Cannot fetch inventory years.');
+        return [];
+    }
+
+    try {
+        const inventorySnapshot = await firestore.collection('dailyInventories').select().get();
+        if (inventorySnapshot.empty) {
+            return [];
+        }
+        
+        const yearSet = new Set<number>();
+        inventorySnapshot.docs.forEach(doc => {
+            const year = parseInt(doc.id.substring(0, 4), 10);
+            if (!isNaN(year)) {
+                yearSet.add(year);
+            }
+        });
+
+        const years = Array.from(yearSet);
+        years.sort((a, b) => b - a); // Sort descending (most recent first)
+        
+        return years;
+    } catch (error) {
+        console.error('Error fetching available inventory years:', error);
+        return [];
+    }
+}    
 
     
+
 
 
 
