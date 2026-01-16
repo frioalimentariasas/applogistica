@@ -4,8 +4,16 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 
-// Update the type to allow string for "Contado"
-export async function addClient(razonSocial: string, paymentTerm?: number | string): Promise<{ success: boolean; message: string; newClient?: { id: string, razonSocial: string, paymentTermDays?: number | string } }> {
+// Update the type to allow string for "Contado" and the new history field
+export interface ClientInfo {
+  id: string;
+  razonSocial: string;
+  paymentTermDays?: number | string;
+  posicionesFijasHistory?: { date: string; positions: number }[];
+}
+
+
+export async function addClient(razonSocial: string, paymentTerm?: number | string): Promise<{ success: boolean; message: string; newClient?: ClientInfo }> {
   if (!firestore) {
     return { success: false, message: 'Error de configuración del servidor.' };
   }
@@ -29,6 +37,7 @@ export async function addClient(razonSocial: string, paymentTerm?: number | stri
     const newClientData = {
       razonSocial: trimmedName,
       paymentTermDays: paymentTermToSave,
+      posicionesFijasHistory: [], // Initialize with an empty array
     };
     const docRef = await clientesRef.add(newClientData);
     
@@ -39,7 +48,7 @@ export async function addClient(razonSocial: string, paymentTerm?: number | stri
     revalidatePath('/variable-weight-reception-form');
     revalidatePath('/gestion-articulos');
 
-    return { success: true, message: `Cliente "${trimmedName}" agregado con éxito.`, newClient: { id: docRef.id, razonSocial: trimmedName, paymentTermDays: paymentTerm } };
+    return { success: true, message: `Cliente "${trimmedName}" agregado con éxito.`, newClient: { id: docRef.id, razonSocial: trimmedName, paymentTermDays: paymentTerm, posicionesFijasHistory: [] } };
   } catch (error) {
     console.error('Error al agregar el cliente:', error);
     const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
@@ -47,7 +56,7 @@ export async function addClient(razonSocial: string, paymentTerm?: number | stri
   }
 }
 
-export async function updateClient(id: string, newRazonSocial: string, paymentTerm?: number | string): Promise<{ success: boolean; message: string }> {
+export async function updateClient(id: string, newRazonSocial: string, paymentTerm?: number | string, posicionesFijasHistory?: { date: string, positions: number }[]): Promise<{ success: boolean; message: string }> {
   if (!firestore) {
     return { success: false, message: 'Error de configuración del servidor.' };
   }
@@ -74,16 +83,24 @@ export async function updateClient(id: string, newRazonSocial: string, paymentTe
 
     const batch = firestore.batch();
     
-    // Prepare data for update, converting empty strings to null
+    // Prepare data for update
     const paymentTermToSave = paymentTerm === '' ? null : paymentTerm;
 
-    // Update client document
-    batch.update(clientRef, {
-      razonSocial: trimmedName,
-      paymentTermDays: paymentTermToSave,
-    });
+    const dataToUpdate: { [key: string]: any } = {
+        razonSocial: trimmedName,
+        paymentTermDays: paymentTermToSave,
+    };
+    
+    if (posicionesFijasHistory) {
+      // Sort history by date before saving
+      posicionesFijasHistory.sort((a, b) => a.date.localeCompare(b.date));
+      dataToUpdate.posicionesFijasHistory = posicionesFijasHistory;
+    }
 
-    // Update associated articles
+    // Update client document
+    batch.update(clientRef, dataToUpdate);
+
+    // Update associated articles if name changed
     if (oldRazonSocial && oldRazonSocial !== trimmedName) {
       const articlesQuery = await firestore.collection('articulos').where('razonSocial', '==', oldRazonSocial).get();
       articlesQuery.forEach(doc => {

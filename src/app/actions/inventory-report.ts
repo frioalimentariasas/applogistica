@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import admin from 'firebase-admin';
@@ -200,12 +199,20 @@ export async function getInventoryReport(
     }
 
     try {
-        const snapshot = await firestore.collection('dailyInventories')
-            .where(admin.firestore.FieldPath.documentId(), '>=', criteria.startDate)
-            .where(admin.firestore.FieldPath.documentId(), '<=', criteria.endDate)
-            .get();
+        const [inventorySnapshot, clientsSnapshot] = await Promise.all([
+            firestore.collection('dailyInventories')
+                .where(admin.firestore.FieldPath.documentId(), '>=', criteria.startDate)
+                .where(admin.firestore.FieldPath.documentId(), '<=', criteria.endDate)
+                .get(),
+            firestore.collection('clientes').get()
+        ]);
+        
+        const clientsData = new Map<string, any>();
+        clientsSnapshot.forEach(doc => {
+            clientsData.set(doc.data().razonSocial, doc.data());
+        });
 
-        if (snapshot.empty) {
+        if (inventorySnapshot.empty) {
             return { clientHeaders: [], rows: [] };
         }
 
@@ -214,7 +221,7 @@ export async function getInventoryReport(
         }>>();
         const allClientsFound = new Set<string>();
 
-        snapshot.docs.forEach(doc => {
+        inventorySnapshot.docs.forEach(doc => {
             try {
                 const inventoryDay = doc.data();
                 if (!inventoryDay || !Array.isArray(inventoryDay.data) || typeof inventoryDay.date !== 'string') {
@@ -283,7 +290,21 @@ export async function getInventoryReport(
                 const countSE = sets.SE.size;
 
                 if (clientName === 'GRUPO ATLANTIC') {
-                    const fixedPositions = 150;
+                    const clientDocData = clientsData.get('GRUPO ATLANTIC');
+                    const history: {date: string, positions: number}[] = clientDocData?.posicionesFijasHistory || [];
+                    
+                    let fixedPositions = 0; // Default to 0 if no history is set for the client
+                    if (history.length > 0) {
+                        // Find the most recent history entry that is on or before the current report date
+                        const relevantEntry = history
+                            .filter(entry => entry.date <= date)
+                            .sort((a, b) => b.date.localeCompare(a.date))[0];
+                        
+                        if (relevantEntry) {
+                            fixedPositions = relevantEntry.positions;
+                        }
+                    }
+                    
                     countCO = Math.max(0, fixedPositions - countRE);
                 }
                 
@@ -590,8 +611,8 @@ export async function getAvailableInventoryYears(): Promise<number[]> {
         return [];
     }
 }    
-
     
+
 
 
 

@@ -2,12 +2,14 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import * as ExcelJS from 'exceljs';
+import { format, parse } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -17,7 +19,7 @@ import { uploadClientes } from '../upload-clientes/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp, Download, ShieldAlert, Search } from 'lucide-react';
+import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp, Download, ShieldAlert, Search, CalendarIcon, PlusCircle, Calendar } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -35,6 +37,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { ClientInfo } from '@/app/actions/clients';
+import { Separator } from '@/components/ui/separator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { DatePickerDialog } from '@/components/ui/date-picker-dialog';
+
 
 // Custom validation schema for payment term
 const paymentTermSchema = z.string().optional().refine((val) => {
@@ -55,8 +62,13 @@ type AddClientFormValues = z.infer<typeof addClientSchema>;
 const editClientSchema = z.object({
     razonSocial: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
     paymentTermDays: paymentTermSchema,
+    posicionesFijasHistory: z.array(z.object({
+        date: z.date({ required_error: 'La fecha es obligatoria.' }),
+        positions: z.coerce.number().int().min(0, "Debe ser un número positivo.")
+    })).optional(),
 });
 type EditClientFormValues = z.infer<typeof editClientSchema>;
+
 
 interface ClientManagementComponentProps {
 }
@@ -127,6 +139,12 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
     resolver: zodResolver(editClientSchema),
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: editForm.control,
+    name: "posicionesFijasHistory"
+  });
+
+
   // Handlers
   const handleSearch = async () => {
     setIsLoading(true);
@@ -168,10 +186,16 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
     if (!clientToEdit) return;
     setIsEditing(true);
     const paymentTerm = data.paymentTermDays?.toLowerCase() === 'contado' ? 'Contado' : data.paymentTermDays ? Number(data.paymentTermDays) : undefined;
-    const result = await updateClient(clientToEdit.id, data.razonSocial, paymentTerm);
+    
+    const historyData = data.posicionesFijasHistory?.map(h => ({
+      ...h,
+      date: format(h.date, 'yyyy-MM-dd')
+    }));
+
+    const result = await updateClient(clientToEdit.id, data.razonSocial, paymentTerm, historyData);
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setClients(prev => prev.map(c => c.id === clientToEdit.id ? { ...c, razonSocial: data.razonSocial, paymentTermDays: paymentTerm } : c).sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
+      setClients(prev => prev.map(c => c.id === clientToEdit.id ? { ...c, razonSocial: data.razonSocial, paymentTermDays: paymentTerm, posicionesFijasHistory: historyData } : c).sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
       setClientToEdit(null);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -197,17 +221,21 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
     setClientToEdit(client);
     editForm.reset({ 
         razonSocial: client.razonSocial, 
-        paymentTermDays: client.paymentTermDays?.toString() ?? ''
+        paymentTermDays: client.paymentTermDays?.toString() ?? '',
+        posicionesFijasHistory: (client.posicionesFijasHistory || []).map(h => ({
+            ...h,
+            date: parse(h.date, 'yyyy-MM-dd', new Date())
+        })).sort((a,b) => b.date.getTime() - a.date.getTime())
     });
   };
 
   const handleUploadFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setUploadFileName(file.name);
+      setFileName(file.name);
       setUploadFormError(null);
     } else {
-      setUploadFileName('');
+      setFileName('');
     }
   };
   
@@ -225,7 +253,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
         title: "¡Éxito!",
         description: `${result.message} La lista de clientes se está actualizando.`,
       });
-      setUploadFileName('');
+      setFileName('');
       const form = document.getElementById('upload-clients-form') as HTMLFormElement;
       form?.reset();
       // Refresh the list
@@ -370,11 +398,11 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                             type="file" 
                             required 
                             accept=".xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                            onChange={handleUploadFileChange}
+                            onChange={handleFileChange}
                             className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                         />
-                        {uploadFileName && <p className="text-xs text-muted-foreground">Archivo seleccionado: {uploadFileName}</p>}
-                        {uploadFormError && <p className="text-sm font-medium text-destructive">{uploadFormError}</p>}
+                        {fileName && <p className="text-xs text-muted-foreground">Archivo seleccionado: {fileName}</p>}
+                        {formError && <p className="text-sm font-medium text-destructive">{formError}</p>}
                     </div>
                     <UploadSubmitButton />
                 </form>
@@ -465,11 +493,11 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
       
       {/* Edit Dialog */}
       <Dialog open={!!clientToEdit} onOpenChange={(isOpen) => !isOpen && setClientToEdit(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Editar Cliente</DialogTitle>
             <DialogDescription>
-              Modifique la razón social del cliente. Esto actualizará también los artículos asociados.
+              Modifique la razón social, el plazo de pago y el historial de posiciones fijas del cliente.
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
@@ -498,6 +526,51 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                   </FormItem>
                 )}
               />
+              <Separator />
+               <div>
+                <Label className="text-base font-semibold">Historial de Posiciones Fijas (Congelados)</Label>
+                <p className="text-sm text-muted-foreground">Solo aplica para clientes con esta configuración especial, como GRUPO ATLANTIC.</p>
+              </div>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="flex items-end gap-2 p-2 border rounded-md">
+                    <FormField
+                      control={editForm.control}
+                      name={`posicionesFijasHistory.${index}.date`}
+                      render={({ field }) => (
+                        <FormItem className="flex-grow">
+                          <FormLabel>Fecha de Inicio</FormLabel>
+                          <DatePickerDialog
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name={`posicionesFijasHistory.${index}.positions`}
+                      render={({ field }) => (
+                        <FormItem className="flex-grow">
+                          <FormLabel>Posiciones</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="shrink-0 text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => append({ date: new Date(), positions: 0 })}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Agregar Valor Histórico
+              </Button>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setClientToEdit(null)}>Cancelar</Button>
                 <Button type="submit" disabled={isEditing}>
