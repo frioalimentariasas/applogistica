@@ -5,9 +5,11 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import * as ExcelJS from 'exceljs';
-import { format, parse } from 'date-fns';
+import Papa from 'papaparse';
+import { format, parse, startOfDay } from 'date-fns';
 
-interface InventoryRow {
+
+export interface InventoryRow {
   PROPIETARIO: string;
   PALETA: string | number;
   FECHA: string | Date | number;
@@ -28,27 +30,49 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
 
     try {
         const buffer = await file.arrayBuffer();
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(buffer);
-        const worksheet = workbook.worksheets[0];
-        
-        const data: InventoryRow[] = [];
-        const headers: string[] = [];
-        worksheet.getRow(1).eachCell((cell) => {
-            headers.push(cell.value as string);
-        });
+        let data: InventoryRow[] = [];
+        const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
-        worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) {
-                const rowData: any = {};
-                row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-                    rowData[headers[colNumber - 1]] = cell.value;
-                });
-                data.push(rowData);
+        if (fileExtension === 'csv') {
+            const text = new TextDecoder('latin1').decode(buffer);
+            const result = Papa.parse(text, {
+                header: true,
+                skipEmptyLines: true,
+                transformHeader: header => header.trim(),
+            });
+            
+            if (result.errors.length > 0) {
+              console.error('CSV Parsing Errors:', result.errors);
+              throw new Error(`Error al leer el archivo CSV: ${result.errors.map(e => e.message).join(', ')}`);
             }
-        });
+            data = result.data as InventoryRow[];
+        } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(buffer);
+            const worksheet = workbook.worksheets[0];
+            const headers: string[] = [];
+            const headerRow = worksheet.getRow(1);
 
+            headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                 headers.push(cell.value ? cell.value.toString().trim() : '');
+            });
 
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber > 1) {
+                    const rowData: any = {};
+                    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                        const headerName = headers[colNumber - 1];
+                        if (headerName) {
+                           rowData[headerName] = cell.value;
+                        }
+                    });
+                    data.push(rowData);
+                }
+            });
+        } else {
+            return { success: false, message: `Formato de archivo no soportado: .${fileExtension}`, errors: [] };
+        }
+        
         if (data.length === 0) {
             throw new Error(`El archivo está vacío o no tiene el formato correcto.`);
         }
@@ -64,7 +88,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const missingColumns = requiredColumns.filter(col => !actualColumns.includes(col));
 
         if (missingColumns.length > 0) {
-            throw new Error(`Faltan las siguientes columnas: ${missingColumns.join(', ')}.`);
+            throw new Error(`Faltan las siguientes columnas requeridas: ${missingColumns.join(', ')}.`);
         }
         
         const dateValue = firstRow.FECHA;
@@ -96,27 +120,35 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
                 throw new Error(`No se pudo interpretar el formato de la fecha "${dateValue}".`);
             }
         } else if (typeof dateValue === 'number') {
-            // Excel date number handling
-            const jsDate = new Date(Math.round((dateValue - 25569) * 86400 * 1000));
-            jsDate.setMinutes(jsDate.getMinutes() + jsDate.getTimezoneOffset());
-            reportDate = jsDate;
+             // Handle Excel date number. Excel stores dates as days since 1900-01-01.
+             // Javascript's epoch is 1970-01-01. The difference is 25569 days.
+            const utc_days = Math.floor(dateValue - 25569);
+            const date = new Date(utc_days * 86400 * 1000); // Convert days to milliseconds
 
-            if (isNaN(reportDate.getTime())) {
+            if (isNaN(date.getTime())) {
                 throw new Error(`El número de fecha de Excel "${dateValue}" no es válido.`);
             }
+            reportDate = date;
         } else {
             throw new Error(`El formato de la columna "FECHA" (${typeof dateValue}) no es reconocido.`);
         }
         
-        const reportDateStr = format(reportDate, 'yyyy-MM-dd');
+        // Use startOfDay to remove any time component and avoid timezone issues
+        const finalReportDate = startOfDay(reportDate);
+        const reportDateStr = format(finalReportDate, 'yyyy-MM-dd');
 
         const serializableData = data.map(row => {
             const newRow: any = {};
             for (const key in row) {
-                 if (row[key as keyof typeof row] instanceof Date) {
-                    newRow[key] = (row[key as keyof typeof row] as Date).toISOString();
+                const cellValue = row[key as keyof typeof row];
+                if (cellValue instanceof Date) {
+                    newRow[key] = cellValue.toISOString();
+                } else if (typeof cellValue === 'object' && cellValue !== null && 'richText' in cellValue) {
+                     newRow[key] = (cellValue as ExcelJS.RichText).richText.map((t: any) => t.text).join('');
+                } else if (typeof cellValue === 'object' && cellValue !== null && 'result' in cellValue) {
+                     newRow[key] = cellValue.result;
                 } else {
-                    newRow[key] = row[key as keyof typeof row] ?? null;
+                    newRow[key] = cellValue ?? null;
                 }
             }
             return newRow;
@@ -139,9 +171,16 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
 }
 
 
+export interface ClientInventoryDetail {
+    total: number;
+    CO: number;
+    RE: number;
+    SE: number;
+}
+
 export interface InventoryPivotRow {
   date: string;
-  clientData: Record<string, number>; // e.g., { "CLIENT_A": 123, "CLIENT_B": 456 }
+  clientData: Record<string, ClientInventoryDetail>;
 }
 
 export interface InventoryPivotReport {
@@ -151,7 +190,7 @@ export interface InventoryPivotReport {
 
 
 export async function getInventoryReport(
-    criteria: { clientNames?: string[]; startDate: string; endDate: string; sesion?: string }
+    criteria: { clientNames?: string[]; startDate: string; endDate: string; }
 ): Promise<InventoryPivotReport> {
     if (!firestore) {
         throw new Error('Error de configuración del servidor.');
@@ -170,8 +209,9 @@ export async function getInventoryReport(
             return { clientHeaders: [], rows: [] };
         }
 
-        // Use a Map to store client pallet sets for each date
-        const resultsByDate = new Map<string, Map<string, Set<string>>>();
+        const resultsByDate = new Map<string, Map<string, {
+            CO: Set<string>, RE: Set<string>, SE: Set<string>
+        }>>();
         const allClientsFound = new Set<string>();
 
         snapshot.docs.forEach(doc => {
@@ -181,42 +221,45 @@ export async function getInventoryReport(
                     console.warn(`Documento de inventario con formato incorrecto o fecha faltante, omitido: ${doc.id}`);
                     return;
                 }
+                
+                const dateDataForDay = new Map<string, { CO: Set<string>, RE: Set<string>, SE: Set<string> }>();
+                const atlanticGroupData = { CO: new Set<string>(), RE: new Set<string>(), SE: new Set<string>() };
 
-                let dailyData = inventoryDay.data as InventoryRow[];
-                
-                // Filter by session if provided
-                if (criteria.sesion && criteria.sesion.trim()) {
-                    dailyData = dailyData.filter(row => 
-                        row && row.SE !== undefined && row.SE !== null &&
-                        String(row.SE).trim().toLowerCase() === criteria.sesion!.trim().toLowerCase()
-                    );
-                }
-                
-                dailyData.forEach(row => {
+                inventoryDay.data.forEach((row: InventoryRow) => {
                     const clientName = row?.PROPIETARIO?.trim();
                     if (!clientName) return;
+                    
+                    if (criteria.clientNames && criteria.clientNames.length > 0) {
+                        const isAtlantic = clientName.toUpperCase().startsWith('ATLANTIC');
+                        const isSelected = criteria.clientNames.includes(clientName) || (isAtlantic && criteria.clientNames.includes('GRUPO ATLANTIC'));
+                        if (!isSelected) return;
+                    }
 
-                    // Filter by client names if provided and not empty
-                    if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(clientName)) {
-                        return;
+                    const isAtlantic = clientName.toUpperCase().startsWith('ATLANTIC');
+                    const targetClientName = isAtlantic ? 'GRUPO ATLANTIC' : clientName;
+
+                    allClientsFound.add(targetClientName);
+
+                    const targetMap = isAtlantic ? atlanticGroupData : (dateDataForDay.get(targetClientName) || { CO: new Set(), RE: new Set(), SE: new Set() });
+                    if (!isAtlantic && !dateDataForDay.has(targetClientName)) {
+                        dateDataForDay.set(targetClientName, targetMap);
                     }
                     
-                    allClientsFound.add(clientName);
+                    const sesion = String(row.SE).trim().toUpperCase();
+                    const palletId = String(row.PALETA).trim();
 
-                    if (!resultsByDate.has(inventoryDay.date)) {
-                        resultsByDate.set(inventoryDay.date, new Map<string, Set<string>>());
-                    }
-                    const dateData = resultsByDate.get(inventoryDay.date)!;
-
-                    if (!dateData.has(clientName)) {
-                        dateData.set(clientName, new Set<string>());
-                    }
-                    const clientPallets = dateData.get(clientName)!;
-                    
-                    if (row.PALETA !== undefined && row.PALETA !== null) {
-                        clientPallets.add(String(row.PALETA).trim());
+                    if (palletId) {
+                        if (sesion === 'CO') targetMap.CO.add(palletId);
+                        else if (sesion === 'RE') targetMap.RE.add(palletId);
+                        else if (sesion === 'SE') targetMap.SE.add(palletId);
                     }
                 });
+                
+                if (allClientsFound.has('GRUPO ATLANTIC')) {
+                    dateDataForDay.set('GRUPO ATLANTIC', atlanticGroupData);
+                }
+
+                resultsByDate.set(inventoryDay.date, dateDataForDay);
 
             } catch (innerError) {
                 console.error(`Error procesando el documento de inventario ${doc.id}:`, innerError);
@@ -230,10 +273,23 @@ export async function getInventoryReport(
 
         for (const date of sortedDates) {
             const clientPalletSets = resultsByDate.get(date)!;
-            const clientData: Record<string, number> = {};
+            const clientData: Record<string, ClientInventoryDetail> = {};
 
             for (const clientName of sortedClientHeaders) {
-                clientData[clientName] = clientPalletSets.get(clientName)?.size || 0;
+                const sets = clientPalletSets.get(clientName) || { CO: new Set(), RE: new Set(), SE: new Set() };
+                
+                let countCO = sets.CO.size;
+                const countRE = sets.RE.size;
+                const countSE = sets.SE.size;
+
+                if (clientName === 'GRUPO ATLANTIC') {
+                    const fixedPositions = 150;
+                    countCO = Math.max(0, fixedPositions - countRE);
+                }
+                
+                const uniquePallets = new Set([...(clientName === 'GRUPO ATLANTIC' ? [] : sets.CO), ...sets.RE, ...sets.SE]);
+                const total = (clientName === 'GRUPO ATLANTIC' ? countCO : uniquePallets.size);
+                clientData[clientName] = { total: total, CO: countCO, RE: countRE, SE: countSE };
             }
             
             pivotRows.push({ date, clientData });
@@ -253,61 +309,6 @@ export async function getInventoryReport(
             throw new Error(`Error del servidor: ${error.message}`);
         }
         throw new Error('No se pudo generar el reporte de inventario.');
-    }
-}
-
-
-export async function getLatestStockBeforeDate(clientName: string, date: string, sesion?: string): Promise<number> {
-    if (!firestore) {
-        throw new Error('Error de configuración del servidor.');
-    }
-
-    if (!clientName || !date) {
-        return 0;
-    }
-
-    try {
-        const snapshot = await firestore.collection('dailyInventories')
-            .where(admin.firestore.FieldPath.documentId(), '<', date)
-            .orderBy(admin.firestore.FieldPath.documentId(), 'desc')
-            .limit(1)
-            .get();
-
-        if (snapshot.empty) {
-            return 0; // No inventory records before the given date
-        }
-        
-        const latestInventoryDoc = snapshot.docs[0];
-        const inventoryDay = latestInventoryDoc.data();
-        
-        if (!inventoryDay || !Array.isArray(inventoryDay.data)) {
-            return 0;
-        }
-
-        let inventoryData = inventoryDay.data as InventoryRow[];
-
-        // Filter by session if provided
-        if (sesion && sesion.trim()) {
-            inventoryData = inventoryData.filter(row => 
-                row && row.SE !== undefined && row.SE !== null &&
-                String(row.SE).trim().toLowerCase() === sesion.trim().toLowerCase()
-            );
-        }
-
-        const pallets = new Set<string>();
-        inventoryData.forEach((row: any) => {
-            if (row && row.PROPIETARIO?.trim() === clientName) {
-                if (row.PALETA !== undefined && row.PALETA !== null) {
-                    pallets.add(String(row.PALETA).trim());
-                }
-            }
-        });
-
-        return pallets.size;
-    } catch (error) {
-        console.error(`Error fetching latest stock for ${clientName} before ${date} for session ${sesion}:`, error);
-        // Do not throw, just return 0 as a fallback
-        return 0;
     }
 }
 
@@ -336,7 +337,12 @@ export async function getClientsWithInventory(startDate: string, endDate: string
             if (inventoryDay && Array.isArray(inventoryDay.data)) {
                 inventoryDay.data.forEach((row: any) => {
                     if (row && row.PROPIETARIO && typeof row.PROPIETARIO === 'string') {
-                        clients.add(row.PROPIETARIO.trim());
+                        const clientName = row.PROPIETARIO.trim();
+                        if (clientName.toUpperCase().startsWith('ATLANTIC')) {
+                            clients.add('GRUPO ATLANTIC');
+                        } else {
+                            clients.add(clientName);
+                        }
                     }
                 });
             }
@@ -416,15 +422,26 @@ export async function getDetailedInventoryForExport(
         }
 
         const allRows: InventoryRow[] = [];
+        const wantsAtlanticGroup = criteria.clientNames.includes('GRUPO ATLANTIC');
+
         snapshot.docs.forEach(doc => {
             const inventoryDay = doc.data();
             if (!inventoryDay || !Array.isArray(inventoryDay.data)) {
                 return;
             }
             
-            const clientRows = inventoryDay.data.filter((row: InventoryRow) => 
-                row && row.PROPIETARIO && criteria.clientNames.includes(row.PROPIETARIO.trim())
-            );
+            const clientRows = inventoryDay.data.filter((row: InventoryRow) => {
+                if (row && row.PROPIETARIO) {
+                    const trimmedName = row.PROPIETARIO.trim();
+                    if (wantsAtlanticGroup && trimmedName.toUpperCase().startsWith('ATLANTIC')) {
+                        return true;
+                    }
+                    if (criteria.clientNames.includes(trimmedName)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
 
             // Serialize date objects for the client
             const serializedRows = clientRows.map((row: any) => {
@@ -453,8 +470,142 @@ export async function getDetailedInventoryForExport(
         throw new Error('No se pudo generar el reporte de inventario detallado.');
     }
 }
+
+export interface TunelWeightPivotRow {
+  date: string;
+  clientData: Record<string, number>;
+}
+
+export interface TunelWeightReport {
+  clientHeaders: string[];
+  rows: TunelWeightPivotRow[];
+}
+
+
+const calculateTotalWeightForTunelReport = (formType: string, formData: any): number => {
+    if (formType.startsWith('fixed-weight')) {
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
+    }
+    if (formType.startsWith('variable-weight')) {
+         const allItems = (formData.items || [])
+            .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
+        return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoNeto) || 0), 0);
+    }
+    return 0;
+};
+
+
+export async function getTunelWeightReport(
+    criteria: { clientNames: string[]; startDate: string; endDate: string; }
+): Promise<TunelWeightReport> {
+    if (!firestore) throw new Error('Error de configuración del servidor.');
+    if (!criteria.startDate || !criteria.endDate) return { clientHeaders: [], rows: [] };
+    
+    try {
+        const query = firestore.collection('submissions')
+            .where('formData.fecha', '>=', new Date(criteria.startDate + 'T00:00:00-05:00'))
+            .where('formData.fecha', '<=', new Date(criteria.endDate + 'T23:59:59.999-05:00'))
+            .where('formData.tipoPedido', '==', 'TUNEL DE CONGELACIÓN');
+            
+        const snapshot = await query.get();
+        if (snapshot.empty) return { clientHeaders: [], rows: [] };
+
+        const resultsByDate = new Map<string, Map<string, number>>();
+        const allClientsFound = new Set<string>();
+
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const clientName = data.formData.cliente || data.formData.nombreCliente;
+
+            if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(clientName)) {
+                return;
+            }
+
+            allClientsFound.add(clientName);
+            const dateStr = format(data.formData.fecha.toDate(), 'yyyy-MM-dd');
+            
+            if (!resultsByDate.has(dateStr)) {
+                resultsByDate.set(dateStr, new Map<string, number>());
+            }
+            const dateData = resultsByDate.get(dateStr)!;
+            
+            const currentWeight = dateData.get(clientName) || 0;
+            const newWeight = calculateTotalWeightForTunelReport(data.formType, data.formData);
+            dateData.set(clientName, currentWeight + newWeight);
+        });
+        
+        const sortedClientHeaders = Array.from(allClientsFound).sort();
+        const pivotRows: TunelWeightPivotRow[] = [];
+        const sortedDates = Array.from(resultsByDate.keys()).sort();
+
+        for (const date of sortedDates) {
+            const clientWeightMap = resultsByDate.get(date)!;
+            const clientData: Record<string, number> = {};
+            for (const clientName of sortedClientHeaders) {
+                clientData[clientName] = clientWeightMap.get(clientName) || 0;
+            }
+            pivotRows.push({ date, clientData });
+        }
+        
+        return {
+            clientHeaders: sortedClientHeaders,
+            rows: pivotRows,
+        };
+
+    } catch (error) {
+        console.error('Error generando el reporte de Túnel:', error);
+         if (error instanceof Error && (error.message.includes('needs an index') || error.message.includes('requires an index'))) {
+             throw error;
+        }
+        throw new Error('No se pudo generar el reporte de Túnel.');
+    }
+}
+
+export async function getAvailableInventoryYears(): Promise<number[]> {
+    if (!firestore) {
+        console.error('Firebase Admin not initialized. Cannot fetch inventory years.');
+        return [];
+    }
+
+    try {
+        const inventorySnapshot = await firestore.collection('dailyInventories').select().get();
+        if (inventorySnapshot.empty) {
+            return [];
+        }
+        
+        const yearSet = new Set<number>();
+        inventorySnapshot.docs.forEach(doc => {
+            const year = parseInt(doc.id.substring(0, 4), 10);
+            if (!isNaN(year)) {
+                yearSet.add(year);
+            }
+        });
+
+        const years = Array.from(yearSet);
+        years.sort((a, b) => b - a); // Sort descending (most recent first)
+        
+        return years;
+    } catch (error) {
+        console.error('Error fetching available inventory years:', error);
+        return [];
+    }
+}
     
     
 
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

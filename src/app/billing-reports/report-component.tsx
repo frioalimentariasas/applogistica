@@ -18,7 +18,7 @@ import Link from 'next/link';
 
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
-import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport } from '@/app/actions/inventory-report';
+import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport, getAvailableInventoryYears } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
 import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from './actions/settlement-versions';
@@ -52,6 +52,7 @@ import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Form } from '@/components/ui/form';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
+
 
 
 const ResultsSkeleton = () => (
@@ -268,6 +269,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [dateRangeToDelete, setDateRangeToDelete] = useState<DateRange | undefined>(undefined);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteProgress, setDeleteProgress] = useState(0);
+    const [availableInventoryYears, setAvailableInventoryYears] = useState<number[]>([]);
+
 
     // State for client settlement
     const [settlementClient, setSettlementClient] = useState<string | undefined>(undefined);
@@ -449,6 +452,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         handleFetchInventoryClients();
     }, [handleFetchInventoryClients]);
     
+    useEffect(() => {
+        getAvailableInventoryYears().then(setAvailableInventoryYears);
+    }, []);
+
     const filteredDetailedClients = useMemo(() => {
         if (!detailedClientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(detailedClientSearch.toLowerCase()));
@@ -2912,15 +2919,6 @@ const conceptOrder = [
         return showSmylLotInput && settlementLotIds.trim() !== '';
     }, [showSmylLotInput, settlementLotIds]);
     
-    const availableYears = useMemo(() => {
-        const currentYear = getYear(new Date());
-        const years = [];
-        for (let i = 0; i < 5; i++) {
-            years.push(currentYear - i);
-        }
-        return years;
-    }, []);
-
     const handleYearSelect = (yearStr: string) => {
         if (!yearStr) {
             setSelectedYear('');
@@ -3312,12 +3310,12 @@ const conceptOrder = [
                                                     <SelectValue placeholder="Seleccionar año..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {availableYears.map(year => (
+                                                    {availableInventoryYears.map(year => (
                                                         <SelectItem key={year} value={String(year)}>{year}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
-                                        </div>
+                                    </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                         <div className="space-y-2">
@@ -4418,12 +4416,3 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-
-    
-
-
-
-
-
-
-    
