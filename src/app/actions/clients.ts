@@ -2,12 +2,7 @@
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
-
-export interface ClientInfo {
-    id: string;
-    razonSocial: string;
-    paymentTermDays?: number | string; // Allow string for "Contado"
-}
+import type { ClientInfo } from '../gestion-clientes/actions';
 
 export async function getClients(): Promise<ClientInfo[]> {
     if (!firestore) {
@@ -20,11 +15,15 @@ export async function getClients(): Promise<ClientInfo[]> {
         if (clientesSnapshot.empty) {
             return [];
         }
-        const clients = clientesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            razonSocial: doc.data().razonSocial as string,
-            paymentTermDays: doc.data().paymentTermDays as number | string | undefined
-        }));
+        const clients = clientesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                razonSocial: data.razonSocial as string,
+                paymentTermDays: data.paymentTermDays as number | string | undefined,
+                posicionesFijasHistory: data.posicionesFijasHistory || []
+            };
+        });
         return clients;
     } catch (error) {
         console.error('Error fetching clients from Firestore:', error);

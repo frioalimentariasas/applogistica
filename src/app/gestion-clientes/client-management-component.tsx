@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { ClientInfo } from '@/app/actions/clients';
+import type { ClientInfo } from '@/app/gestion-clientes/actions';
 import { Separator } from '@/components/ui/separator';
 import { DatePickerDialog } from '@/components/ui/date-picker-dialog';
 
@@ -217,14 +217,15 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
 
   const openEditDialog = (client: ClientInfo) => {
     setClientToEdit(client);
+    const history = (client.posicionesFijasHistory || []).map(h => ({
+        ...h,
+        date: parseISO(h.date) 
+    })).sort((a, b) => b.date.getTime() - a.date.getTime());
+
     editForm.reset({ 
         razonSocial: client.razonSocial, 
         paymentTermDays: client.paymentTermDays?.toString() ?? '',
-        posicionesFijasHistory: (client.posicionesFijasHistory || []).map(h => ({
-            ...h,
-            // Ensure date string from Firestore is correctly parsed into a Date object for the form
-            date: parseISO(h.date + 'T00:00:00') 
-        })).sort((a,b) => b.date.getTime() - a.date.getTime())
+        posicionesFijasHistory: history
     });
   };
   
