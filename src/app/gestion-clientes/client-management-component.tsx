@@ -610,7 +610,6 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-      </div>
-    </div>
+      </div>  
   );
 }

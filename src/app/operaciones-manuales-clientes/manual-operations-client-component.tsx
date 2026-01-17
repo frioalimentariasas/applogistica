@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -186,7 +185,7 @@ const manualOperationSchema = z.object({
     }
     if (isArinZfpc) {
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
-      if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details.container"] });
+      if (!data.details?.container?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Contenedor es obligatorio.", path: ["details", "container"] });
     }
     if (isInspeccionZfpc) {
         if (!data.details?.fmmNumber?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio.", path: ["details.fmmNumber"] });
@@ -229,6 +228,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const router = useRouter();
     const { toast } = useToast();
     const { user, displayName, email } = useAuth();
+    
     const [allOperations, setAllOperations] = useState<any[]>([]);
     const [filteredOperations, setFilteredOperations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -293,19 +293,18 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
     useEffect(() => {
         if (watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE INGRESO ZFPC NACIONAL') {
-            setValue('opLogistica', 'DESCARGUE');
+            setValue('details.opLogistica', 'DESCARGUE');
         } else if (watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC NACIONAL') {
-            setValue('opLogistica', 'CARGUE');
+            setValue('details.opLogistica', 'CARGUE');
         }
     }, [watchedConcept, setValue]);
-
     
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE AREA PARA EMPAQUE/DIA' || watchedConcept === 'SERVICIO DE APOYO JORNAL';
     const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
-    const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
-    const isLocationMode = watchedConcept === LOCATION_STORAGE_CONCEPT_NAME;
-    const isFmmZfpc = watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'FMM DE INGRESO ZFPC NACIONAL' || watchedConcept === 'FMM DE SALIDA ZFPC NACIONAL';
+    const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
+    const isLocationMode = data.concept === 'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)';
+    const isFmmZfpc = watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || data.concept === 'FMM DE INGRESO ZFPC NACIONAL' || watchedConcept === 'FMM DE SALIDA ZFPC NACIONAL';
     const isArinZfpc = watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'ARIN DE INGRESO ZFPC NACIONAL' || watchedConcept === 'ARIN DE SALIDA ZFPC NACIONAL';
     const isInspeccionZfpc = watchedConcept === 'INSPECCIÓN ZFPC';
     const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
@@ -324,7 +323,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     useEffect(() => {
         if (isArinZfpc) {
             const opLogistica = (watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE INGRESO ZFPC NACIONAL') ? 'DESCARGUE' : 'CARGUE';
-            form.setValue('opLogistica', opLogistica);
+            form.setValue('details.opLogistica', opLogistica);
         }
     }, [watchedConcept, isArinZfpc, form]);
 
@@ -340,15 +339,19 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             ];
             
             const conceptTariffs = selectedConceptInfo?.specificTariffs || [];
-            
-            // --- INICIO DE LA LÍNEA A AJUSTAR ---
             const currentBulkRoles = form.getValues('bulkRoles') || [];
-            // --- FIN DE LA LÍNEA A AJUSTAR ---
 
             const bulkRoles = roles.map(r => {
                 const existingRole = currentBulkRoles.find(cr => cr.roleName === r.role);
-                const diurnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes(r.diurna));
-                const nocturnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes(r.nocturna));
+                let diurnaTariff, nocturnaTariff;
+                if (watchedConcept === 'TIEMPO EXTRA FRIOAL') {
+                    diurnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes("DIURNA") && !t.name.includes("DOMINGO"));
+                    nocturnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes("NOCTURNA") && !t.name.includes("DOMINGO"));
+                } else { // TIEMPO EXTRA FRIOAL (FIJO)
+                    diurnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes("DIURNA"));
+                    nocturnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes("NOCTURNA"));
+                }
+                
                 return {
                     roleName: r.role,
                     diurnaId: diurnaTariff?.id || '',
@@ -357,7 +360,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     nocturnaLabel: nocturnaTariff?.name || 'No encontrado',
                     diurnaValue: diurnaTariff?.value || 0,
                     nocturnaValue: nocturnaTariff?.value || 0,
-                    numPersonas: existingRole?.numPersonas || 0, // Preserve existing value if available
+                    numPersonas: existingRole?.numPersonas || 0,
                 };
             });
             
@@ -408,25 +411,19 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         fetchAllOperations();
     }, [fetchAllOperations]);
     
-    const handleSearch = useCallback(() => {
-        if (!dateRange || !dateRange.from || !dateRange.to) {
-            toast({
-                variant: 'destructive',
-                title: 'Rango de Fecha Requerido',
-                description: 'Por favor, seleccione un rango de fechas para la consulta.'
-            });
-            return;
-        }
-
+    useEffect(() => {
+        if (!searched) return;
+        
         let results = allOperations;
 
-        const start = startOfDay(dateRange.from);
-        const end = endOfDay(dateRange.to);
-        
-        results = results.filter(op => {
-            const opDate = op.startDate ? new Date(op.startDate) : parseISO(op.operationDate);
-            return isWithinInterval(opDate, { start, end });
-        });
+        if (dateRange?.from && dateRange?.to) {
+             const start = startOfDay(dateRange.from);
+            const end = endOfDay(dateRange.to);
+            results = results.filter(op => {
+                const opDate = op.startDate ? new Date(op.startDate) : parseISO(op.operationDate);
+                return isWithinInterval(opDate, { start, end });
+            });
+        }
 
         if (selectedClient !== 'all') {
             results = results.filter(op => op.clientName === selectedClient);
@@ -436,17 +433,21 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
         
         results.sort((a, b) => new Date(a.operationDate).getTime() - new Date(b.operationDate).getTime());
-
-        setSearched(true);
         setFilteredOperations(results);
-        
-        if (results.length === 0) {
+    }, [allOperations, searched, dateRange, selectedClient, selectedConcept]);
+    
+    const handleSearch = () => {
+        if (!dateRange || !dateRange.from || !dateRange.to) {
             toast({
-                title: "Sin resultados",
-                description: "No se encontraron operaciones con los filtros seleccionados."
+                variant: 'destructive',
+                title: 'Rango de Fecha Requerido',
+                description: 'Por favor, seleccione un rango de fechas para la consulta.'
             });
+            return;
         }
-    }, [selectedClient, selectedConcept, dateRange, toast, allOperations]);
+        setSearched(true);
+        // The filtering will be handled by the useEffect above
+    };
     
     const handleClearFilters = () => {
         setDateRange(undefined);
@@ -611,7 +612,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
             setIsDialogOpen(false);
             form.reset();
-            const updatedOps = await fetchAllOperations();
+            await fetchAllOperations();
             if (searched && dateRange) {
                 handleSearch();
             }
@@ -631,7 +632,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             setAllOperations(prev => prev.filter(op => op.id !== opToDelete.id));
-            setFilteredOperations(prev => prev.filter(op => op.id !== opToDelete.id));
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
@@ -856,7 +856,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{[...new Set(allOperations.map(op => op.concept))].sort((a,b) => a.localeCompare(b)).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div className="flex items-end gap-2 xl:col-span-2">
-                                <Button onClick={() => handleSearch()} disabled={!dateRange || isLoading} className="w-full">
+                                <Button onClick={handleSearch} disabled={!dateRange || isLoading} className="w-full">
                                     <Search className="mr-2 h-4 w-4" />
                                     Consultar
                                 </Button>
@@ -1545,7 +1545,7 @@ function ConceptFormBody(props: any) {
                   <>
                 <FormField
                         control={form.control}
-                    name="opLogistica"
+                    name="details.opLogistica"
                         render={({ field }) => (
                 <FormItem>
                     <FormLabel>Op. Logística</FormLabel>
@@ -1653,3 +1653,4 @@ function ExtraHoursDialog({
 }
 // --- FIN DEL NUEVO COMPONENTE DIALOG ---
 
+    
