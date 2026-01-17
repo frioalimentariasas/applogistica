@@ -590,9 +590,9 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                 <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
                 <AlertDialogDescription>
                     Esta acción no se puede deshacer. Se eliminará permanentemente el cliente:
-                    <div className="mt-2 p-2 bg-muted rounded-md">
-                      <strong>{clientToDelete?.razonSocial}</strong>
-                    </div>
+                    <strong className="mt-2 p-2 bg-muted rounded-md block font-semibold text-foreground">
+                      {clientToDelete?.razonSocial}
+                    </strong>
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -609,5 +609,6 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
             </AlertDialogContent>
         </AlertDialog>
       </div>
+    </div>
   );
 }
