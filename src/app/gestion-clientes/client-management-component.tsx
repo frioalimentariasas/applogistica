@@ -34,7 +34,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { ClientInfo } from '@/app/gestion-clientes/actions';
 import { Separator } from '@/components/ui/separator';
@@ -531,42 +531,44 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                   <Label className="text-base font-semibold">Historial de Posiciones Fijas (Congelados)</Label>
                   <p className="text-sm text-muted-foreground">Solo aplica para clientes con esta configuración especial, como GRUPO ATLANTIC.</p>
                 </div>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-end gap-2 p-2 border rounded-md">
-                      <FormField
-                        control={editForm.control}
-                        name={`posicionesFijasHistory.${index}.date`}
-                        render={({ field }) => (
-                          <FormItem className="flex-grow">
-                            <FormLabel>Fecha de Inicio</FormLabel>
-                            <DatePickerDialog
-                              value={field.value}
-                              onChange={field.onChange}
-                            />
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={editForm.control}
-                        name={`posicionesFijasHistory.${index}.positions`}
-                        render={({ field }) => (
-                          <FormItem className="flex-grow">
-                            <FormLabel>Posiciones</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="0" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="shrink-0 text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                <ScrollArea className="max-h-60 pr-4">
+                  <div className="space-y-2">
+                    {fields.map((field, index) => (
+                      <div key={field.id} className="flex items-end gap-2 p-2 border rounded-md">
+                        <FormField
+                          control={editForm.control}
+                          name={`posicionesFijasHistory.${index}.date`}
+                          render={({ field }) => (
+                            <FormItem className="flex-grow">
+                              <FormLabel>Fecha de Inicio</FormLabel>
+                              <DatePickerDialog
+                                value={field.value}
+                                onChange={field.onChange}
+                              />
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={editForm.control}
+                          name={`posicionesFijasHistory.${index}.positions`}
+                          render={({ field }) => (
+                            <FormItem className="w-28">
+                              <FormLabel>Posiciones</FormLabel>
+                              <FormControl>
+                                <Input type="number" min="0" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="shrink-0 text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ date: new Date(), positions: 0 })}>
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Agregar Valor Histórico
