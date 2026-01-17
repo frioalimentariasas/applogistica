@@ -92,7 +92,7 @@ export async function updateClient(id: string, newRazonSocial: string, paymentTe
     };
     
     if (posicionesFijasHistory) {
-      // Sort history by date before saving
+      // Sort history by date before saving for consistency
       posicionesFijasHistory.sort((a, b) => a.date.localeCompare(b.date));
       dataToUpdate.posicionesFijasHistory = posicionesFijasHistory;
     }

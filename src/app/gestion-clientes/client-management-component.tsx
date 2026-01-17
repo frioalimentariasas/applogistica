@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import * as ExcelJS from 'exceljs';
-import { format, parse } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
@@ -222,7 +222,8 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
         paymentTermDays: client.paymentTermDays?.toString() ?? '',
         posicionesFijasHistory: (client.posicionesFijasHistory || []).map(h => ({
             ...h,
-            date: parse(h.date, 'yyyy-MM-dd', new Date())
+            // Ensure date string from Firestore is correctly parsed into a Date object for the form
+            date: parseISO(h.date + 'T00:00:00') 
         })).sort((a,b) => b.date.getTime() - a.date.getTime())
     });
   };
@@ -607,6 +608,5 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
             </AlertDialogContent>
         </AlertDialog>
       </div>
-    </div>
   );
 }
