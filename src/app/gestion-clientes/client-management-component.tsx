@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -18,7 +19,7 @@ import { uploadClientes } from '../upload-clientes/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp, Download, ShieldAlert, Search, CalendarIcon, PlusCircle, Calendar } from 'lucide-react';
+import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp, Download, ShieldAlert, Search, CalendarIcon, PlusCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -37,8 +38,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { ClientInfo } from '@/app/actions/clients';
 import { Separator } from '@/components/ui/separator';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
 import { DatePickerDialog } from '@/components/ui/date-picker-dialog';
 
 
@@ -125,8 +124,8 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Upload state
-  const [uploadFileName, setUploadFileName] = useState('');
-  const [uploadFormError, setUploadFormError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Forms
   const addForm = useForm<AddClientFormValues>({
@@ -231,17 +230,17 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setUploadFileName(file.name);
-      setUploadFormError(null);
+      setFileName(file.name);
+      setFormError(null);
     } else {
-      setUploadFileName('');
+      setFileName('');
     }
   };
 
   async function handleUploadFormAction(formData: FormData) {
     const file = formData.get('file') as File;
     if (!file || file.size === 0) {
-        setUploadFormError('Por favor, seleccione un archivo para cargar.');
+        setFormError('Por favor, seleccione un archivo para cargar.');
       return;
     }
 
@@ -252,7 +251,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
         title: "¡Éxito!",
         description: `${result.message} La lista de clientes se está actualizando.`,
       });
-      setUploadFileName('');
+      setFileName('');
       const form = document.getElementById('upload-clients-form') as HTMLFormElement;
       form?.reset();
       // Refresh the list
@@ -400,8 +399,8 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                             onChange={handleFileChange}
                             className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                         />
-                        {uploadFileName && <p className="text-xs text-muted-foreground">Archivo seleccionado: {uploadFileName}</p>}
-                        {uploadFormError && <p className="text-sm font-medium text-destructive">{uploadFormError}</p>}
+                        {fileName && <p className="text-xs text-muted-foreground">Archivo seleccionado: {fileName}</p>}
+                        {formError && <p className="text-sm font-medium text-destructive">{formError}</p>}
                     </div>
                     <UploadSubmitButton />
                 </form>
@@ -608,6 +607,6 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
             </AlertDialogContent>
         </AlertDialog>
       </div>
-    );
-  }
-  
+    </div>
+  );
+}
