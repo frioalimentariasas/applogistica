@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -289,20 +290,18 @@ export async function getInventoryReport(
                 const countRE = sets.RE.size;
                 const countSE = sets.SE.size;
 
-                if (clientName === 'GRUPO ATLANTIC') {
-                    const clientDocData = clientsData.get('GRUPO ATLANTIC');
-                    const history: {date: string, positions: number}[] = clientDocData?.posicionesFijasHistory || [];
+                const clientDocData = clientsData.get(clientName);
+                if (clientDocData && clientDocData.posicionesFijasHistory && clientDocData.posicionesFijasHistory.length > 0) {
+                    const history: {date: string, positions: number}[] = clientDocData.posicionesFijasHistory || [];
                     
-                    let fixedPositions = 0; // Default to 0 if no history is set for the client
-                    if (history.length > 0) {
-                        // Find the most recent history entry that is on or before the current report date
-                        const relevantEntry = history
-                            .filter(entry => entry.date <= date)
-                            .sort((a, b) => b.date.localeCompare(a.date))[0];
-                        
-                        if (relevantEntry) {
-                            fixedPositions = relevantEntry.positions;
-                        }
+                    let fixedPositions = 0;
+                    
+                    const relevantEntry = history
+                        .filter(entry => entry.date <= date)
+                        .sort((a, b) => b.date.localeCompare(a.date))[0];
+                    
+                    if (relevantEntry) {
+                        fixedPositions = relevantEntry.positions;
                     }
                     
                     countCO = Math.max(0, fixedPositions - countRE);
@@ -610,7 +609,8 @@ export async function getAvailableInventoryYears(): Promise<number[]> {
         console.error('Error fetching available inventory years:', error);
         return [];
     }
-}    
+}
+    
     
 
 
@@ -628,3 +628,6 @@ export async function getAvailableInventoryYears(): Promise<number[]> {
 
 
 
+
+
+    

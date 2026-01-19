@@ -302,9 +302,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE AREA PARA EMPAQUE/DIA' || watchedConcept === 'SERVICIO DE APOYO JORNAL';
     const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
-    const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
-    const isLocationMode = data.concept === 'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)';
-    const isFmmZfpc = watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || data.concept === 'FMM DE INGRESO ZFPC NACIONAL' || watchedConcept === 'FMM DE SALIDA ZFPC NACIONAL';
+    const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
+    const isLocationMode = watchedConcept === 'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)';
+    const isFmmZfpc = watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'FMM DE INGRESO ZFPC NACIONAL' || watchedConcept === 'FMM DE SALIDA ZFPC NACIONAL';
     const isArinZfpc = watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE SALIDA ZFPC (MANUAL)' || watchedConcept === 'ARIN DE INGRESO ZFPC NACIONAL' || watchedConcept === 'ARIN DE SALIDA ZFPC NACIONAL';
     const isInspeccionZfpc = watchedConcept === 'INSPECCIÓN ZFPC';
     const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
