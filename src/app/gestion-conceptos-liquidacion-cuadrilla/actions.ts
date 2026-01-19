@@ -11,7 +11,7 @@ export interface BillingConcept {
   clientNames: string[]; // "TODOS (Cualquier Cliente)" or specific client names
   operationType: 'recepcion' | 'despacho' | 'TODAS';
   productType: 'fijo' | 'variable' | 'TODOS';
-  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA';
+  unitOfMeasure: 'TONELADA' | 'KILOGRAMOS' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA';
   value: number;
 }
 

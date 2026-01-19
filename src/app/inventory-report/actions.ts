@@ -283,7 +283,7 @@ export async function getInventoryReport(
                 const countSE = sets.SE.size;
 
                 if (clientName === 'GRUPO ATLANTIC') {
-                    const fixedPositions = 150;
+                    const fixedPositions = 350;
                     countCO = Math.max(0, fixedPositions - countRE);
                 }
                 

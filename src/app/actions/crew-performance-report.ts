@@ -259,8 +259,27 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                           totalValue: 0
                       });
                  } else if (kilos >= 0) { 
-                    const toneladas = kilos / 1000;
-                    addSettlement(conceptName, toneladas, 'TONELADA');
+                    const relevantConcepts = billingConcepts.filter(c => 
+                        c.conceptName.toUpperCase() === conceptName.toUpperCase() &&
+                        (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)')) &&
+                        (c.unitOfMeasure === 'TONELADA' || c.unitOfMeasure === 'KILOGRAMOS')
+                    );
+            
+                    const concept = relevantConcepts.find(c => c.clientNames.includes(clientName)) || relevantConcepts[0];
+
+                    if (concept) {
+                        if (concept.unitOfMeasure === 'TONELADA') {
+                            const quantity = kilos / 1000;
+                            addSettlement(conceptName, quantity, 'TONELADA');
+                        } else if (concept.unitOfMeasure === 'KILOGRAMOS') {
+                            const quantity = kilos;
+                            addSettlement(conceptName, quantity, 'KILOGRAMOS');
+                        }
+                    } else {
+                        // Fallback to old behavior if no matching concept is found.
+                        const toneladas = kilos / 1000;
+                        addSettlement(conceptName, toneladas, 'TONELADA');
+                    }
                 }
             }
         } else { // It is MAQUILA
