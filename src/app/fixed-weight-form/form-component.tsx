@@ -197,7 +197,7 @@ const createFormSchema = (isReception: boolean) => z.object({
             }
         }
 
-        if (data.tipoPedido !== 'INGRESO DE SALDOS' && !data.aplicaCuadrilla) {
+        if (data.tipoPedido !== 'INGRESO DE SALDOS' && data.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS' && !data.aplicaCuadrilla) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
         }
 
@@ -1538,7 +1538,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                       </FormItem>
                                   )}
                               />
-                              {watchedAplicaCuadrilla === 'si' && isReception && watchedTipoPedido === 'MAQUILA' &&  (
+                              {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' &&  (
                                   <FormField
                                       control={form.control}
                                       name="numeroOperariosCuadrilla"
@@ -1604,7 +1604,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                           <AlertDialogHeader>
                                               <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
                                               <AlertDialogDesc>
-                                                  Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
+                                                  Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formato.
                                               </AlertDialogDesc>
                                           </AlertDialogHeader>
                                           <AlertDialogFooter>
@@ -1652,7 +1652,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
           </Form>
         </div>
 
-         <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
+        <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Tomar Foto</DialogTitle>
@@ -1702,61 +1702,6 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
       </div>
     </FormProvider>
   );
-}
-
-function PedidoTypeSelectorDialog({
-    open,
-    onOpenChange,
-    pedidoTypes,
-    onSelect,
-}: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    pedidoTypes: PedidoType[];
-    onSelect: (pedidoType: PedidoType) => void;
-}) {
-    const [search, setSearch] = useState("");
-
-    const filteredTypes = useMemo(() => {
-        if (!search) return pedidoTypes;
-        return pedidoTypes.filter(pt => pt.name.toLowerCase().includes(search.toLowerCase()));
-    }, [search, pedidoTypes]);
-
-    useEffect(() => {
-        if (!open) setSearch("");
-    }, [open]);
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Seleccionar Tipo de Pedido</DialogTitle>
-                </DialogHeader>
-                <Input
-                    placeholder="Buscar tipo de pedido..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="my-4"
-                />
-                <ScrollArea className="h-72">
-                    <div className="space-y-1">
-                        {filteredTypes.length > 0 ? filteredTypes.map((pt) => (
-                            <Button
-                                key={pt.id}
-                                variant="ghost"
-                                className="w-full justify-start"
-                                onClick={() => onSelect(pt)}
-                            >
-                                {pt.name}
-                            </Button>
-                        )) : (
-                            <p className="text-center text-sm text-muted-foreground">No se encontraron tipos de pedido.</p>
-                        )}
-                    </div>
-                </ScrollArea>
-            </DialogContent>
-        </Dialog>
-    );
 }
 
 function ObservationSelectorDialog({
@@ -1841,7 +1786,6 @@ function ProductSelectorDialog({
     onSelect: (articulo: ArticuloInfo) => void;
 }) {
     const [search, setSearch] = useState("");
-
     const getSessionName = (sesionCode: string | undefined) => {
         switch (sesionCode) {
             case 'CO': return 'Congelado';
@@ -1850,7 +1794,6 @@ function ProductSelectorDialog({
             default: return 'N/A';
         }
     }
-
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
         return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
@@ -1885,20 +1828,20 @@ function ProductSelectorDialog({
                                 {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
                                 {filteredArticulos.map((p, i) => (
                                     <Button
-                                        key={`${p.id}-${i}`}
-                                        variant="ghost"
-                                        className="w-full justify-between h-auto text-wrap"
-                                        onClick={() => {
-                                            onSelect(p);
-                                            onOpenChange(false);
-                                        }}
-                                    >
-                                        <div className="flex flex-col items-start text-left">
-                                            <span>{p.denominacionArticulo}</span>
-                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
-                                        </div>
-                                        <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
-                                    </Button>
+                                    key={`${p.id}-${i}`}
+                                    variant="ghost"
+                                    className="w-full justify-between h-auto text-wrap"
+                                    onClick={() => {
+                                        onSelect(p);
+                                        onOpenChange(false);
+                                    }}
+                                >
+                                    <div className="flex flex-col items-start text-left">
+                                        <span>{p.denominacionArticulo}</span>
+                                        <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
+                                    </div>
+                                    <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
+                                </Button>                                  
                                 ))}
                             </div>
                         </ScrollArea>
@@ -1909,5 +1852,59 @@ function ProductSelectorDialog({
     );
 }
 
+function PedidoTypeSelectorDialog({
+    open,
+    onOpenChange,
+    pedidoTypes,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    pedidoTypes: PedidoType[];
+    onSelect: (pedidoType: PedidoType) => void;
+}) {
+    const [search, setSearch] = useState("");
+
+    const filteredTypes = useMemo(() => {
+        if (!search) return pedidoTypes;
+        return pedidoTypes.filter(pt => pt.name.toLowerCase().includes(search.toLowerCase()));
+    }, [search, pedidoTypes]);
+
+    useEffect(() => {
+        if (!open) setSearch("");
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Tipo de Pedido</DialogTitle>
+                </DialogHeader>
+                <Input
+                    placeholder="Buscar tipo de pedido..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="my-4"
+                />
+                <ScrollArea className="h-72">
+                    <div className="space-y-1">
+                        {filteredTypes.length > 0 ? filteredTypes.map((pt) => (
+                            <Button
+                                key={pt.id}
+                                variant="ghost"
+                                className="w-full justify-start"
+                                onClick={() => onSelect(pt)}
+                            >
+                                {pt.name}
+                            </Button>
+                        )) : (
+                            <p className="text-center text-sm text-muted-foreground">No se encontraron tipos de pedido.</p>
+                        )}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
     
