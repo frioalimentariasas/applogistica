@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller, useWatch, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import * * as z from "zod";
 import { format, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -165,6 +165,16 @@ const createFormSchema = (isReception: boolean) => z.object({
       path: ["horaFin"],
   }).superRefine((data, ctx) => {
     if (isReception) {
+        data.productos.forEach((product, index) => {
+          if (product.totalPaletas === undefined || product.totalPaletas === null || product.totalPaletas <= 0) {
+              ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "El Total de Paletas debe ser un número mayor que 0.",
+                  path: [`productos`, index, 'totalPaletas'],
+              });
+          }
+        });
+
         const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'MAQUILA' || data.tipoPedido === 'TUNEL A CÁMARA CONGELADOS';
         if (!data.tipoPedido) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de pedido es obligatorio.", path: ['tipoPedido'] });
@@ -1221,7 +1231,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                         <FormField control={form.control} name={`productos.${index}.totalPaletas`} render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Total Paletas <span className="text-destructive">*</span></FormLabel>
-                                                <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
+                                                <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}/>
@@ -1531,11 +1541,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                   render={({ field }) => (
                                       <FormItem className="space-y-1 lg:col-span-4">
                                           <FormLabel>Operación Realizada por Cuadrilla <span className="text-destructive">*</span></FormLabel>
-                                          <FormControl>
-                                              <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup>
-                                          </FormControl>
-                                          <FormMessage />
-                                      </FormItem>
+                                          <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                                   )}
                               />
                               {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' &&  (
@@ -1786,6 +1792,7 @@ function ProductSelectorDialog({
     onSelect: (articulo: ArticuloInfo) => void;
 }) {
     const [search, setSearch] = useState("");
+    
     const getSessionName = (sesionCode: string | undefined) => {
         switch (sesionCode) {
             case 'CO': return 'Congelado';
@@ -1794,6 +1801,7 @@ function ProductSelectorDialog({
             default: return 'N/A';
         }
     }
+
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
         return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
@@ -1828,20 +1836,20 @@ function ProductSelectorDialog({
                                 {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
                                 {filteredArticulos.map((p, i) => (
                                     <Button
-                                    key={`${p.id}-${i}`}
-                                    variant="ghost"
-                                    className="w-full justify-between h-auto text-wrap"
-                                    onClick={() => {
-                                        onSelect(p);
-                                        onOpenChange(false);
-                                    }}
-                                >
-                                    <div className="flex flex-col items-start text-left">
-                                        <span>{p.denominacionArticulo}</span>
-                                        <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
-                                    </div>
-                                    <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
-                                </Button>                                  
+                                        key={`${p.id}-${i}`}
+                                        variant="ghost"
+                                        className="w-full justify-between h-auto text-wrap"
+                                        onClick={() => {
+                                            onSelect(p);
+                                            onOpenChange(false);
+                                        }}
+                                    >
+                                        <div className="flex flex-col items-start text-left">
+                                            <span>{p.denominacionArticulo}</span>
+                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
+                                        </div>
+                                        <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
+                                    </Button>
                                 ))}
                             </div>
                         </ScrollArea>
