@@ -221,7 +221,8 @@ const conceptosPermitidosParaPlanta = [
   "MOVIMIENTO SALIDA PRODUCTO - PALETA",
   "ETIQUETADO POR CAJA/ UNIDAD",
   "SERVICIO DE INSPECCIÓN POR CAJA",
-  "ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL"
+  "ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL",
+  "EMPAQUE POR CAJA - UNIDAD"
 ];
 
 export default function ManualOperationsClientComponent({ clients, billingConcepts }: ManualOperationsClientComponentProps) {
