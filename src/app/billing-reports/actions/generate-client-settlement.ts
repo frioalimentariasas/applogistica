@@ -1482,9 +1482,11 @@ export async function generateClientSettlement(criteria: {
     
     const inventoryConcepts = selectedConcepts.filter(c => c.calculationType === 'SALDO_INVENTARIO' || c.calculationType === 'SALDO_CONTENEDOR');
     const monthlyAverageCache = new Map<string, number>();
+    const monthlyAverageCache03 = new Map<string, number>();
+
 
     for (const concept of inventoryConcepts) {
-        if (!concept.value) continue;
+        if (!concept.value && concept.tariffType === 'UNICA') continue;
     
         if (concept.calculationType === 'SALDO_CONTENEDOR') {
             const containerMovements = allSubmissionsForClient.reduce((acc: Record<string, { date: Date; type: 'entry' | 'exit'; pallets: number }[]>, op) => {
@@ -1541,8 +1543,8 @@ export async function generateClientSettlement(criteria: {
                             tipoVehiculo: 'N/A',
                             quantity: balance,
                             unitOfMeasure: concept.unitOfMeasure,
-                            unitValue: concept.value,
-                            totalValue: balance * concept.value,
+                            unitValue: concept.value!,
+                            totalValue: balance * concept.value!,
                             justification: '',
                         });
                     }
@@ -1553,9 +1555,9 @@ export async function generateClientSettlement(criteria: {
                     clientName: clientName,
                     startDate: startDate,
                     endDate: endDate,
-                    sesion: concept.inventorySesion!, // It will be defined here
-                    filterByArticleCodes: concept.filterByArticleCodes,
-                    excludeArticleCodes: concept.excludeArticleCodes,
+                    sesion: concept.inventorySesion!,
+                    filterByArticleCodes: '03',
+                    excludeArticleCodes: true,
                 });
 
                 const tariff5000 = { totalPalletDays: 0, dayCount: 0, monthAverage: 0 };
@@ -1653,6 +1655,77 @@ export async function generateClientSettlement(criteria: {
                     });
                 }
 
+            } else if (clientName === 'COMERCIALIZADORA FRESMAR SAS' && concept.conceptName === 'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)') {
+                 const reportForSelectedRange = await getConsolidatedMovementReport({
+                    clientName: clientName,
+                    startDate: startDate,
+                    endDate: endDate,
+                    sesion: concept.inventorySesion!,
+                    filterByArticleCodes: '03', 
+                    excludeArticleCodes: false,
+                });
+
+                for (const dayData of reportForSelectedRange) {
+                    const totalPalletsForDay = dayData.posicionesAlmacenadas;
+                    if (totalPalletsForDay <= 0) continue;
+                    
+                    const dayDate = parseISO(dayData.date);
+                    const monthKey = format(dayDate, 'yyyy-MM');
+                    
+                    // Get average for main concept (excluding 03)
+                    let avgMain = monthlyAverageCache.get(monthKey);
+                    if (avgMain === undefined) {
+                        const monthStart = startOfMonth(dayDate);
+                        const monthEnd = endOfMonth(dayDate);
+                        const monthlyReportMain = await getConsolidatedMovementReport({
+                            clientName,
+                            startDate: format(monthStart, 'yyyy-MM-dd'),
+                            endDate: format(monthEnd, 'yyyy-MM-dd'),
+                            sesion: concept.inventorySesion!,
+                            filterByArticleCodes: '03',
+                            excludeArticleCodes: true,
+                        });
+                        const daysWithInvMain = monthlyReportMain.filter(d => d.posicionesAlmacenadas > 0);
+                        avgMain = daysWithInvMain.length > 0 ? daysWithInvMain.reduce((sum, day) => sum + day.posicionesAlmacenadas, 0) / daysWithInvMain.length : 0;
+                        monthlyAverageCache.set(monthKey, avgMain);
+                    }
+
+                    // Get average for article 03 concept
+                    let avg03 = monthlyAverageCache03.get(monthKey);
+                    if (avg03 === undefined) {
+                        const monthStart = startOfMonth(dayDate);
+                        const monthEnd = endOfMonth(dayDate);
+                        const monthlyReport03 = await getConsolidatedMovementReport({
+                            clientName,
+                            startDate: format(monthStart, 'yyyy-MM-dd'),
+                            endDate: format(monthEnd, 'yyyy-MM-dd'),
+                            sesion: concept.inventorySesion!,
+                            filterByArticleCodes: '03',
+                            excludeArticleCodes: false,
+                        });
+                        const daysWithInv03 = monthlyReport03.filter(d => d.posicionesAlmacenadas > 0);
+                        avg03 = daysWithInv03.length > 0 ? daysWithInv03.reduce((sum, day) => sum + day.posicionesAlmacenadas, 0) / daysWithInv03.length : 0;
+                        monthlyAverageCache03.set(monthKey, avg03);
+                    }
+
+                    // Apply tariff logic
+                    let unitValue = 5400; // Default tariff for this concept
+                    if (avgMain >= 700 || (avgMain + avg03) >= 700) {
+                        unitValue = 5000;
+                    }
+
+                    settlementRows.push({
+                        date: dayData.date,
+                        uniqueId: `${concept.id}-${dayData.date}`,
+                        placa: 'N/A', container: 'N/A',
+                        camara: concept.inventorySesion!,
+                        totalPaletas: totalPalletsForDay,
+                        operacionLogistica: 'Servicio', pedidoSislog: 'N/A', conceptName: concept.conceptName,
+                        tipoVehiculo: 'N/A', quantity: totalPalletsForDay, unitOfMeasure: concept.unitOfMeasure,
+                        unitValue: unitValue, totalValue: totalPalletsForDay * unitValue,
+                        justification: `Prom. General: ${avgMain.toFixed(2)}, Prom. Art. 03: ${avg03.toFixed(2)}`,
+                    });
+                }
             } else if (concept.inventorySource === 'POSICIONES_ALMACENADAS' && concept.inventorySesion) {
                 const consolidatedReport = await getConsolidatedMovementReport({
                     clientName: clientName,
@@ -1679,8 +1752,8 @@ export async function generateClientSettlement(criteria: {
                         tipoVehiculo: 'N/A',
                         quantity: totalPalletsForDay,
                         unitOfMeasure: concept.unitOfMeasure,
-                        unitValue: concept.value,
-                        totalValue: totalPalletsForDay * concept.value,
+                        unitValue: concept.value!,
+                        totalValue: totalPalletsForDay * concept.value!,
                         justification: '',
                     });
                     }
@@ -1901,3 +1974,6 @@ const minutesToTime = (minutes: number): string => {
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
+
+
+  
