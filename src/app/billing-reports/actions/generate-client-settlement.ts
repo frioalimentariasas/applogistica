@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -1631,7 +1630,8 @@ export async function generateClientSettlement(criteria: {
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: 5000,
                         totalValue: tariff5000.totalPalletDays * 5000,
-                        justification: `Aplicada a ${tariff5000.dayCount} día(s). Promedio mes: ${tariff5000.monthAverage.toFixed(2)} paletas.`,
+                        justification: '',
+                        //`Aplicada a ${tariff5000.dayCount} día(s). Promedio mes: ${tariff5000.monthAverage.toFixed(2)} paletas.`,
                     });
                 }
                 
@@ -1651,7 +1651,8 @@ export async function generateClientSettlement(criteria: {
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: 6000,
                         totalValue: tariff6000.totalPalletDays * 6000,
-                        justification: `Aplicada a ${tariff6000.dayCount} día(s). Promedio mes: ${tariff6000.monthAverage.toFixed(2)} paletas.`,
+                        justification: '',
+                        //`Aplicada a ${tariff6000.dayCount} día(s). Promedio mes: ${tariff6000.monthAverage.toFixed(2)} paletas.`,
                     });
                 }
 
@@ -1723,7 +1724,8 @@ export async function generateClientSettlement(criteria: {
                         operacionLogistica: 'Servicio', pedidoSislog: 'N/A', conceptName: concept.conceptName,
                         tipoVehiculo: 'N/A', quantity: totalPalletsForDay, unitOfMeasure: concept.unitOfMeasure,
                         unitValue: unitValue, totalValue: totalPalletsForDay * unitValue,
-                        justification: `Prom. General: ${avgMain.toFixed(2)}, Prom. Art. 03: ${avg03.toFixed(2)}`,
+                        justification: '',
+                        //`Prom. General: ${avgMain.toFixed(2)}, Prom. Art. 03: ${avg03.toFixed(2)}`,
                     });
                 }
             } else if (concept.inventorySource === 'POSICIONES_ALMACENADAS' && concept.inventorySesion) {
@@ -1973,7 +1975,3 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
-
-
-
-  

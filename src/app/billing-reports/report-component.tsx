@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -19,7 +18,6 @@ import Link from 'next/link';
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport, getAvailableInventoryYears } from '@/app/actions/inventory-report';
-import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
 import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from './actions/settlement-versions';
 import { findApplicableConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
@@ -120,6 +118,12 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
 
 const formatTime12Hour = (timeStr: string | undefined): string => {
     if (!timeStr) return 'N/A';
+
+    const dateTimeParts = timeStr.split(' ');
+    if (dateTimeParts.length > 1 && (timeStr.includes('AM') || timeStr.includes('PM'))) {
+        return timeStr;
+    }
+
     if (!timeStr.includes(':')) return 'N/A';
 
     const [hours, minutes] = timeStr.split(':');
@@ -4416,3 +4420,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
+    
