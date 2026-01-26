@@ -159,13 +159,9 @@ const formSchema = z.object({
     }),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable().optional(),
     totalPesoBrutoKg: z.coerce.number().min(0, "El peso bruto total no puede ser negativo.").optional(),
-    
-    // --- INICIO DE CÓDIGO A AGREGAR ---
-    condicionesHigiene: z.enum(["si", "no"], { required_error: "Seleccione una condición de higiene." }),
-    termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione si tiene termoregistrador." }),
-    clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione si el cliente requiere termoregistro." }),
-    // --- FIN DE CÓDIGO A AGREGAR ---
-
+    condicionesHigiene: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
+    termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
+    clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
     recepcionPorPlaca: z.boolean().default(false),
     items: z.array(itemSchema).optional(),
     placas: z.array(placaSchema).optional(),
@@ -238,7 +234,7 @@ const formSchema = z.object({
       allItems?.forEach((item, index) => {
           const basePath = data.recepcionPorPlaca ? `placas.${Math.floor(index / (data.placas?.[0]?.items?.length || 1))}.items.${index % (data.placas?.[0]?.items?.length || 1)}` : `items.${index}`;
           const isSummaryRow = Number(item.paleta) === 0;
-          const isSpecialOrderType = data.tipoPedido === "INGRESO DE SALDOS" || data.tipoPedido === "MAQUILA";
+          const isSpecialOrderType = data.tipoPedido === "INGRESO DE SALDOS" || data.tipoPedido === "MAQUILA" || data.tipoPedido === "TUNEL A CÁMARA CONGELADOS";
 
           if (isSummaryRow) {
               if (item.totalCantidad === undefined || item.totalCantidad === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Total Cantidad requerido.', path: [`${basePath}.totalCantidad`] });
@@ -250,6 +246,49 @@ const formSchema = z.object({
               if (item.taraCaja === undefined || item.taraCaja === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'T. Caja requerida.', path: [`${basePath}.taraCaja`] });
           }
       });
+
+      // --- START: NEW DUPLICATE PALLET VALIDATION ---
+      const allItemsForValidation = data.recepcionPorPlaca ? data.placas?.flatMap(p => p.items) : data.items;
+      if (!allItemsForValidation || allItemsForValidation.length === 0) return;
+
+      const isSummaryMode = allItemsForValidation.some(item => Number(item?.paleta) === 0);
+      if (isSummaryMode) return; // Skip duplicate check in summary mode
+
+      const seenPallets = new Set<number>();
+
+      if (data.recepcionPorPlaca) {
+          data.placas?.forEach((placa, placaIndex) => {
+              placa.items.forEach((item, itemIndex) => {
+                  const paletaNum = Number(item.paleta);
+                  // Ignore 0, null, undefined
+                  if (!isNaN(paletaNum) && paletaNum > 0) {
+                      if (seenPallets.has(paletaNum)) {
+                          ctx.addIssue({
+                              code: z.ZodIssueCode.custom,
+                              message: "Esta paleta ya fue ingresada.",
+                              path: ['placas', placaIndex, 'items', itemIndex, 'paleta'],
+                          });
+                      }
+                      seenPallets.add(paletaNum);
+                  }
+              });
+          });
+      } else {
+          data.items?.forEach((item, itemIndex) => {
+              const paletaNum = Number(item.paleta);
+              if (!isNaN(paletaNum) && paletaNum > 0) {
+                  if (seenPallets.has(paletaNum)) {
+                      ctx.addIssue({
+                          code: z.ZodIssueCode.custom,
+                          message: "Esta paleta ya fue ingresada.",
+                          path: ['items', itemIndex, 'paleta'],
+                      });
+                  }
+                  seenPallets.add(paletaNum);
+              }
+          });
+      }
+      // --- END: NEW DUPLICATE PALLET VALIDATION ---
 });
 
 
@@ -421,13 +460,9 @@ const originalDefaultValues: FormValues = {
   contenedor: "",
   facturaRemision: "No Aplica",
   totalPesoBrutoKg: 0,
-
-  // --- INICIO DE CÓDIGO A AGREGAR ---
   condicionesHigiene: undefined,
   termoregistrador: undefined,
   clienteRequiereTermoregistro: undefined,
-  // --- FIN DE CÓDIGO A AGREGAR ---
-
   recepcionPorPlaca: false,
   items: [],
   placas: [],
@@ -1898,62 +1933,62 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                       </Card>                   
                   )}
                 
-                <Card>
-                <CardHeader>
-                <CardTitle>Información Vehículo</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
-                <FormField
-                    control={form.control}
-                    name="condicionesHigiene"
-                    render={({ field }) => (
-                <FormItem className="space-y-3">
-                    <FormLabel>Condiciones de Higiene <span className="text-destructive">*</span></FormLabel>
-                    <FormControl>
-                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
-                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="higiene-si" /><Label htmlFor="higiene-si">Sí</Label></FormItem>
-                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="higiene-no" /><Label htmlFor="higiene-no">No</Label></FormItem>
-                        </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
-        <FormField
-            control={form.control}
-            name="termoregistrador"
-            render={({ field }) => (
-                <FormItem className="space-y-3">
-                    <FormLabel>Termoregistrador <span className="text-destructive">*</span></FormLabel>
-                    <FormControl>
-                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
-                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="termo-si" /><Label htmlFor="termo-si">Sí</Label></FormItem>
-                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="termo-no" /><Label htmlFor="termo-no">No</Label></FormItem>
-                        </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="clienteRequiereTermoregistro"
-            render={({ field }) => (
-                <FormItem className="space-y-3">
-                    <FormLabel>Cliente Requiere Termoregistro <span className="text-destructive">*</span></FormLabel>
-                    <FormControl>
-                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
-                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="req-termo-si" /><Label htmlFor="req-termo-si">Sí</Label></FormItem>
-                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="req-termo-no" /><Label htmlFor="req-termo-no">No</Label></FormItem>
-                        </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-            />
-            </CardContent>
-            </Card>   
-            
+                  <Card>
+                    <CardHeader>
+                        <CardTitle>Información Vehículo</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
+                        <FormField
+                            control={form.control}
+                            name="condicionesHigiene"
+                            render={({ field }) => (
+                                <FormItem className="space-y-3">
+                                    <FormLabel>Condiciones de Higiene <span className="text-destructive">*</span></FormLabel>
+                                    <FormControl>
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="higiene-si" /><Label htmlFor="higiene-si">Sí</Label></FormItem>
+                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="higiene-no" /><Label htmlFor="higiene-no">No</Label></FormItem>
+                                        </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="termoregistrador"
+                            render={({ field }) => (
+                                <FormItem className="space-y-3">
+                                    <FormLabel>Termoregistrador <span className="text-destructive">*</span></FormLabel>
+                                    <FormControl>
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="termo-si" /><Label htmlFor="termo-si">Sí</Label></FormItem>
+                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="termo-no" /><Label htmlFor="termo-no">No</Label></FormItem>
+                                        </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="clienteRequiereTermoregistro"
+                            render={({ field }) => (
+                                <FormItem className="space-y-3">
+                                    <FormLabel>Cliente Requiere Termoregistro <span className="text-destructive">*</span></FormLabel>
+                                    <FormControl>
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="req-termo-si" /><Label htmlFor="req-termo-si">Sí</Label></FormItem>
+                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="req-termo-no" /><Label htmlFor="req-termo-no">No</Label></FormItem>
+                                        </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </CardContent>
+                  </Card>
+              
                   <Card>
                     <CardHeader><CardTitle>Tiempo y Observaciones de la Operación</CardTitle></CardHeader>
                     <CardContent className="space-y-6">
@@ -2499,3 +2534,4 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           </Dialog>
       );
   }
+    
