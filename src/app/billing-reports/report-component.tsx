@@ -31,7 +31,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -49,7 +49,6 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Form } from '@/components/ui/form';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 
 
@@ -120,11 +119,14 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
 const formatTime12Hour = (timeStr: string | undefined): string => {
     if (!timeStr) return 'N/A';
 
+    // Check if it's already a formatted date-time string
+    // e.g., "13/09/2025 06:50 PM"
     const dateTimeParts = timeStr.split(' ');
     if (dateTimeParts.length > 1 && (timeStr.includes('AM') || timeStr.includes('PM'))) {
         return timeStr;
     }
-
+    
+    // Handle HH:mm format
     if (!timeStr.includes(':')) return 'N/A';
 
     const [hours, minutes] = timeStr.split(':');
@@ -1459,6 +1461,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             setIsConsolidatedLoading(false);
         }
     };
+
+    const consolidatedTotals = useMemo(() => {
+        return consolidatedReportData.reduce((acc, row) => {
+            const invAcumulado = typeof row.inventarioAcumulado === 'object' ? (row.inventarioAcumulado as ClientInventoryDetail)?.total : row.inventarioAcumulado;
+            acc.totalPosiciones += row.posicionesAlmacenadas || 0;
+            acc.totalInventario += Number(invAcumulado) || 0;
+            return acc;
+        }, { totalPosiciones: 0, totalInventario: 0 });
+    }, [consolidatedReportData]);
     
     const handleConsolidatedClear = () => {
         setConsolidatedClient(undefined);
@@ -3870,6 +3881,16 @@ const conceptOrder = [
                                                 />
                                             )}
                                         </TableBody>
+                                        {consolidatedReportData.length > 0 && (
+                                            <TableFooter>
+                                                <TableRow className="bg-muted font-bold hover:bg-muted">
+                                                    <TableCell colSpan={3} className="text-right text-lg">TOTALES</TableCell>
+                                                    <TableCell className="text-right text-lg">{consolidatedTotals.totalPosiciones}</TableCell>
+                                                    <TableCell className="text-right text-lg">{consolidatedTotals.totalInventario}</TableCell>
+                                                    <TableCell />
+                                                </TableRow>
+                                            </TableFooter>
+                                        )}
                                     </Table>
                                 </div>
                             </CardContent>
@@ -4423,3 +4444,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
