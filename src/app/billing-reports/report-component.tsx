@@ -49,6 +49,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Form } from '@/components/ui/form';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 
 
@@ -1465,10 +1466,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const consolidatedTotals = useMemo(() => {
         return consolidatedReportData.reduce((acc, row) => {
             const invAcumulado = typeof row.inventarioAcumulado === 'object' ? (row.inventarioAcumulado as ClientInventoryDetail)?.total : row.inventarioAcumulado;
+            acc.totalRecibidas += row.paletasRecibidas || 0;
+            acc.totalDespachadas += row.paletasDespachadas || 0;
             acc.totalPosiciones += row.posicionesAlmacenadas || 0;
             acc.totalInventario += Number(invAcumulado) || 0;
             return acc;
-        }, { totalPosiciones: 0, totalInventario: 0 });
+        }, { totalRecibidas: 0, totalDespachadas: 0, totalPosiciones: 0, totalInventario: 0 });
     }, [consolidatedReportData]);
     
     const handleConsolidatedClear = () => {
@@ -3837,8 +3840,8 @@ const conceptOrder = [
                                                 <TableHead>Fecha</TableHead>
                                                 <TableHead className="text-right">Recibidas</TableHead>
                                                 <TableHead className="text-right">Despachadas</TableHead>
-                                                <TableHead className="text-right">Posiciones Almacenadas</TableHead>
-                                                <TableHead className="text-right">Inventario Acumulado</TableHead>
+                                                <TableHead className="text-right">Pos. Almacenadas</TableHead>
+                                                <TableHead className="text-right">Inv. Acumulado</TableHead>
                                                 <TableHead className="text-center">Validación</TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -3884,7 +3887,9 @@ const conceptOrder = [
                                         {consolidatedReportData.length > 0 && (
                                             <TableFooter>
                                                 <TableRow className="bg-muted font-bold hover:bg-muted">
-                                                    <TableCell colSpan={3} className="text-right text-lg">TOTALES</TableCell>
+                                                    <TableCell className="text-right text-lg">TOTALES</TableCell>
+                                                    <TableCell className="text-right text-lg">{consolidatedTotals.totalRecibidas}</TableCell>
+                                                    <TableCell className="text-right text-lg">{consolidatedTotals.totalDespachadas}</TableCell>
                                                     <TableCell className="text-right text-lg">{consolidatedTotals.totalPosiciones}</TableCell>
                                                     <TableCell className="text-right text-lg">{consolidatedTotals.totalInventario}</TableCell>
                                                     <TableCell />
@@ -4444,4 +4449,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
 
