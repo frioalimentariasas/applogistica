@@ -261,75 +261,81 @@ const calculatePalletsForOperation = (
     op: any,
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
     articleSessionMap: Map<string, string>,
-    concept?: ClientBillingConcept 
+    concept?: ClientBillingConcept
 ): number => {
-  const { formType, formData } = op;
-  const allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
-  if (allItems.length === 0) return 0;
-  
-  const palletTypeFilter = concept?.palletTypeFilter || 'ambas';
-
-  if (formData.tipoPedido === 'TUNEL DE CONGELACIÓN' && formData.recepcionPorPlaca) {
-      const { totalGeneralPaletas } = processTunelCongelacionData(formData);
-      return totalGeneralPaletas;
-  }
-  
-  if (formType?.startsWith('fixed-weight')) {
-      const filteredProducts = allItems.filter((p: any) => {
-          if (palletTypeFilter === 'ambas') return true;
-          if (palletTypeFilter === 'completas') return (Number(p.paletasCompletas) || 0) > 0;
-          if (palletTypeFilter === 'picking') return (Number(p.paletasPicking) || 0) > 0;
-          return false;
-      });
-      return filteredProducts.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0)), 0);
-  }
-
-  if (formType?.startsWith('variable-weight')) {
-    const isSummary = allItems.some((i: any) => Number(i.paleta) === 0);
+    const { formType, formData } = op;
+    const allItems = getFilteredItems(op, sessionFilter, articleSessionMap);
+    if (allItems.length === 0) return 0;
     
-    if (isSummary) {
-      if (formType.includes('despacho') && formData.despachoPorDestino) {
-        return Number(formData.totalPaletasDespacho) || 0;
-      }
-      
-      return allItems.reduce((sum: number, i: any) => {
-        if (palletTypeFilter === 'ambas') {
-            return sum + (Number(i.paletasCompletas) || 0) + (Number(i.paletasPicking) || 0);
-        }
-        if (palletTypeFilter === 'completas') {
-            return sum + (Number(i.paletasCompletas) || 0);
-        }
-        if (palletTypeFilter === 'picking') {
-            return sum + (Number(i.paletasPicking) || 0);
-        }
-        return sum + (Number(i.totalPaletas) || 0);
-      }, 0);
+    const palletTypeFilter = concept?.palletTypeFilter || 'ambas';
+
+    if (formData.tipoPedido === 'TUNEL DE CONGELACIÓN' && formData.recepcionPorPlaca) {
+        const { totalGeneralPaletas } = processTunelCongelacionData(formData);
+        return totalGeneralPaletas;
     }
     
-    // Detailed (non-summary) logic
-    const uniquePallets = new Set<number>();
-    allItems.forEach((item: any) => {
-      const paletaNum = Number(item.paleta);
-      if (!isNaN(paletaNum) && paletaNum > 0) {
-        let shouldCount = false;
-        if (palletTypeFilter === 'ambas') {
-            shouldCount = true;
-        } else if (palletTypeFilter === 'completas') {
-            shouldCount = !item.esPicking;
-        } else if (palletTypeFilter === 'picking') {
-            shouldCount = item.esPicking === true;
+    if (formType?.startsWith('fixed-weight')) {
+        if (palletTypeFilter === 'completas') {
+            return allItems.reduce((sum: number, p: any) => sum + (Number(p.paletasCompletas) || 0), 0);
+        }
+        if (palletTypeFilter === 'picking') {
+            return allItems.reduce((sum: number, p: any) => sum + (Number(p.paletasPicking) || 0), 0);
+        }
+        // Default for 'ambas'
+        if (formType.includes('despacho')) {
+            return allItems.reduce((sum: number, p: any) => sum + (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0), 0);
+        } else { // reception
+            return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletas) || 0), 0);
+        }
+    }
+
+    if (formType?.startsWith('variable-weight')) {
+        const isSummary = allItems.some((i: any) => Number(i.paleta) === 0);
+        
+        if (isSummary) {
+            if (formType.includes('despacho') && formData.despachoPorDestino) {
+                return Number(formData.totalPaletasDespacho) || 0;
+            }
+            
+            return allItems.reduce((sum: number, i: any) => {
+                if (palletTypeFilter === 'ambas') {
+                    return sum + (Number(i.paletasCompletas) || 0) + (Number(i.paletasPicking) || 0);
+                }
+                if (palletTypeFilter === 'completas') {
+                    return sum + (Number(i.paletasCompletas) || 0);
+                }
+                if (palletTypeFilter === 'picking') {
+                    return sum + (Number(i.paletasPicking) || 0);
+                }
+                return sum + (Number(i.totalPaletas) || 0);
+            }, 0);
         }
         
-        if (shouldCount) {
-            uniquePallets.add(paletaNum);
-        }
-      }
-    });
-    return uniquePallets.size;
-  }
-  
-  return 0;
+        // Detailed (non-summary) logic
+        const uniquePallets = new Set<number>();
+        allItems.forEach((item: any) => {
+            const paletaNum = Number(item.paleta);
+            if (!isNaN(paletaNum) && paletaNum > 0) {
+                let shouldCount = false;
+                if (palletTypeFilter === 'ambas') {
+                    shouldCount = true;
+                } else if (palletTypeFilter === 'completas') {
+                    shouldCount = !item.esPicking;
+                } else if (palletTypeFilter === 'picking') {
+                    shouldCount = item.esPicking === true;
+                }
+                
+                if (shouldCount) {
+                    uniquePallets.add(paletaNum);
+                }
+            }
+        });
+        return uniquePallets.size;
+    }
+    
+    return 0;
 };
+
 
 const calculateUnitsForOperation = (
     op: any,
@@ -402,7 +408,7 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
     // Check if it's already a formatted date-time string
     // e.g., "13/09/2025 06:50 PM"
     const dateTimeParts = timeStr.split(' ');
-    if (dateTimeParts.length > 2 && (dateTimeParts[2] === 'AM' || dateTimeParts[2] === 'PM')) {
+    if (dateTimeParts.length > 1 && (timeStr.includes('AM') || timeStr.includes('PM'))) {
         return timeStr;
     }
     
@@ -823,59 +829,53 @@ export async function generateClientSettlement(criteria: {
     
     let settlementRows: ClientSettlementRow[] = [];
     
-    // START: FRESMAR SPECIAL LOGIC
-    if (clientName === 'COMERCIALIZADORA FRESMAR SAS') {
-        const mainFresmarConcept = selectedConcepts.find(c => c.calculationType === 'LÓGICA ESPECIAL' && c.conceptName === 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)');
-        const article03FresmarConcept = selectedConcepts.find(c => c.calculationType === 'LÓGICA ESPECIAL' && c.conceptName === 'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)');
+    // START: Logic for FRESMAR
+    const fresmarMainConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)');
+    const fresmarArticle03Concept = selectedConcepts.find(c => c.conceptName === 'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)');
+
+    if (clientName === 'COMERCIALIZADORA FRESMAR SAS' && (fresmarMainConcept || fresmarArticle03Concept)) {
         
-        if (mainFresmarConcept || article03FresmarConcept) {
-            // Fetch both reports once
-            const [mainReport, article03Report] = await Promise.all([
-                getConsolidatedMovementReport({ clientName, startDate, endDate, sesion: 'CO', excludeArticleCodes: true, filterByArticleCodes: '03' }),
-                getConsolidatedMovementReport({ clientName, startDate, endDate, sesion: 'CO', excludeArticleCodes: false, filterByArticleCodes: '03' }),
-            ]);
+        const mainReportData = await getConsolidatedMovementReport({ clientName, startDate, endDate, sesion: 'CO', excludeArticleCodes: true, filterByArticleCodes: '03' });
+        const article03ReportData = await getConsolidatedMovementReport({ clientName, startDate, endDate, sesion: 'CO', excludeArticleCodes: false, filterByArticleCodes: '03' });
 
-            const mainPositionsByDate = new Map(mainReport.map(d => [d.date, d.posicionesAlmacenadas]));
-            const article03PositionsByDate = new Map(article03Report.map(d => [d.date, d.posicionesAlmacenadas]));
-            
-            const allDates = new Set([...mainPositionsByDate.keys(), ...article03PositionsByDate.keys()]);
-            
-            for (const date of Array.from(allDates).sort()) {
-                const mainPallets = mainPositionsByDate.get(date) || 0;
-                const article03Pallets = article03PositionsByDate.get(date) || 0;
-                const totalPallets = mainPallets + article03Pallets;
+        const mainPositionsByDate = new Map(mainReportData.map(d => [d.date, d.posicionesAlmacenadas]));
+        const article03PositionsByDate = new Map(article03ReportData.map(d => [d.date, d.posicionesAlmacenadas]));
 
-                // Process main concept
-                if (mainFresmarConcept && mainPallets > 0) {
-                    const unitValue = (mainPallets >= 700 || totalPallets >= 700) ? 5000 : 6000;
-                    settlementRows.push({
-                        date,
-                        uniqueId: `${mainFresmarConcept.id}-${date}`,
-                        placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: mainPallets,
-                        operacionLogistica: 'Servicio', pedidoSislog: 'N/A', conceptName: mainFresmarConcept.conceptName,
-                        tipoVehiculo: 'N/A', quantity: mainPallets, unitOfMeasure: mainFresmarConcept.unitOfMeasure,
-                        unitValue, totalValue: mainPallets * unitValue,
-                        justification: `Total paletas día: ${totalPallets}`,
-                    });
-                }
-                
-                // Process article 03 concept
-                if (article03FresmarConcept && article03Pallets > 0) {
-                    const unitValue = (article03Pallets >= 700 || totalPallets >= 700) ? 5000 : 5400;
-                     settlementRows.push({
-                        date,
-                        uniqueId: `${article03FresmarConcept.id}-${date}`,
-                        placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: article03Pallets,
-                        operacionLogistica: 'Servicio', pedidoSislog: 'N/A', conceptName: article03FresmarConcept.conceptName,
-                        tipoVehiculo: 'N/A', quantity: article03Pallets, unitOfMeasure: article03FresmarConcept.unitOfMeasure,
-                        unitValue, totalValue: article03Pallets * unitValue,
-                        justification: `Total paletas día: ${totalPallets}`,
-                    });
-                }
+        const allDates = new Set([...mainPositionsByDate.keys(), ...article03PositionsByDate.keys()])
+        
+        for (const date of Array.from(allDates).sort()) {
+            const mainPallets = mainPositionsByDate.get(date) || 0;
+            const article03Pallets = article03PositionsByDate.get(date) || 0;
+            const totalPallets = mainPallets + article03Pallets;
+
+            if (fresmarMainConcept && mainPallets > 0) {
+                const unitValue = (mainPallets >= 700 || totalPallets >= 700) ? 5000 : 6000;
+                settlementRows.push({
+                    date,
+                    uniqueId: `${fresmarMainConcept.id}-${date}`,
+                    placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: mainPallets,
+                    operacionLogistica: 'Servicio', pedidoSislog: 'N/A', conceptName: fresmarMainConcept.conceptName,
+                    tipoVehiculo: `Total paletas día: ${totalPallets}`, quantity: mainPallets, unitOfMeasure: fresmarMainConcept.unitOfMeasure,
+                    unitValue, totalValue: mainPallets * unitValue,
+                    justification: '',
+                });
+            }
+            
+            if (fresmarArticle03Concept && article03Pallets > 0) {
+                const unitValue = (article03Pallets >= 700 || totalPallets >= 700) ? 5000 : 5400;
+                 settlementRows.push({
+                    date,
+                    uniqueId: `${fresmarArticle03Concept.id}-${date}`,
+                    placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: article03Pallets,
+                    operacionLogistica: 'Servicio', pedidoSislog: 'N/A', conceptName: fresmarArticle03Concept.conceptName,
+                    tipoVehiculo: `Total paletas día: ${totalPallets}`, quantity: article03Pallets, unitOfMeasure: fresmarArticle03Concept.unitOfMeasure,
+                    unitValue, totalValue: article03Pallets * unitValue,
+                    justification: '',
+                });
             }
         }
     }
-    // END: FRESMAR SPECIAL LOGIC
+    // END: Logic for FRESMAR
     
     const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
@@ -1537,8 +1537,10 @@ export async function generateClientSettlement(criteria: {
     const inventoryConcepts = selectedConcepts.filter(c => c.calculationType === 'SALDO_INVENTARIO' || c.calculationType === 'SALDO_CONTENEDOR');
 
     for (const concept of inventoryConcepts) {
-        // Skip FRESMAR special logic if it's already handled
-        if (clientName === 'COMERCIALIZADORA FRESMAR SAS' && (concept.conceptName === 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)' || concept.conceptName === 'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)')) {
+        // Omits special FRESMAR logic if already handled
+        const isHandledFresmar = clientName === 'COMERCIALIZADORA FRESMAR SAS' && 
+                               (concept.id === fresmarMainConcept?.id || concept.id === fresmarArticle03Concept?.id);
+        if (isHandledFresmar) {
             continue;
         }
 
@@ -1853,3 +1855,5 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
+    
