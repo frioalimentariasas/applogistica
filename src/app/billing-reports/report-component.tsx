@@ -1022,7 +1022,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!table.data) return { columnTotals: [], grandTotal: 0, grandAverage: 0, occupationPercentage: 0, totalCustomerOccupation: 0 };
 
         if (pivotedInventoryData.type === 'monthly' && Array.isArray(table.data)) {
-            return table.data.map(yearData => {
+            return table.data.map((yearData: any, yearIdx: number) => {
                 const columnTotals = yearData.headers.map((_: any, colIndex: number) => {
                     return yearData.clientRows.reduce((sum: number, row: any) => {
                         const value = Object.values(row.data)[colIndex];
@@ -2785,31 +2785,31 @@ const conceptOrder = [
     }, [settlementReportData, hiddenRowIds]);
 
     const settlementGroupedData = useMemo(() => {
-    const groupedByConcept = visibleRows.reduce((acc: Record<string, { subGroups: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>, totalConceptoCantidad: number, totalConceptoValor: number }>, row) => {
-        const conceptKey = row.conceptName;
-        if (!acc[conceptKey]) {
-            acc[conceptKey] = { subGroups: {}, totalConceptoCantidad: 0, totalConceptoValor: 0 };
-        }
+        const groupedByConcept = visibleSettlementData.reduce((acc: Record<string, { subGroups: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>, totalConceptoCantidad: number, totalConceptoValor: number }>, row) => {
+            const conceptKey = row.conceptName;
+            if (!acc[conceptKey]) {
+                acc[conceptKey] = { subGroups: {}, totalConceptoCantidad: 0, totalConceptoValor: 0 };
+            }
 
-        const subKey = row.subConceptName || 'general';
-        if (!acc[conceptKey].subGroups[subKey]) {
-            acc[conceptKey].subGroups[subKey] = {
-                rows: [],
-                subtotalCantidad: 0,
-                subtotalValor: 0,
-            };
-        }
-        acc[conceptKey].subGroups[subKey].rows.push(row);
-        acc[conceptKey].subGroups[subKey].subtotalCantidad += row.quantity || 0;
-        acc[conceptKey].subGroups[subKey].subtotalValor += row.totalValue || 0;
-        
-        acc[conceptKey].totalConceptoCantidad += row.quantity || 0;
-        acc[conceptKey].totalConceptoValor += row.totalValue || 0;
+            const subKey = row.subConceptName || 'general';
+            if (!acc[conceptKey].subGroups[subKey]) {
+                acc[conceptKey].subGroups[subKey] = {
+                    rows: [],
+                    subtotalCantidad: 0,
+                    subtotalValor: 0,
+                };
+            }
+            acc[conceptKey].subGroups[subKey].rows.push(row);
+            acc[conceptKey].subGroups[subKey].subtotalCantidad += row.quantity || 0;
+            acc[conceptKey].subGroups[subKey].subtotalValor += row.totalValue || 0;
+            
+            acc[conceptKey].totalConceptoCantidad += row.quantity || 0;
+            acc[conceptKey].totalConceptoValor += row.totalValue || 0;
 
-        return acc;
-    }, {});
+            return acc;
+        }, {});
 
-    return groupedByConcept;
+        return groupedByConcept;
     }, [visibleSettlementData]);
 
     const settlementTotalGeneral = useMemo(() => {
@@ -4019,7 +4019,7 @@ const conceptOrder = [
                                                             </TableRow>,
                                                             ...subGroup.rows.map((row: ClientSettlementRow) => (
                                                                 <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
-                                                                    <TableCell className="text-xs p-2">{row.date.includes(' - ') ? row.date : format(parseISO(row.date), 'dd/MM/yyyy')}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.date.includes(' - ') ? row.date : format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                                     <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
                                                                     <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
                                                                     <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
@@ -4048,21 +4048,14 @@ const conceptOrder = [
                                                                     </TableCell>
                                                                 </TableRow>
                                                             )),
-                                                            <TableRow key={`${conceptName}-${subConceptName}-subtotal`} className="bg-muted/70 hover:bg-muted/70 font-semibold">
+                                                             <TableRow key={`${conceptName}-${subConceptName}-subtotal`} className="bg-muted/70 hover:bg-muted/70 font-semibold">
                                                                 <TableCell colSpan={13} className="text-right text-xs p-2 pl-8">{subConceptName}</TableCell>
                                                                 <TableCell className="text-xs p-2 text-right">{subGroup.subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                 <TableCell colSpan={2}></TableCell>
                                                                 <TableCell className="text-right text-xs p-2">{subGroup.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                                 <TableCell colSpan={2}></TableCell>
                                                             </TableRow>
-                                                        ]),
-                                                         <TableRow key={`${conceptName}-total`} className="bg-primary/20 hover:bg-primary/25 font-bold">
-                                                            <TableCell colSpan={13} className="text-right text-sm p-2 text-primary">{`Subtotal ${conceptName}:`}</TableCell>
-                                                            <TableCell className="text-sm p-2 text-right text-primary">{conceptGroup.totalConceptoCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                            <TableCell colSpan={2}></TableCell>
-                                                            <TableCell className="text-right text-sm p-2 text-primary">{conceptGroup.totalConceptoValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
-                                                            <TableCell colSpan={2}></TableCell>
-                                                        </TableRow>
+                                                        ])
                                                     ])
                                                 ) : (
                                                     <TableRow><TableCell colSpan={19} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
@@ -4272,6 +4265,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
 
 
 
