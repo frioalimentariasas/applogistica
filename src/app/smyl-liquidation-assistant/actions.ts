@@ -8,7 +8,7 @@ import { startOfDay, endOfDay, eachDayOfInterval, format, parseISO, addDays, isW
 
 interface Movement {
     date: Date;
-    type: 'recepcion' | 'despacho' | 'ingreso_saldos';
+    type: 'recepcion' | 'despacho';
     pallets: number;
     description: string;
 }
@@ -68,26 +68,33 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
 
     const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
 
-    // 1. Find the initial reception without a date constraint
+    // 1. Find all GENERICO receptions for the lot, sorted by date
     const submissionsRef = firestore.collection('submissions');
     const querySnapshot = await submissionsRef
         .where('formData.cliente', '==', clientName)
         .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
         .where('formData.tipoPedido', '==', 'GENERICO')
+        .orderBy('formData.fecha', 'asc') // Sort to find the first one reliably
         .get();
 
     let initialReceptionDoc = null;
+    const subsequentGenericoDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+
     for (const doc of querySnapshot.docs) {
         const data = doc.data().formData;
         const items = data.items || [];
         if (items.some((item: any) => item.lote === lotId)) {
             const totalCalculatedWeight = items.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
             if (totalCalculatedWeight >= 20000) {
-                initialReceptionDoc = doc;
-                break;
+                if (!initialReceptionDoc) {
+                    initialReceptionDoc = doc; // This is the first valid reception
+                } else {
+                    subsequentGenericoDocs.push(doc); // Any others are subsequent entries
+                }
             }
         }
     }
+
 
     if (!initialReceptionDoc) return null;
 
@@ -160,13 +167,31 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
              if (palletsInMovement > 0) {
                 movements.push({
                     date: data.fecha,
-                    type: 'ingreso_saldos',
+                    type: 'recepcion',
                     pallets: palletsInMovement,
                     description: `Ingreso Saldos (Pedido: ${data.pedidoSislog})`
                 });
             }
         }
     });
+    
+    // Process subsequent GENERICO receptions
+    subsequentGenericoDocs.forEach(doc => {
+        const data = serializeTimestamps(doc.data().formData);
+        const lotItems = (data.items || []).filter((item: any) => item.lote === lotId);
+        if (lotItems.length > 0) {
+            const palletsInMovement = new Set(lotItems.map((item: any) => item.paleta)).size;
+            if (palletsInMovement > 0) {
+                movements.push({
+                    date: data.fecha,
+                    type: 'recepcion',
+                    pallets: palletsInMovement,
+                    description: `Recepción GENERICO (Pedido: ${data.pedidoSislog})`
+                });
+            }
+        }
+    });
+
 
     return { initialReception, movements };
 }
@@ -200,7 +225,7 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
                 if (mov.type === 'despacho') {
                     despachosHoy += mov.pallets;
                     descriptions.push(`- ${mov.pallets} Pal. (${mov.description})`);
-                } else if (mov.type === 'ingreso_saldos') {
+                } else if (mov.type === 'recepcion') {
                     ingresosHoy += mov.pallets;
                      descriptions.push(`+ ${mov.pallets} Pal. (${mov.description})`);
                 }
@@ -331,7 +356,7 @@ export async function getSmylEligibleLots(
         const dateStr = format(date, 'yyyy-MM-dd');
         const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
         movementsToday.forEach(mov => {
-            currentBalance += mov.type === 'ingreso_saldos' ? mov.pallets : -mov.pallets;
+            currentBalance += mov.type === 'recepcion' ? mov.pallets : -mov.pallets;
         });
 
         const isPostGrace = date >= gracePeriodEndDate;
