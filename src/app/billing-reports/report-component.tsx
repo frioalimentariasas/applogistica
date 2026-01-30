@@ -19,7 +19,6 @@ import Link from 'next/link';
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport, getAvailableInventoryYears } from '@/app/actions/inventory-report';
-import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
 import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from './actions/settlement-versions';
 import { findApplicableConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
@@ -2652,67 +2651,60 @@ const conceptOrder = [
         lastY = addHeader(doc, "Detalle Liquidación de Servicios Clientes");
 
         const detailBody: any[] = [];
-        const generateDetailRow = (row: ClientSettlementRow) => [
-            format(parseISO(row.date), 'dd/MM/yyyy'),
-            row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
-            row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
-            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
-            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-            row.justification || '',
-        ];
+        const generateDetailRow = (row: ClientSettlementRow) => {
+            const dateValue = row.date.includes(' - ') 
+                ? row.date // It's a range, display as is
+                : format(parseISO(row.date), 'dd/MM/yyyy');
 
-        const groupedByLotAndConcept = visibleRows.reduce((acc, row) => {
-            const lotKey = row.lotId || `CONCEPTO-${row.conceptName}`;
-            if (!acc[lotKey]) {
-                acc[lotKey] = { lotId: row.lotId, conceptName: row.conceptName, rows: [], order: conceptOrder.indexOf(row.conceptName) };
+            return [
+                dateValue,
+                row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
+                row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
+                formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
+                row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
+                row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                row.justification || '',
+            ]
+        };
+
+        const groupedByConcept = visibleRows.reduce((acc, row) => {
+            const conceptKey = row.conceptName;
+            if (!acc[conceptKey]) {
+                acc[conceptKey] = { rows: [], order: conceptOrder.indexOf(conceptKey) };
             }
-            acc[lotKey].rows.push(row);
+            acc[conceptKey].rows.push(row);
             return acc;
-        }, {} as Record<string, { lotId?: string; conceptName: string; rows: ClientSettlementRow[]; order: number; }>);
+        }, {} as Record<string, { rows: ClientSettlementRow[]; order: number; }>);
         
-        const sortedGroupKeys = Object.keys(groupedByLotAndConcept).sort((a, b) => {
-            const groupA = groupedByLotAndConcept[a];
-            const groupB = groupedByLotAndConcept[b];
-            
-            const orderA = groupA.order === -1 ? Infinity : groupA.order;
-            const orderB = groupB.order === -1 ? Infinity : groupB.order;
+        const sortedGroupKeys = Object.keys(groupedByConcept).sort((a, b) => {
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
-
-            const lotCompare = (groupA.lotId || groupA.conceptName).localeCompare(groupB.lotId || groupB.conceptName);
-            if(lotCompare !== 0) return lotCompare;
-            
-            return groupA.conceptName.localeCompare(b.conceptName);
+            return a.localeCompare(b);
         });
 
         for (const groupKey of sortedGroupKeys) {
-             const group = groupedByLotAndConcept[groupKey];
-             let groupTitle = group.lotId ? `Lote/Contenedor: ${group.lotId}` : group.conceptName;
+             const group = groupedByConcept[groupKey];
+             let groupTitle = groupKey;
              
-             // If not a lot-based concept, just show the concept name as the header
-             if (!group.lotId) {
-                detailBody.push([{ content: groupTitle, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
-             }
+             detailBody.push([{ content: groupTitle, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
             
             const sortedRowsForGroup = group.rows.sort((a, b) => {
-                const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+                const dateA = a.date.split(' - ')[0]; // Get start of range if it is one
+                const dateB = b.date.split(' - ')[0];
+                const dateComparison = new Date(dateA).getTime() - new Date(dateB).getTime();
                 if (dateComparison !== 0) return dateComparison;
+
+                if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
+                    const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
+                    const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
+                    const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
+                    const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
+                    if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
+                }
                 
-                    // Custom sort logic for TIEMPO EXTRA ZFPC
-                    if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
-                        const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
-                        const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
-                        const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
-                        if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
-                    }
                 return (a.subConceptName || '').localeCompare(b.subConceptName || '');
             });
-            
-            // Add a header for the lot if it exists
-            if (group.lotId) {
-                detailBody.push([{ content: groupTitle, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
-            }
             
             sortedRowsForGroup.forEach(row => {
                 detailBody.push(generateDetailRow(row));
@@ -2722,7 +2714,7 @@ const conceptOrder = [
              const groupSubtotalValor = group.rows.reduce((sum, row) => sum + (row.totalValue || 0), 0);
              
              detailBody.push([
-                { content: `Subtotal ${group.lotId ? `Lote ${group.lotId}` : group.conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: `Subtotal ${groupKey}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: groupSubtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: '', colSpan: 2 },
                 { content: groupSubtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } },
@@ -2793,35 +2785,26 @@ const conceptOrder = [
         const groupedByConcept = visibleSettlementData.reduce((acc, row) => {
             const conceptKey = row.conceptName;
             if (!acc[conceptKey]) {
-                acc[conceptKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
+                acc[conceptKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0, subGroups: {} };
             }
             acc[conceptKey].rows.push(row);
             acc[conceptKey].subtotalCantidad += row.quantity || 0;
             acc[conceptKey].subtotalValor += row.totalValue || 0;
-            return acc;
-        }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
 
-        // Agregamos la lógica de agrupación por subConceptName aquí
-        for (const conceptKey in groupedByConcept) {
-            const conceptGroup = groupedByConcept[conceptKey];
-            const subGrouped = conceptGroup.rows.reduce((subAcc, row) => {
-                const subKey = row.subConceptName || 'general';
-                if (!subAcc[subKey]) {
-                    subAcc[subKey] = {
-                        rows: [],
-                        subtotalCantidad: 0,
-                        subtotalValor: 0,
-                        unitValue: row.unitValue,
-                        unitOfMeasure: row.unitOfMeasure,
-                    };
-                }
-                subAcc[subKey].rows.push(row);
-                subAcc[subKey].subtotalCantidad += row.quantity || 0;
-                subAcc[subKey].subtotalValor += row.totalValue || 0;
-                return subAcc;
-            }, {} as any);
-            (conceptGroup as any).subGroups = subGrouped;
-        }
+            const subKey = row.subConceptName || 'general';
+            if (!acc[conceptKey].subGroups[subKey]) {
+                acc[conceptKey].subGroups[subKey] = {
+                    rows: [],
+                    subtotalCantidad: 0,
+                    subtotalValor: 0,
+                };
+            }
+            acc[conceptKey].subGroups[subKey].rows.push(row);
+            acc[conceptKey].subGroups[subKey].subtotalCantidad += row.quantity || 0;
+            acc[conceptKey].subGroups[subKey].subtotalValor += row.totalValue || 0;
+
+            return acc;
+        }, {} as Record<string, { rows: ClientSettlementRow[]; subtotalCantidad: number; subtotalValor: number; subGroups: any }>);
 
         return groupedByConcept;
     }, [visibleSettlementData]);
@@ -4019,26 +4002,30 @@ const conceptOrder = [
                                                     <TableHead className="text-right text-xs p-2">Acciones</TableHead>
                                                 </TableRow>
                                             </TableHeader>
-                                            
+                                            <TableBody>
                                                 {isSettlementLoading ? (
-                                                    <TableBody>
-                                                    {Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={18}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)}
-                                                    </TableBody>
+                                                    <TableRow><TableCell colSpan={19}><Skeleton className="h-8 w-full"/></TableCell></TableRow>
                                                 ) : Object.keys(settlementGroupedData).length > 0 ? (
                                                     Object.entries(settlementGroupedData).flatMap(([conceptName, group]) => {
-                                                      const subGroupEntries = Object.entries((group as any).subGroups || {});
-                                                      return [
-                                                        <TableRow key={conceptName} className="bg-primary/5 hover:bg-primary/10">
-                                                          <TableCell colSpan={13} className="font-bold text-primary p-2">{conceptName}</TableCell>
-                                                          <TableCell className="font-bold text-primary text-right p-2">{group.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                                          <TableCell colSpan={2}></TableCell>
-                                                          <TableCell className="font-bold text-primary text-right p-2">{group.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
-                                                          <TableCell colSpan={2}></TableCell>
-                                                        </TableRow>,
-                                                        ...subGroupEntries.flatMap(([subConceptName, subGroup] : [string, any]) => [
+                                                        const conceptHeaderRow = (
+                                                            <TableRow key={`${conceptName}-header`} className="bg-primary/10 hover:bg-primary/15">
+                                                                <TableCell colSpan={19} className="font-bold text-primary p-2 text-lg">
+                                                                    {conceptName}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        );
+
+                                                        const subGroupRows = Object.entries((group as any).subGroups || {}).flatMap(([subConceptName, subGroup]: [string, any]) => [
+                                                            <TableRow key={`${conceptName}-${subConceptName}-header`} className="bg-muted/50 hover:bg-muted/50">
+                                                                <TableCell colSpan={19} className="font-semibold text-muted-foreground p-2 pl-6">
+                                                                    {subConceptName}
+                                                                </TableCell>
+                                                            </TableRow>,
                                                             ...(subGroup.rows.map((row: ClientSettlementRow) => (
                                                                 <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
-                                                                    <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                                    <TableCell className="text-xs p-2">
+                                                                        {row.date.includes(' - ') ? row.date : format(parseISO(row.date), 'dd/MM/yyyy')}
+                                                                    </TableCell>
                                                                     <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
                                                                     <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
                                                                     <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
@@ -4073,14 +4060,24 @@ const conceptOrder = [
                                                                 <TableCell className="text-right text-xs p-2">{subGroup.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                                 <TableCell colSpan={2}></TableCell>
                                                             </TableRow>
-                                                        ])
-                                                      ];
+                                                        ]);
+                                                        
+                                                        const conceptGrandTotalRow = (
+                                                            <TableRow key={`${conceptName}-grandtotal`} className="bg-primary/20 hover:bg-primary/25 font-bold text-base">
+                                                                <TableCell colSpan={13} className="text-right p-2">{`Subtotal ${conceptName}:`}</TableCell>
+                                                                <TableCell className="text-right p-2">{group.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                <TableCell colSpan={2}></TableCell>
+                                                                <TableCell className="text-right p-2">{group.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                                <TableCell colSpan={2}></TableCell>
+                                                            </TableRow>
+                                                        );
+
+                                                        return [conceptHeaderRow, ...subGroupRows, conceptGrandTotalRow];
                                                     })
                                                 ) : (
-                                                    <TableBody>
-                                                        <TableRow><TableCell colSpan={19} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
-                                                    </TableBody>
+                                                    <TableRow><TableCell colSpan={19} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                 )}
+                                                </TableBody>
                                                 <TableFooter>
                                                     <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
                                                         <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
@@ -4285,6 +4282,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
 
 
 
