@@ -4,11 +4,11 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import { startOfDay, endOfDay, eachDayOfInterval, format, parseISO, addDays, isWithinInterval } from 'date-fns';
+import { startOfDay, endOfDay, eachDayOfInterval, format, parseISO, addDays, isWithinInterval, differenceInDays } from 'date-fns';
 
 interface Movement {
     date: Date;
-    type: 'recepcion' | 'despacho';
+    type: 'recepcion' | 'despacho' | 'ingreso_saldos';
     pallets: number;
     description: string;
 }
@@ -67,34 +67,28 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
     if (!firestore) throw new Error("Firestore not configured.");
 
     const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
-
-    // 1. Find all GENERICO receptions for the lot, sorted by date
     const submissionsRef = firestore.collection('submissions');
-    const querySnapshot = await submissionsRef
+
+    // 1. Find the FIRST valid initial reception
+    const initialCandidatesSnapshot = await submissionsRef
         .where('formData.cliente', '==', clientName)
         .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
         .where('formData.tipoPedido', '==', 'GENERICO')
-        .orderBy('formData.fecha', 'asc') // Sort to find the first one reliably
+        .orderBy('formData.fecha', 'asc')
         .get();
 
-    let initialReceptionDoc = null;
-    const subsequentGenericoDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
-
-    for (const doc of querySnapshot.docs) {
+    let initialReceptionDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+    for (const doc of initialCandidatesSnapshot.docs) {
         const data = doc.data().formData;
         const items = data.items || [];
         if (items.some((item: any) => item.lote === lotId)) {
             const totalCalculatedWeight = items.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
             if (totalCalculatedWeight >= 20000) {
-                if (!initialReceptionDoc) {
-                    initialReceptionDoc = doc; // This is the first valid reception
-                } else {
-                    subsequentGenericoDocs.push(doc); // Any others are subsequent entries
-                }
+                initialReceptionDoc = doc;
+                break; // Found the first, so break
             }
         }
     }
-
 
     if (!initialReceptionDoc) return null;
 
@@ -114,85 +108,70 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
         container: initialData.contenedor || 'N/A',
     };
 
-    // 2. Find all subsequent movements
+    // 2. Find ALL movements for this client that happened on or after the initial reception
     const movements: Movement[] = [];
-
-    // Despachos GENERICO
-    const dispatchSnapshot = await submissionsRef
+    const allMovementsSnapshot = await submissionsRef
         .where('formData.cliente', '==', clientName)
-        .where('formType', '==', 'variable-weight-despacho')
-        .where('formData.tipoPedido', '==', 'GENERICO')
         .where('formData.fecha', '>=', initialReception.date)
         .get();
         
-    dispatchSnapshot.forEach(doc => {
+    for (const doc of allMovementsSnapshot.docs) {
+        // Don't re-process the initial reception doc as a movement
+        if (doc.id === initialReceptionDoc.id) continue;
+        
         const data = serializeTimestamps(doc.data().formData);
-        const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap((d:any) => d.items) : (data.items || []);
-        const lotItems = allItems.filter((item: any) => item.lote === lotId);
+        const formType = doc.data().formType;
+        const tipoPedido = data.tipoPedido;
+
+        const allItems = data.despachoPorDestino 
+            ? (data.destinos || []).flatMap((d:any) => d.items || []) 
+            : (data.items || []);
+        
+        const lotItems = allItems.filter((item: any) => item && item.lote === lotId);
+
         if (lotItems.length > 0) {
-            
-            const isSummaryFormat = lotItems.some((item: any) => Number(item.paleta) === 0);
-            let palletsInMovement = 0;
+            if (formType === 'variable-weight-despacho' && tipoPedido === 'GENERICO') {
+                const isSummaryFormat = lotItems.some((item: any) => Number(item.paleta) === 0);
+                let palletsInMovement = 0;
 
-            if (isSummaryFormat) {
-                palletsInMovement = lotItems.reduce((sum: number, item: any) => sum + (Number(item.paletasCompletas) || 0), 0);
-            } else {
-                palletsInMovement = new Set(lotItems.filter((item: any) => !item.esPicking).map((item: any) => item.paleta)).size;
-            }
-
-            if (palletsInMovement > 0) {
-                movements.push({
-                    date: data.fecha,
-                    type: 'despacho',
-                    pallets: palletsInMovement,
-                    description: `Despacho (Pedido: ${data.pedidoSislog})`
-                });
+                if (isSummaryFormat) {
+                    palletsInMovement = lotItems.reduce((sum: number, item: any) => sum + (Number(item.paletasCompletas) || 0), 0);
+                } else {
+                    const dispatchedPallets = new Set<number>();
+                    lotItems.forEach(item => {
+                        if (!item.esPicking && Number(item.paleta) > 0) {
+                            dispatchedPallets.add(Number(item.paleta));
+                        }
+                    });
+                    palletsInMovement = dispatchedPallets.size;
+                }
+                
+                if (palletsInMovement > 0) {
+                    movements.push({
+                        date: data.fecha,
+                        type: 'despacho',
+                        pallets: palletsInMovement,
+                        description: `Despacho (Pedido: ${data.pedidoSislog})`
+                    });
+                }
+            } 
+            else if ((formType === 'variable-weight-reception' || formType === 'variable-weight-recepcion')) {
+                // This covers both subsequent GENERICO receptions and INGRESO DE SALDOS
+                if (tipoPedido === 'GENERICO' || tipoPedido === 'INGRESO DE SALDOS') {
+                    const palletsInMovement = new Set(lotItems.map((item: any) => item.paleta)).size;
+                    if (palletsInMovement > 0) {
+                        movements.push({
+                            date: data.fecha,
+                            type: 'recepcion',
+                            pallets: palletsInMovement,
+                            description: `${tipoPedido} (Pedido: ${data.pedidoSislog})`
+                        });
+                    }
+                }
             }
         }
-    });
-
-    // Ingresos de Saldos
-    const incomeSnapshot = await submissionsRef
-        .where('formData.cliente', '==', clientName)
-        .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
-        .where('formData.tipoPedido', '==', 'INGRESO DE SALDOS')
-        .where('formData.fecha', '>=', initialReception.date)
-        .get();
-
-    incomeSnapshot.forEach(doc => {
-        const data = serializeTimestamps(doc.data().formData);
-        const lotItems = (data.items || []).filter((item: any) => item.lote === lotId);
-        if (lotItems.length > 0) {
-            const palletsInMovement = new Set(lotItems.map((item: any) => item.paleta)).size;
-             if (palletsInMovement > 0) {
-                movements.push({
-                    date: data.fecha,
-                    type: 'recepcion',
-                    pallets: palletsInMovement,
-                    description: `Ingreso Saldos (Pedido: ${data.pedidoSislog})`
-                });
-            }
-        }
-    });
+    }
     
-    // Process subsequent GENERICO receptions
-    subsequentGenericoDocs.forEach(doc => {
-        const data = serializeTimestamps(doc.data().formData);
-        const lotItems = (data.items || []).filter((item: any) => item.lote === lotId);
-        if (lotItems.length > 0) {
-            const palletsInMovement = new Set(lotItems.map((item: any) => item.paleta)).size;
-            if (palletsInMovement > 0) {
-                movements.push({
-                    date: data.fecha,
-                    type: 'recepcion',
-                    pallets: palletsInMovement,
-                    description: `Recepción GENERICO (Pedido: ${data.pedidoSislog})`
-                });
-            }
-        }
-    });
-
-
     return { initialReception, movements };
 }
 
@@ -206,21 +185,28 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
 
         const { initialReception, movements } = history;
         const dailyBalances: DailyBalance[] = [];
-        let currentBalance = initialReception.pallets;
+        let currentBalance = 0; // Se iniciará con la recepción inicial
 
         const loopEndDate = addDays(parseISO(queryEndDate), 1); 
         const dateInterval = eachDayOfInterval({ start: startOfDay(initialReception.date), end: loopEndDate });
 
         for (const [dayIndex, date] of dateInterval.entries()) {
             const dateStr = format(date, 'yyyy-MM-dd');
-            const initialBalanceForDay = currentBalance;
+            let initialBalanceForDay = currentBalance;
             
             const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
+            const isInitialDay = format(initialReception.date, 'yyyy-MM-dd') === dateStr;
             
             let despachosHoy = 0;
             let ingresosHoy = 0;
             const descriptions: string[] = [];
 
+            if (isInitialDay) {
+                ingresosHoy += initialReception.pallets;
+                initialBalanceForDay = 0; // On the first day, the initial balance is 0 before the reception
+                descriptions.push(`+ ${initialReception.pallets} Pal. (Recepción Inicial - Pedido: ${initialReception.pedidoSislog})`);
+            }
+            
             movementsToday.forEach(mov => {
                 if (mov.type === 'despacho') {
                     despachosHoy += mov.pallets;
@@ -231,8 +217,7 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
                 }
             });
 
-            currentBalance = initialBalanceForDay - despachosHoy + ingresosHoy;
-            
+            currentBalance = initialBalanceForDay + ingresosHoy - despachosHoy;
             
             const queryStart = startOfDay(parseISO(queryStartDate));
             const queryEnd = endOfDay(parseISO(queryEndDate));
@@ -240,8 +225,8 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
             if (isWithinInterval(date, { start: queryStart, end: queryEnd })) {
                 dailyBalances.push({
                     date: dateStr,
-                    dayNumber: Math.ceil(dayIndex + 1), // Start from Day 1
-                    isGracePeriod: dayIndex < 4,
+                    dayNumber: differenceInDays(date, initialReception.date) + 1,
+                    isGracePeriod: differenceInDays(date, initialReception.date) < 4,
                     movementsDescription: descriptions.join('; ') || 'Sin movimientos',
                     initialBalance: initialBalanceForDay,
                     finalBalance: currentBalance
@@ -417,5 +402,6 @@ export async function toggleLotStatus(lotId: string): Promise<{ success: boolean
     
 
     
+
 
 
