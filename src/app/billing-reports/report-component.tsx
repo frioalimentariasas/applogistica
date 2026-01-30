@@ -2198,7 +2198,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                  const sortedRowsForConcept = group.rows.sort((a,b) => {
                     const dateA = a.date.split(' - ')[0]; // Get start of range if it is one
                     const dateB = b.date.split(' - ')[0];
-                    const dateComparison = new Date(dateA).getTime() - new Date(dateB).getTime();
+                    const dateComparison = new Date(dateA).getTime() - new Date(b.date).getTime();
                     if (dateComparison !== 0) return dateComparison;
 
                     // Custom sort logic for TIEMPO EXTRA ZFPC
@@ -2694,7 +2694,7 @@ const conceptOrder = [
             const sortedRowsForGroup = group.rows.sort((a, b) => {
                 const dateA = a.date.split(' - ')[0]; // Get start of range if it is one
                 const dateB = b.date.split(' - ')[0];
-                const dateComparison = new Date(dateA).getTime() - new Date(dateB).getTime();
+                const dateComparison = new Date(dateA).getTime() - new Date(b.date).getTime();
                 if (dateComparison !== 0) return dateComparison;
 
                 // Custom sort logic for TIEMPO EXTRA ZFPC
@@ -2785,10 +2785,10 @@ const conceptOrder = [
     }, [settlementReportData, hiddenRowIds]);
 
     const settlementGroupedData = useMemo(() => {
-    const groupedByConcept = visibleSettlementData.reduce((acc, row) => {
+    const groupedByConcept = visibleRows.reduce((acc: Record<string, { subGroups: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>, totalConceptoCantidad: number, totalConceptoValor: number }>, row) => {
         const conceptKey = row.conceptName;
         if (!acc[conceptKey]) {
-            acc[conceptKey] = { subGroups: {} };
+            acc[conceptKey] = { subGroups: {}, totalConceptoCantidad: 0, totalConceptoValor: 0 };
         }
 
         const subKey = row.subConceptName || 'general';
@@ -2802,9 +2802,12 @@ const conceptOrder = [
         acc[conceptKey].subGroups[subKey].rows.push(row);
         acc[conceptKey].subGroups[subKey].subtotalCantidad += row.quantity || 0;
         acc[conceptKey].subGroups[subKey].subtotalValor += row.totalValue || 0;
+        
+        acc[conceptKey].totalConceptoCantidad += row.quantity || 0;
+        acc[conceptKey].totalConceptoValor += row.totalValue || 0;
 
         return acc;
-    }, {} as Record<string, { subGroups: any }>);
+    }, {});
 
     return groupedByConcept;
     }, [visibleSettlementData]);
@@ -4006,65 +4009,65 @@ const conceptOrder = [
                                                 {isSettlementLoading ? (
                                                     <TableRow><TableCell colSpan={19}><Skeleton className="h-8 w-full"/></TableCell></TableRow>
                                                 ) : Object.keys(settlementGroupedData).length > 0 ? (
-                                                    Object.entries(settlementGroupedData).flatMap(([conceptName, group]) => (
-                                                        <React.Fragment key={`${conceptName}-group`}>
-                                                            <TableRow className="bg-primary/20 hover:bg-primary/25">
-                                                                <TableCell colSpan={19} className="font-bold text-primary p-2 text-lg">
-                                                                    {conceptName}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                            {Object.entries((group as any).subGroups || {}).flatMap(([subConceptName, subGroup]: [string, any]) => [
-                                                                <TableRow key={`${conceptName}-${subConceptName}-header`} className="bg-muted/50 hover:bg-muted/50">
-                                                                    <TableCell colSpan={19} className="font-semibold text-muted-foreground p-2 pl-6">
-                                                                        {subConceptName}
+                                                    Object.entries(settlementGroupedData).flatMap(([conceptName, conceptGroup]) => [
+                                                        <TableRow key={`${conceptName}-header`} className="bg-primary/20 hover:bg-primary/25">
+                                                            <TableCell colSpan={19} className="font-bold text-primary p-2 text-lg">{conceptName}</TableCell>
+                                                        </TableRow>,
+                                                        ...Object.entries(conceptGroup.subGroups).flatMap(([subConceptName, subGroup]: [string, any]) => [
+                                                            <TableRow key={`${conceptName}-${subConceptName}-header`} className="bg-muted/50 hover:bg-muted/50">
+                                                                <TableCell colSpan={19} className="font-semibold text-muted-foreground p-2 pl-6">{subConceptName}</TableCell>
+                                                            </TableRow>,
+                                                            ...subGroup.rows.map((row: ClientSettlementRow) => (
+                                                                <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
+                                                                    <TableCell className="text-xs p-2">{row.date.includes(' - ') ? row.date : format(parseISO(row.date), 'dd/MM/yyyy')}</TableCell>
+                                                                    <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
+                                                                    <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.placa}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.container}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
+                                                                    <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                    <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                    <TableCell className="text-xs p-2 max-w-[150px] truncate" title={row.justification}>{row.justification}</TableCell>
+                                                                    <TableCell className="text-right p-1">
+                                                                        <div className="flex items-center justify-end gap-0">
+                                                                            {row.isEdited && <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original"><Undo2 className="h-4 w-4" /></Button>}
+                                                                            <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }} title="Editar fila"><Edit2 className="h-4 w-4" /></Button>
+                                                                            <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila"><EyeOff className="h-4 w-4 text-muted-foreground" /></Button>
+                                                                            {(row.conceptName.includes('SERVICIO DE CONGELACIÓN') || row.conceptName.includes('SERVICIO DE REFRIGERACIÓN')) && <Button variant="ghost" size="icon" onClick={() => setRowToDuplicate(row)} title="Duplicar registro"><Copy className="h-4 w-4 text-sky-600" /></Button>}
+                                                                            {row.isPending && row.submissionId && <LegalizeLinkButton submissionId={row.submissionId} formType={row.formType || ''} />}
+                                                                        </div>
                                                                     </TableCell>
-                                                                </TableRow>,
-                                                                ...(subGroup.rows.map((row: ClientSettlementRow) => (
-                                                                    <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
-                                                                        <TableCell className="text-xs p-2">
-                                                                            {row.date.includes(' - ') ? row.date : format(parseISO(row.date), 'dd/MM/yyyy')}
-                                                                        </TableCell>
-                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
-                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.placa}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.container}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
-                                                                        <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                        <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                        <TableCell className="text-xs p-2 max-w-[150px] truncate" title={row.justification}>{row.justification}</TableCell>
-                                                                        <TableCell className="text-right p-1">
-                                                                            <div className="flex items-center justify-end gap-0">
-                                                                                {row.isEdited && <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original"><Undo2 className="h-4 w-4" /></Button>}
-                                                                                <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }} title="Editar fila"><Edit2 className="h-4 w-4" /></Button>
-                                                                                <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila"><EyeOff className="h-4 w-4 text-muted-foreground" /></Button>
-                                                                                {(row.conceptName.includes('SERVICIO DE CONGELACIÓN') || row.conceptName.includes('SERVICIO DE REFRIGERACIÓN')) && <Button variant="ghost" size="icon" onClick={() => setRowToDuplicate(row)} title="Duplicar registro"><Copy className="h-4 w-4 text-sky-600" /></Button>}
-                                                                            </div>
-                                                                        </TableCell>
-                                                                    </TableRow>
-                                                                ))),
-                                                                <TableRow key={`${conceptName}-${subConceptName}-subtotal`} className="bg-muted/70 hover:bg-muted/70 font-semibold">
-                                                                    <TableCell colSpan={13} className="text-right text-xs p-2 pl-8">{subConceptName}</TableCell>
-                                                                    <TableCell className="text-xs p-2 text-right">{subGroup.subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                                    <TableCell colSpan={2}></TableCell>
-                                                                    <TableCell className="text-right text-xs p-2">{subGroup.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
-                                                                    <TableCell colSpan={2}></TableCell>
                                                                 </TableRow>
-                                                            ])
-                                                        )
-                                                    ))
+                                                            )),
+                                                            <TableRow key={`${conceptName}-${subConceptName}-subtotal`} className="bg-muted/70 hover:bg-muted/70 font-semibold">
+                                                                <TableCell colSpan={13} className="text-right text-xs p-2 pl-8">{subConceptName}</TableCell>
+                                                                <TableCell className="text-xs p-2 text-right">{subGroup.subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                <TableCell colSpan={2}></TableCell>
+                                                                <TableCell className="text-right text-xs p-2">{subGroup.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                                <TableCell colSpan={2}></TableCell>
+                                                            </TableRow>
+                                                        ]),
+                                                         <TableRow key={`${conceptName}-total`} className="bg-primary/20 hover:bg-primary/25 font-bold">
+                                                            <TableCell colSpan={13} className="text-right text-sm p-2 text-primary">{`Subtotal ${conceptName}:`}</TableCell>
+                                                            <TableCell className="text-sm p-2 text-right text-primary">{conceptGroup.totalConceptoCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                            <TableCell colSpan={2}></TableCell>
+                                                            <TableCell className="text-right text-sm p-2 text-primary">{conceptGroup.totalConceptoValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                            <TableCell colSpan={2}></TableCell>
+                                                        </TableRow>
+                                                    ])
                                                 ) : (
                                                     <TableRow><TableCell colSpan={19} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                 )}
-                                                </TableBody>
+                                            </TableBody>
                                                 <TableFooter>
                                                     <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
                                                         <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
@@ -4269,6 +4272,8 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 }
 
     
+
+
 
 
 
