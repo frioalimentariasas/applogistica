@@ -185,25 +185,23 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
 
         const { initialReception, movements } = history;
         const dailyBalances: DailyBalance[] = [];
-        let currentBalance = 0; // Se iniciará con la recepción inicial
+        let currentBalance = initialReception.pallets;
 
         const loopEndDate = addDays(parseISO(queryEndDate), 1); 
         const dateInterval = eachDayOfInterval({ start: startOfDay(initialReception.date), end: loopEndDate });
 
         for (const [dayIndex, date] of dateInterval.entries()) {
             const dateStr = format(date, 'yyyy-MM-dd');
-            let initialBalanceForDay = currentBalance;
-            
-            const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
             const isInitialDay = format(initialReception.date, 'yyyy-MM-dd') === dateStr;
             
+            const initialBalanceForDay = isInitialDay ? initialReception.pallets : currentBalance;
+
+            const movementsToday = movements.filter(m => format(m.date, 'yyyy-MM-dd') === dateStr);
             let despachosHoy = 0;
             let ingresosHoy = 0;
             const descriptions: string[] = [];
 
             if (isInitialDay) {
-                ingresosHoy += initialReception.pallets;
-                initialBalanceForDay = 0; // On the first day, the initial balance is 0 before the reception
                 descriptions.push(`+ ${initialReception.pallets} Pal. (Recepción Inicial - Pedido: ${initialReception.pedidoSislog})`);
             }
             
@@ -217,7 +215,7 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
                 }
             });
 
-            currentBalance = initialBalanceForDay + ingresosHoy - despachosHoy;
+            const finalBalanceForDay = initialBalanceForDay + ingresosHoy - despachosHoy;
             
             const queryStart = startOfDay(parseISO(queryStartDate));
             const queryEnd = endOfDay(parseISO(queryEndDate));
@@ -229,9 +227,11 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
                     isGracePeriod: differenceInDays(date, initialReception.date) < 4,
                     movementsDescription: descriptions.join('; ') || 'Sin movimientos',
                     initialBalance: initialBalanceForDay,
-                    finalBalance: currentBalance
+                    finalBalance: finalBalanceForDay,
                 });
             }
+            
+            currentBalance = finalBalanceForDay;
         }
         
         return { lotId, initialReception, dailyBalances };
@@ -402,6 +402,5 @@ export async function toggleLotStatus(lotId: string): Promise<{ success: boolean
     
 
     
-
 
 
