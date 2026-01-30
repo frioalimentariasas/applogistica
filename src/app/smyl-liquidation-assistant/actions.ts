@@ -223,8 +223,8 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
             if (isWithinInterval(date, { start: queryStart, end: queryEnd })) {
                 dailyBalances.push({
                     date: dateStr,
-                    dayNumber: differenceInDays(date, initialReception.date) + 1,
-                    isGracePeriod: differenceInDays(date, initialReception.date) < 4,
+                    dayNumber: differenceInDays(startOfDay(date), startOfDay(initialReception.date)) + 1,
+                    isGracePeriod: differenceInDays(startOfDay(date), startOfDay(initialReception.date)) < 4,
                     movementsDescription: descriptions.join('; ') || 'Sin movimientos',
                     initialBalance: initialBalanceForDay,
                     finalBalance: finalBalanceForDay,
