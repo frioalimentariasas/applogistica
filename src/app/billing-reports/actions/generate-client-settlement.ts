@@ -830,52 +830,60 @@ export async function generateClientSettlement(criteria: {
     let settlementRows: ClientSettlementRow[] = [];
     
     // START: Logic for FRESMAR
-    const fresmarMainConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)');
-    const fresmarArticle03Concept = selectedConcepts.find(c => c.conceptName === 'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)');
-
+    const fresmarMainConceptName = 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)';
+    const fresmarArticle03ConceptName = 'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)';
+    const fresmarMainConcept = selectedConcepts.find(c => c.conceptName === fresmarMainConceptName);
+    const fresmarArticle03Concept = selectedConcepts.find(c => c.conceptName === fresmarArticle03ConceptName);
+    
     if (clientName === 'COMERCIALIZADORA FRESMAR SAS' && (fresmarMainConcept || fresmarArticle03Concept)) {
-        
-        const mainReportData = await getConsolidatedMovementReport({ clientName, startDate, endDate, sesion: 'CO', excludeArticleCodes: true, filterByArticleCodes: '03' });
-        const article03ReportData = await getConsolidatedMovementReport({ clientName, startDate, endDate, sesion: 'CO', excludeArticleCodes: false, filterByArticleCodes: '03' });
+      
+      const mainReportData = await getConsolidatedMovementReport({ clientName, startDate, endDate, sesion: 'CO', excludeArticleCodes: true, filterByArticleCodes: '03' });
+      const article03ReportData = await getConsolidatedMovementReport({ clientName, startDate, endDate, sesion: 'CO', excludeArticleCodes: false, filterByArticleCodes: '03' });
+    
+      const allDates = eachDayOfInterval({ start: parseISO(startDate), end: parseISO(endDate) }).map(d => format(d, 'yyyy-MM-dd'));
 
-        const mainPositionsByDate = new Map(mainReportData.map(d => [d.date, d.posicionesAlmacenadas]));
-        const article03PositionsByDate = new Map(article03ReportData.map(d => [d.date, d.posicionesAlmacenadas]));
+      for (const date of allDates) {
+          const mainPallets = mainReportData.find(d => d.date === date)?.posicionesAlmacenadas || 0;
+          const article03Pallets = article03ReportData.find(d => d.date === date)?.posicionesAlmacenadas || 0;
+          const totalPallets = mainPallets + article03Pallets;
 
-        const allDates = new Set([...mainPositionsByDate.keys(), ...article03PositionsByDate.keys()])
-        
-        for (const date of Array.from(allDates).sort()) {
-            const mainPallets = mainPositionsByDate.get(date) || 0;
-            const article03Pallets = article03PositionsByDate.get(date) || 0;
-            const totalPallets = mainPallets + article03Pallets;
-
-            if (fresmarMainConcept && mainPallets > 0) {
-                const unitValue = (mainPallets >= 700 || totalPallets >= 700) ? 5000 : 6000;
-                settlementRows.push({
-                    date,
-                    uniqueId: `${fresmarMainConcept.id}-${date}`,
-                    placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: mainPallets,
-                    operacionLogistica: 'Servicio', pedidoSislog: 'N/A', conceptName: fresmarMainConcept.conceptName,
-                    tipoVehiculo: `Total paletas día: ${totalPallets}`, quantity: mainPallets, unitOfMeasure: fresmarMainConcept.unitOfMeasure,
-                    unitValue, totalValue: mainPallets * unitValue,
-                    justification: '',
-                });
-            }
-            
-            if (fresmarArticle03Concept && article03Pallets > 0) {
-                const unitValue = (article03Pallets >= 700 || totalPallets >= 700) ? 5000 : 5400;
-                 settlementRows.push({
-                    date,
-                    uniqueId: `${fresmarArticle03Concept.id}-${date}`,
-                    placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: article03Pallets,
-                    operacionLogistica: 'Servicio', pedidoSislog: 'N/A', conceptName: fresmarArticle03Concept.conceptName,
-                    tipoVehiculo: `Total paletas día: ${totalPallets}`, quantity: article03Pallets, unitOfMeasure: fresmarArticle03Concept.unitOfMeasure,
-                    unitValue, totalValue: article03Pallets * unitValue,
-                    justification: '',
-                });
-            }
-        }
+          if (fresmarMainConcept && mainPallets > 0) {
+              const unitValue = (mainPallets >= 700 || totalPallets >= 700) ? 5000 : 6000;
+              settlementRows.push({
+                  date,
+                  uniqueId: `${fresmarMainConcept.id}-${date}`,
+                  conceptName: fresmarMainConcept.conceptName,
+                  subConceptName: `Tarifa ${unitValue === 5000 ? 'Preferencial' : 'Estándar'} ($${unitValue.toLocaleString('es-CO')})`,
+                  quantity: mainPallets,
+                  unitOfMeasure: fresmarMainConcept.unitOfMeasure,
+                  unitValue,
+                  totalValue: mainPallets * unitValue,
+                  placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: mainPallets,
+                  operacionLogistica: 'Servicio', pedidoSislog: 'N/A', tipoVehiculo: 'N/A',
+                  justification: '',
+              });
+          }
+          
+          if (fresmarArticle03Concept && article03Pallets > 0) {
+              const unitValue = (article03Pallets >= 700 || totalPallets >= 700) ? 5000 : 5400;
+              settlementRows.push({
+                  date,
+                  uniqueId: `${fresmarArticle03Concept.id}-${date}`,
+                  conceptName: fresmarArticle03Concept.conceptName,
+                  subConceptName: `Tarifa ${unitValue === 5000 ? 'Preferencial' : 'Estándar'} ($${unitValue.toLocaleString('es-CO')})`,
+                  quantity: article03Pallets,
+                  unitOfMeasure: fresmarArticle03Concept.unitOfMeasure,
+                  unitValue,
+                  totalValue: article03Pallets * unitValue,
+                  placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: article03Pallets,
+                  operacionLogistica: 'Servicio', pedidoSislog: 'N/A', tipoVehiculo: 'N/A',
+                  justification: '',
+              });
+          }
+      }
     }
     // END: Logic for FRESMAR
+
     
     const smylCargueAlmacenamientoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)' && c.calculationType === 'LÓGICA ESPECIAL');
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoConcept) {
