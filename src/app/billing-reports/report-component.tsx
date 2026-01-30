@@ -2127,7 +2127,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'HORA EXTRA NOCTURNA',
             'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
             'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-            'ALIMENTACIÓN',
+            'ALIMENTACION',
             'TRANSPORTE EXTRAORDINARIO',
             'TRANSPORTE DOMINICAL Y FESTIVO',
         ];
@@ -2287,102 +2287,102 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 14;
 
-const conceptOrder = [
-'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
-'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
-'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
-'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
-'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
-'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
-'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)',
-'POSICIONES FIJAS CÁMARA CONGELADOS',
-'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)',
-'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
-'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
-'SERVICIO DE SECO -PALLET/DIA',
-'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
-'OPERACIÓN CARGUE',
-'OPERACIÓN CARGUE/TONELADAS',
-'OPERACIÓN DESCARGUE',
-'OPERACIÓN DESCARGUE/TONELADAS',
-'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
-'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (CONGELADO)',
-'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/CONGELADO',
-'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
-'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
-'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
-'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/REFRIGERADO',
-'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (SECO)',
-'MOVIMIENTO SALIDA PRODUCTOS - PALLET (CONGELADO)',
-'MOVIMIENTO SALIDA PRODUCTOS - PALLET/CONGELADO',
-'MOVIMIENTO SALIDA PRODUCTO - PALETA',
-'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
-'MOVIMIENTO SALIDA PRODUCTOS PALLET',
-'MOVIMIENTO SALIDA PRODUCTOS - PALLET/REFRIGERADO',
-'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)',
-'SERVICIO ALISTAMIENTO (UNIDAD)',
-'SERVICIO DE ALISTAMIENTO (UNIDAD)',
-'SERVICIO DE ALISTAMIENTO CAJAS',
-'TOMA DE PESOS POR ETIQUETA HRS',
-'REESTIBADO',
-'CONEXIÓN ELÉCTRICA CONTENEDOR',
-'ALQUILER DE AREA PARA EMPAQUE/DIA',
-'ALQUILER DE ÁREA PARA EMPAQUE/DIA',
-'SERVICIO APOYO JORNAL',
-'SERVICIO DE APOYO JORNAL',
-'SERVICIO EMPAQUE EN SACOS',
-'IMPRESIÓN FACTURAS',
-'TRANSBORDO CANASTILLA',
-'ALQUILER IMPRESORA ETIQUETADO',
-'FMM DE INGRESO ZFPC',
-'FMM DE INGRESO ZFPC (MANUAL)',
-'FMM DE INGRESO ZFPC NACIONAL',
-'FMM DE SALIDA ZFPC',
-'FMM DE SALIDA ZFPC (MANUAL)',
-'FMM DE SALIDA ZFPC NACIONAL',
-'ARIN DE INGRESO ZFPC',
-'ARIN DE INGRESO ZFPC (MANUAL)',
-'ARIN DE INGRESO ZFPC NACIONAL',
-'ARIN DE SALIDA ZFPC',
-'ARIN DE SALIDA ZFPC (MANUAL)',
-'ARIN DE SALIDA ZFPC NACIONAL',
-'TIEMPO EXTRA ZFPC',
-'INSPECCIÓN ZFPC',
-'IN-HOUSE INSPECTOR ZFPC',
-'HORA EXTRA DIURNA',
-'HORA EXTRA NOCTURNA',
-'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
-'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-'ALIMENTACIÓN',
-'TRANSPORTE EXTRAORDINARIO',
-'TRANSPORTE DOMINICAL Y FESTIVO',
-'TIEMPO EXTRA FRIOAL (FIJO)',
-'TIEMPO EXTRA FRIOAL',
-'HORA EXTRA DIURNA (SUPERVISOR)',
-'HORA EXTRA DIURNA (MONTACARGUISTA NORMAL)',
-'HORA EXTRA DIURNA (OPERARIO)',
-'HORA EXTRA DIURNA (ASISTENTE)',
-'HORA EXTRA DIURNA DOMINGO Y FESTIVO (SUPERVISOR)',
-'HORA EXTRA DIURNA DOMINGO Y FESTIVO (ASISTENTE)',
-'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA TRILATERAL)',
-'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
-'HORA EXTRA DIURNA DOMINGO Y FESTIVO (OPERARIO)',
-'HORA EXTRA NOCTURNA (SUPERVISOR)',
-'HORA EXTRA NOCTURNA (MONTACARGUISTA NORMAL)',
-'HORA EXTRA NOCTURNA (OPERARIO)',
-'HORA EXTRA NOCTURNA (ASISTENTE)',
-'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (SUPERVISOR)',
-'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (ASISTENTE)',
-'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (MONTACARGUISTA TRILATERAL)',
-'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
-'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (OPERARIO)',
-'ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL',
-'ETIQUETADO POR CAJA/ UNIDAD',
-'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
-'ESTIBA MADERA RECICLADA',
-'SERVICIO DE INSPECCIÓN POR CAJA'
+        const conceptOrder = [
+        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+        'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+        'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
+        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+        'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
+        'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+        'POSICIONES FIJAS CÁMARA CONGELADOS',
+        'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)',
+        'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
+        'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+        'SERVICIO DE SECO -PALLET/DIA',
+        'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
+        'OPERACIÓN CARGUE',
+        'OPERACIÓN CARGUE/TONELADAS',
+        'OPERACIÓN DESCARGUE',
+        'OPERACIÓN DESCARGUE/TONELADAS',
+        'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (CONGELADO)',
+        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/CONGELADO',
+        'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
+        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
+        'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/REFRIGERADO',
+        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (SECO)',
+        'MOVIMIENTO SALIDA PRODUCTOS - PALLET (CONGELADO)',
+        'MOVIMIENTO SALIDA PRODUCTOS - PALLET/CONGELADO',
+        'MOVIMIENTO SALIDA PRODUCTO - PALETA',
+        'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
+        'MOVIMIENTO SALIDA PRODUCTOS PALLET',
+        'MOVIMIENTO SALIDA PRODUCTOS - PALLET/REFRIGERADO',
+        'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)',
+        'SERVICIO ALISTAMIENTO (UNIDAD)',
+        'SERVICIO DE ALISTAMIENTO (UNIDAD)',
+        'SERVICIO DE ALISTAMIENTO CAJAS',
+        'TOMA DE PESOS POR ETIQUETA HRS',
+        'REESTIBADO',
+        'CONEXIÓN ELÉCTRICA CONTENEDOR',
+        'ALQUILER DE AREA PARA EMPAQUE/DIA',
+        'ALQUILER DE ÁREA PARA EMPAQUE/DIA',
+        'SERVICIO APOYO JORNAL',
+        'SERVICIO DE APOYO JORNAL',
+        'SERVICIO EMPAQUE EN SACOS',
+        'IMPRESIÓN FACTURAS',
+        'TRANSBORDO CANASTILLA',
+        'ALQUILER IMPRESORA ETIQUETADO',
+        'FMM DE INGRESO ZFPC',
+        'FMM DE INGRESO ZFPC (MANUAL)',
+        'FMM DE INGRESO ZFPC NACIONAL',
+        'FMM DE SALIDA ZFPC',
+        'FMM DE SALIDA ZFPC (MANUAL)',
+        'FMM DE SALIDA ZFPC NACIONAL',
+        'ARIN DE INGRESO ZFPC',
+        'ARIN DE INGRESO ZFPC (MANUAL)',
+        'ARIN DE INGRESO ZFPC NACIONAL',
+        'ARIN DE SALIDA ZFPC',
+        'ARIN DE SALIDA ZFPC (MANUAL)',
+        'ARIN DE SALIDA ZFPC NACIONAL',
+        'TIEMPO EXTRA ZFPC',
+        'INSPECCIÓN ZFPC',
+        'IN-HOUSE INSPECTOR ZFPC',
+        'HORA EXTRA DIURNA',
+        'HORA EXTRA NOCTURNA',
+        'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+        'ALIMENTACIÓN',
+        'TRANSPORTE EXTRAORDINARIO',
+        'TRANSPORTE DOMINICAL Y FESTIVO',
+        'TIEMPO EXTRA FRIOAL (FIJO)',
+        'TIEMPO EXTRA FRIOAL',
+        'HORA EXTRA DIURNA (SUPERVISOR)',
+        'HORA EXTRA DIURNA (MONTACARGUISTA NORMAL)',
+        'HORA EXTRA DIURNA (OPERARIO)',
+        'HORA EXTRA DIURNA (ASISTENTE)',
+        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (SUPERVISOR)',
+        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (ASISTENTE)',
+        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA TRILATERAL)',
+        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
+        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (OPERARIO)',
+        'HORA EXTRA NOCTURNA (SUPERVISOR)',
+        'HORA EXTRA NOCTURNA (MONTACARGUISTA NORMAL)',
+        'HORA EXTRA NOCTURNA (OPERARIO)',
+        'HORA EXTRA NOCTURNA (ASISTENTE)',
+        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (SUPERVISOR)',
+        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (ASISTENTE)',
+        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (MONTACARGUISTA TRILATERAL)',
+        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
+        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (OPERARIO)',
+        'ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL',
+        'ETIQUETADO POR CAJA/ UNIDAD',
+        'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
+        'ESTIBA MADERA RECICLADA',
+        'SERVICIO DE INSPECCIÓN POR CAJA'
         ];
 
         const zfpcSubConceptOrder = [
@@ -2669,59 +2669,59 @@ const conceptOrder = [
             ]
         };
 
-        const groupedByConcept = visibleRows.reduce((acc, row) => {
-            const conceptKey = row.conceptName;
-            if (!acc[conceptKey]) {
-                acc[conceptKey] = { rows: [], order: conceptOrder.indexOf(conceptKey) };
-            }
-            acc[conceptKey].rows.push(row);
-            return acc;
-        }, {} as Record<string, { rows: ClientSettlementRow[]; order: number; }>);
-        
-        const sortedGroupKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+        const sortedConceptKeys = Object.keys(settlementGroupedData).sort((a, b) => {
+            const orderA = conceptOrder.indexOf(a) === -1 ? Infinity : conceptOrder.indexOf(a);
+            const orderB = conceptOrder.indexOf(b) === -1 ? Infinity : conceptOrder.indexOf(b);
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
 
-        for (const groupKey of sortedGroupKeys) {
-             const group = groupedByConcept[groupKey];
-             let groupTitle = groupKey;
-             
-             detailBody.push([{ content: groupTitle, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
-            
-            const sortedRowsForGroup = group.rows.sort((a, b) => {
-                const dateA = a.date.split(' - ')[0]; // Get start of range if it is one
-                const dateB = b.date.split(' - ')[0];
-                const dateComparison = new Date(dateA).getTime() - new Date(b.date).getTime();
-                if (dateComparison !== 0) return dateComparison;
+        for (const groupKey of sortedConceptKeys) {
+             const conceptGroup = settlementGroupedData[groupKey];
+             const isSpecialFresmarCase = settlementClient === 'COMERCIALIZADORA FRESMAR SAS' && 
+                                 (groupKey === 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)' || 
+                                  groupKey === 'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)');
 
-                // Custom sort logic for TIEMPO EXTRA ZFPC
-                if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
-                    const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
-                    const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
-                    const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                    const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
-                    if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
-                }
-                
-                return (a.subConceptName || '').localeCompare(b.subConceptName || '');
-            });
+            // Main Concept Header
+             detailBody.push([{ content: groupKey, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
             
-            sortedRowsForGroup.forEach(row => {
-                detailBody.push(generateDetailRow(row));
-            });
+            if (isSpecialFresmarCase) {
+                // Iterate through tariff sub-groups
+                Object.entries(conceptGroup.subGroups).forEach(([subConceptName, subGroup]) => {
+                    // Tariff Sub-Group Header
+                    detailBody.push([{ content: subConceptName, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
+                    
+                    // Rows for this tariff
+                    subGroup.rows.forEach(row => {
+                        detailBody.push(generateDetailRow(row));
+                    });
 
-             const groupSubtotalCantidad = group.rows.reduce((sum, row) => sum + (row.quantity || 0), 0);
-             const groupSubtotalValor = group.rows.reduce((sum, row) => sum + (row.totalValue || 0), 0);
-             
+                    // Subtotal for this tariff
+                    detailBody.push([
+                        { content: `Subtotal ${subConceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: subGroup.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: '', colSpan: 2 },
+                        { content: subGroup.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: '' }
+                    ]);
+                });
+
+            } else {
+                // Original behavior for other clients/concepts
+                Object.values(conceptGroup.subGroups).forEach(subGroup => {
+                    subGroup.rows.forEach(row => {
+                        detailBody.push(generateDetailRow(row));
+                    });
+                });
+            }
+
+             // Grand subtotal for the concept
              detailBody.push([
-                { content: `Subtotal ${groupKey}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: groupSubtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: '', colSpan: 2 },
-                { content: groupSubtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: '' }
+                { content: `Subtotal ${groupKey}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#c9daf8' } },
+                { content: conceptGroup.totalConceptoCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: '#c9daf8' } },
+                { content: '', colSpan: 2, styles: {fillColor: '#c9daf8'} },
+                { content: conceptGroup.totalConceptoValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: '#c9daf8' } },
+                { content: '', styles: {fillColor: '#c9daf8'} }
             ]);
         }
         
@@ -2785,32 +2785,32 @@ const conceptOrder = [
     }, [settlementReportData, hiddenRowIds]);
 
     const settlementGroupedData = useMemo(() => {
-        const groupedByConcept = visibleSettlementData.reduce((acc: Record<string, { subGroups: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>, totalConceptoCantidad: number, totalConceptoValor: number }>, row) => {
-            const conceptKey = row.conceptName;
-            if (!acc[conceptKey]) {
-                acc[conceptKey] = { subGroups: {}, totalConceptoCantidad: 0, totalConceptoValor: 0 };
-            }
+    const groupedByConcept = visibleSettlementData.reduce((acc: Record<string, { subGroups: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>, totalConceptoCantidad: number, totalConceptoValor: number }>, row) => {
+        const conceptKey = row.conceptName;
+        if (!acc[conceptKey]) {
+            acc[conceptKey] = { subGroups: {}, totalConceptoCantidad: 0, totalConceptoValor: 0 };
+        }
 
-            const subKey = row.subConceptName || 'general';
-            if (!acc[conceptKey].subGroups[subKey]) {
-                acc[conceptKey].subGroups[subKey] = {
-                    rows: [],
-                    subtotalCantidad: 0,
-                    subtotalValor: 0,
-                };
-            }
-            acc[conceptKey].subGroups[subKey].rows.push(row);
-            acc[conceptKey].subGroups[subKey].subtotalCantidad += row.quantity || 0;
-            acc[conceptKey].subGroups[subKey].subtotalValor += row.totalValue || 0;
-            
-            acc[conceptKey].totalConceptoCantidad += row.quantity || 0;
-            acc[conceptKey].totalConceptoValor += row.totalValue || 0;
+        const subKey = row.subConceptName || 'general';
+        if (!acc[conceptKey].subGroups[subKey]) {
+            acc[conceptKey].subGroups[subKey] = {
+                rows: [],
+                subtotalCantidad: 0,
+                subtotalValor: 0,
+            };
+        }
+        acc[conceptKey].subGroups[subKey].rows.push(row);
+        acc[conceptKey].subGroups[subKey].subtotalCantidad += row.quantity || 0;
+        acc[conceptKey].subGroups[subKey].subtotalValor += row.totalValue || 0;
+        
+        acc[conceptKey].totalConceptoCantidad += row.quantity || 0;
+        acc[conceptKey].totalConceptoValor += row.totalValue || 0;
 
-            return acc;
-        }, {});
+        return acc;
+    }, {});
 
-        return groupedByConcept;
-    }, [visibleSettlementData]);
+    return groupedByConcept;
+}, [visibleSettlementData]);
 
     const settlementTotalGeneral = useMemo(() => {
         return visibleSettlementData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
@@ -3115,43 +3115,7 @@ const conceptOrder = [
                                                 <div className="mt-4 space-y-2">
                                                     <Progress value={uploadProgress} className="w-full" />
                                                     <p className="text-sm text-center text-muted-foreground">
-                                                        Procesando archivo {currentFileIndex} de {totalFiles}... {Math.round(uploadProgress)}%
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </form>
-                                        <div className="space-y-2 flex flex-col border-t pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8">
-                                            <Label className="font-semibold text-base text-destructive">Eliminar Inventario</Label>
-                                            <p className="text-sm text-muted-foreground flex-grow">Esta acción es permanente. Seleccione un rango para eliminar los registros.</p>
-                                            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                                                <DialogTrigger asChild>
-                                                    <Button variant="destructive" className="w-full mt-2">
-                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                        Eliminar Registros por Rango
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <DialogContent>
-                                                    <DialogHeader>
-                                                        <DialogTitle>Seleccione el rango de fechas a eliminar</DialogTitle>
-                                                        <DialogDescription>
-                                                            Todos los registros de inventario dentro de este rango (incluyendo las fechas de inicio y fin) serán eliminados.
-                                                        </DialogDescription>
-                                                    </DialogHeader>
-                                                    <div className="flex justify-center py-4">
-                                                        <Calendar
-                                                            mode="range"
-                                                            selected={dateRangeToDelete}
-                                                            onSelect={setDateRangeToDelete}
-                                                            locale={es}
-                                                            disabled={{ after: today, before: threeYearsAgo }}
-                                                        />
-                                                    </div>
-                                                    <DialogFooter>
-                                                        <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
-                                                        <Button 
-                                                            variant="destructive" 
-                                                            disabled={!dateRangeToDelete?.from || !dateRangeToDelete?.to}
-                                                            onClick={() => {
+                                                        Procesando archivo {currentFileIndex} de {totalFiles}...</p></div>)}</form><div className="space-y-2 flex flex-col border-t pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8"><Label className="font-semibold text-base text-destructive">Eliminar Inventario</Label><p className="text-sm text-muted-foreground flex-grow">Esta acción es permanente. Seleccione un rango para eliminar los registros.</p><Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><DialogTrigger asChild><Button variant="destructive" className="w-full mt-2"><Trash2 className="mr-2 h-4 w-4" />Eliminar Registros por Rango</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Seleccione el rango de fechas a eliminar</DialogTitle><DialogDescription>Todos los registros de inventario dentro de este rango (incluyendo las fechas de inicio y fin) serán eliminados.</DialogDescription></DialogHeader><div className="flex justify-center py-4"><Calendar mode="range" selected={dateRangeToDelete} onSelect={setDateRangeToDelete} locale={es} disabled={{ after: today, before: threeYearsAgo }} /></div><DialogFooter><Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button><Button variant="destructive" disabled={!dateRangeToDelete?.from || !dateRangeToDelete?.to} onClick={() => {
                                                                 setIsDeleteDialogOpen(false);
                                                                 setIsDeleteConfirmOpen(true);
                                                             }}
@@ -4013,13 +3977,13 @@ const conceptOrder = [
                                                         <TableRow key={`${conceptName}-header`} className="bg-primary/20 hover:bg-primary/25">
                                                             <TableCell colSpan={19} className="font-bold text-primary p-2 text-lg">{conceptName}</TableCell>
                                                         </TableRow>,
-                                                        ...Object.entries(conceptGroup.subGroups).flatMap(([subConceptName, subGroup]: [string, any]) => [
+                                                        ...Object.entries(conceptGroup.subGroups).flatMap(([subConceptName, subGroup]) => [
                                                             <TableRow key={`${conceptName}-${subConceptName}-header`} className="bg-muted/50 hover:bg-muted/50">
                                                                 <TableCell colSpan={19} className="font-semibold text-muted-foreground p-2 pl-6">{subConceptName}</TableCell>
                                                             </TableRow>,
                                                             ...subGroup.rows.map((row: ClientSettlementRow) => (
                                                                 <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
-                                                                    <TableCell className="text-xs p-2">{row.date.includes(' - ') ? row.date : format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                                    <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy')}</TableCell>
                                                                     <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
                                                                     <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
                                                                     <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
@@ -4049,7 +4013,7 @@ const conceptOrder = [
                                                                 </TableRow>
                                                             )),
                                                              <TableRow key={`${conceptName}-${subConceptName}-subtotal`} className="bg-muted/70 hover:bg-muted/70 font-semibold">
-                                                                <TableCell colSpan={13} className="text-right text-xs p-2 pl-8">{subConceptName}</TableCell>
+                                                                <TableCell colSpan={13} className="text-right text-xs p-2 pl-8">{`Subtotal ${subConceptName}`}</TableCell>
                                                                 <TableCell className="text-xs p-2 text-right">{subGroup.subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                 <TableCell colSpan={2}></TableCell>
                                                                 <TableCell className="text-right text-xs p-2">{subGroup.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
@@ -4061,15 +4025,15 @@ const conceptOrder = [
                                                     <TableRow><TableCell colSpan={19} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                 )}
                                             </TableBody>
-                                                <TableFooter>
-                                                    <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
-                                                        <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
-                                                        <TableCell className="text-right p-2">{visibleSettlementData.reduce((sum, row) => sum + row.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                        <TableCell colSpan={2}></TableCell>
-                                                        <TableCell className="text-right p-2">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                        <TableCell colSpan={2}></TableCell>
-                                                    </TableRow>
-                                                </TableFooter>
+                                            <TableFooter>
+                                                <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
+                                                    <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
+                                                    <TableCell className="text-right p-2">{visibleSettlementData.reduce((sum, row) => sum + row.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                    <TableCell colSpan={2}></TableCell>
+                                                    <TableCell className="text-right p-2">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                    <TableCell colSpan={2}></TableCell>
+                                                </TableRow>
+                                            </TableFooter>
                                         </Table>
                                     </div>
                                     </>
@@ -4273,3 +4237,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+
+    
