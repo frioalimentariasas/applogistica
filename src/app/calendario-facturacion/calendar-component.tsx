@@ -52,7 +52,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronLeft, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check, Settings } from 'lucide-react';
+import { ArrowLeft, Loader2, Calendar as CalendarIcon, Plus, Edit, Trash2, Home, ChevronLeft, ChevronRight, CheckCircle, Clock, CircleAlert, Dot, ChevronsUpDown, Check, Settings, Printer } from 'lucide-react';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 import { cn } from '@/lib/utils';
 
@@ -269,9 +269,37 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8" id="calendar-page-container">
+        <style jsx global>{`
+            @media print {
+                body {
+                    background-color: white !important;
+                    -webkit-print-color-adjust: exact;
+                    color-adjust: exact;
+                }
+                #main-header, #calendar-nav-controls {
+                    display: none;
+                }
+                #calendar-page-container {
+                    padding: 0;
+                    margin: 0;
+                }
+                #calendar-card {
+                    box-shadow: none;
+                    border: none;
+                }
+                #calendar-card-header {
+                    justify-content: center;
+                }
+                .rdp-cell {
+                    height: 6rem;
+                }
+                .rdp {
+                    margin: 0 auto;
+                }
+            }
+        `}</style>
+      <header className="mb-8" id="main-header">
             <div className="relative flex items-center justify-center text-center">
                  <Button variant="ghost" className="absolute left-0" onClick={() => router.push('/')}>
                     <Home className="mr-2 h-4 w-4" /> Ir al Inicio
@@ -293,10 +321,14 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
             </div>
         </header>
         
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+        <Card id="calendar-card">
+            <CardHeader id="calendar-card-header" className="flex flex-row items-center justify-between">
                 <h2 className="text-xl font-semibold capitalize">{format(currentMonth, 'MMMM yyyy', { locale: es })}</h2>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" id="calendar-nav-controls">
+                    <Button variant="outline" size="sm" onClick={() => window.print()}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())}>Hoy</Button>
                     <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft className="h-4 w-4" /></Button>
                     <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight className="h-4 w-4" /></Button>
