@@ -4100,8 +4100,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     </TableCell>
                                                                 </TableRow>
                                                             )),
-                                                             <TableRow key={`${conceptName}-${subConceptName}-subtotal`} className="bg-muted/70 hover:bg-muted/70 font-semibold">
-                                                                <TableCell colSpan={13} className="text-right text-xs p-2 pl-8">{`Subtotal ${subConceptName}`}</TableCell>
+                                                             <TableRow key={`${conceptName}-${subGroupName}-subtotal`} className="bg-muted/70 hover:bg-muted/70 font-semibold">
+                                                                <TableCell colSpan={13} className="text-right text-xs p-2 pl-8">{`Subtotal ${subGroupName}`}</TableCell>
                                                                 <TableCell className="text-xs p-2 text-right">{subGroup.subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                 <TableCell colSpan={2}></TableCell>
                                                                 <TableCell className="text-right text-xs p-2">{subGroup.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
@@ -4335,4 +4335,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
