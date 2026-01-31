@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -72,6 +73,39 @@ const statusConfig = {
   in_progress: { label: 'En Proceso', color: 'bg-blue-400', textColor: 'text-blue-900', dayBg: 'bg-blue-100' },
   completed: { label: 'Facturado', color: 'bg-green-400', textColor: 'text-green-900', dayBg: 'bg-green-100' },
 };
+
+const PrintStyles = () => (
+    <style jsx global>{`
+        @media print {
+            body {
+                background-color: white !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            #main-header, #calendar-nav-controls {
+                display: none;
+            }
+            #calendar-page-container {
+                padding: 0;
+                margin: 0;
+            }
+            #calendar-card {
+                box-shadow: none;
+                border: none;
+            }
+            #calendar-card-header {
+                justify-content: center;
+            }
+            .rdp-cell {
+                height: 6rem;
+            }
+            .rdp {
+                margin: 0 auto;
+            }
+        }
+    `}</style>
+);
+
 
 export default function CalendarComponent({ clients }: { clients: ClientInfo[] }) {
   const router = useRouter();
@@ -269,35 +303,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8" id="calendar-page-container">
-        <style jsx global>{`
-            @media print {
-                body {
-                    background-color: white !important;
-                    -webkit-print-color-adjust: exact;
-                    color-adjust: exact;
-                }
-                #main-header, #calendar-nav-controls {
-                    display: none;
-                }
-                #calendar-page-container {
-                    padding: 0;
-                    margin: 0;
-                }
-                #calendar-card {
-                    box-shadow: none;
-                    border: none;
-                }
-                #calendar-card-header {
-                    justify-content: center;
-                }
-                .rdp-cell {
-                    height: 6rem;
-                }
-                .rdp {
-                    margin: 0 auto;
-                }
-            }
-        `}</style>
+        <PrintStyles />
       <header className="mb-8" id="main-header">
             <div className="relative flex items-center justify-center text-center">
                  <Button variant="ghost" className="absolute left-0" onClick={() => router.push('/')}>
@@ -627,5 +633,3 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
-
-    
