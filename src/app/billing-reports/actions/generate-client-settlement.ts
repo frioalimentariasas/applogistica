@@ -848,7 +848,10 @@ export async function generateClientSettlement(criteria: {
           const totalPallets = mainPallets + article03Pallets;
 
           if (fresmarMainConcept && mainPallets > 0) {
-              const unitValue = (mainPallets >= 700 || totalPallets >= 700) ? 5000 : 6000;
+              const isPreferential = mainPallets >= 700 || totalPallets >= 700;
+              const unitValue = isPreferential ? 5000 : 6000;
+              const containerValue = isPreferential ? `Total: ${totalPallets} pal.` : 'N/A';
+              
               settlementRows.push({
                   date,
                   uniqueId: `${fresmarMainConcept.id}-${date}`,
@@ -858,14 +861,22 @@ export async function generateClientSettlement(criteria: {
                   unitOfMeasure: fresmarMainConcept.unitOfMeasure,
                   unitValue,
                   totalValue: mainPallets * unitValue,
-                  placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: mainPallets,
-                  operacionLogistica: 'Servicio', pedidoSislog: 'N/A', tipoVehiculo: 'N/A',
+                  placa: 'N/A',
+                  container: containerValue,
+                  camara: 'CO',
+                  totalPaletas: mainPallets,
+                  operacionLogistica: 'Servicio',
+                  pedidoSislog: 'N/A',
+                  tipoVehiculo: 'N/A',
                   justification: '',
               });
           }
           
           if (fresmarArticle03Concept && article03Pallets > 0) {
-              const unitValue = (article03Pallets >= 700 || totalPallets >= 700) ? 5000 : 5400;
+              const isPreferential = article03Pallets >= 700 || totalPallets >= 700;
+              const unitValue = isPreferential ? 5000 : 5400;
+              const containerValue = isPreferential ? `Total: ${totalPallets} pal.` : 'N/A';
+
               settlementRows.push({
                   date,
                   uniqueId: `${fresmarArticle03Concept.id}-${date}`,
@@ -875,8 +886,13 @@ export async function generateClientSettlement(criteria: {
                   unitOfMeasure: fresmarArticle03Concept.unitOfMeasure,
                   unitValue,
                   totalValue: article03Pallets * unitValue,
-                  placa: 'N/A', container: 'N/A', camara: 'CO', totalPaletas: article03Pallets,
-                  operacionLogistica: 'Servicio', pedidoSislog: 'N/A', tipoVehiculo: 'N/A',
+                  placa: 'N/A',
+                  container: containerValue,
+                  camara: 'CO',
+                  totalPaletas: article03Pallets,
+                  operacionLogistica: 'Servicio',
+                  pedidoSislog: 'N/A',
+                  tipoVehiculo: 'N/A',
                   justification: '',
               });
           }
@@ -1865,3 +1881,5 @@ const minutesToTime = (minutes: number): string => {
 };
 
     
+
+
