@@ -1993,6 +1993,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             let conceptKey: string;
             let conceptName: string;
             let unitOfMeasure: string;
+
+            const isSmylDailyFreezing = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && row.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)';
     
             if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'N/A') {
                 conceptName = `${row.conceptName} (${row.operacionLogistica})`;
@@ -2002,6 +2004,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 conceptName = row.conceptName;
                 unitOfMeasure = 'HORA';
                 conceptKey = row.conceptName;
+            } else if (isSmylDailyFreezing && row.lotId) {
+                conceptName = `${row.conceptName} (Lote: ${row.lotId})`;
+                unitOfMeasure = row.unitOfMeasure;
+                conceptKey = `${row.conceptName}-${row.lotId}`;
             } else {
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
                 unitOfMeasure = row.unitOfMeasure;
@@ -2112,16 +2118,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.alignment = { horizontal: 'center' };
         });
 
-        const groupedByConcept = visibleRows.reduce((acc, row) => {
-            const conceptKey = row.conceptName;
-            if (!acc[conceptKey]) {
-                acc[conceptKey] = { rows: [], subtotalValor: 0, subtotalCantidad: 0, order: conceptOrder.indexOf(conceptKey) };
-            }
-            acc[conceptKey].rows.push(row);
-            acc[conceptKey].subtotalCantidad += row.quantity;
-            acc[conceptKey].subtotalValor += row.totalValue;
-            return acc;
-        }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number, order: number }>);
+        const groupedByConcept = settlementGroupedData;
     
         const zfpcSubConceptOrder = [
             'HORA EXTRA DIURNA',
@@ -2134,8 +2131,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
 
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            const orderA = conceptOrder.indexOf(a) === -1 ? Infinity : conceptOrder.indexOf(a);
+            const orderB = conceptOrder.indexOf(b) === -1 ? Infinity : conceptOrder.indexOf(b);
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -2143,79 +2140,31 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         sortedConceptKeys.forEach(conceptName => {
             const group = groupedByConcept[conceptName];
 
-            const isContainerConcept = [
-                'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
-                'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC) POR CONTENEDOR',
-                'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR'
-            ].includes(conceptName);
+            const conceptHeaderRow = detailWorksheet.addRow([]);
+            conceptHeaderRow.getCell('A').value = conceptName;
+            conceptHeaderRow.font = { bold: true };
+            conceptHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
+            detailWorksheet.mergeCells(conceptHeaderRow.number, 1, conceptHeaderRow.number, detailColumns.length);
 
-            if (isContainerConcept) {
-                // Further group by container
-                const containerGroups = group.rows.reduce((acc, row) => {
-                    const containerKey = row.container || 'SIN_CONTENEDOR';
-                    if (!acc[containerKey]) {
-                        acc[containerKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
-                    }
-                    acc[containerKey].rows.push(row);
-                    acc[containerKey].subtotalCantidad += row.quantity;
-                    acc[containerKey].subtotalValor += row.totalValue;
-                    return acc;
-                }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
-                
-                const containerHeaderRow = detailWorksheet.addRow([]);
-                containerHeaderRow.getCell('A').value = conceptName;
-                containerHeaderRow.font = { bold: true };
-                containerHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
-                detailWorksheet.mergeCells(containerHeaderRow.number, 1, containerHeaderRow.number, detailColumns.length);
-
-
-                Object.entries(containerGroups).forEach(([containerKey, containerData]) => {
+            Object.entries(group.subGroups).forEach(([subGroupName, subGroupData]) => {
+                if (subGroupName !== 'general') {
                     const subHeaderRow = detailWorksheet.addRow([]);
-                    subHeaderRow.getCell('B').value = `Contenedor: ${containerKey}`;
+                    subHeaderRow.getCell('B').value = subGroupName;
                     subHeaderRow.font = { bold: true };
                     subHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
                     detailWorksheet.mergeCells(subHeaderRow.number, 2, subHeaderRow.number, detailColumns.length);
+                }
 
-                    containerData.rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => {
-                        detailWorksheet.addRow({
-                            date: format(parseISO(row.date), 'dd/MM/yyyy'),
-                            quantity: row.quantity,
-                            unitValue: row.unitValue,
-                            totalValue: row.totalValue,
-                            justification: row.justification || '',
-                            ...row,
-                        }).eachCell((cell, colNumber) => { /* Formatting */ });
-                    });
-                    
-                    const containerSubtotalRow = detailWorksheet.addRow([]);
-                    containerSubtotalRow.getCell('conceptName').value = `Subtotal Contenedor ${containerKey}:`;
-                    containerSubtotalRow.getCell('quantity').value = containerData.subtotalCantidad;
-                    containerSubtotalRow.getCell('totalValue').value = containerData.subtotalValor;
-                    containerSubtotalRow.font = { bold: true };
-                    containerSubtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6E6' } };
-                });
-
-            } else {
-                 const sortedRowsForConcept = group.rows.sort((a,b) => {
-                    const dateA = a.date.split(' - ')[0]; // Get start of range if it is one
+                const sortedRows = subGroupData.rows.sort((a, b) => {
+                    const dateA = a.date.split(' - ')[0];
                     const dateB = b.date.split(' - ')[0];
                     const dateComparison = new Date(dateA).getTime() - new Date(b.date).getTime();
                     if (dateComparison !== 0) return dateComparison;
-
-                    // Custom sort logic for TIEMPO EXTRA ZFPC
-                    if (a.conceptName === 'TIEMPO EXTRA ZFPC') {
-                        const subOrderA = zfpcSubConceptOrder.indexOf(a.subConceptName || '');
-                        const subOrderB = zfpcSubConceptOrder.indexOf(b.subConceptName || '');
-                        const finalOrderA = subOrderA === -1 ? Infinity : subOrderA;
-                        const finalOrderB = subOrderB === -1 ? Infinity : subOrderB;
-                        if(finalOrderA !== finalOrderB) return finalOrderA - finalOrderB;
-                    }
-                    
                     return (a.subConceptName || '').localeCompare(b.subConceptName || '');
                 });
-                
-                sortedRowsForConcept.forEach(row => {
-                     detailWorksheet.addRow({
+
+                sortedRows.forEach(row => {
+                    detailWorksheet.addRow({
                         date: format(parseISO(row.date), 'dd/MM/yyyy'),
                         conceptName: row.conceptName,
                         subConceptName: row.subConceptName,
@@ -2241,19 +2190,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         }
                     });
                 });
-        
-                const subtotalRow = detailWorksheet.addRow([]);
-                subtotalRow.getCell('conceptName').value = `Subtotal ${conceptName}:`;
-                subtotalRow.getCell('conceptName').font = { bold: true };
-                subtotalRow.getCell('conceptName').alignment = { horizontal: 'right' };
-                subtotalRow.getCell('quantity').value = group.subtotalCantidad;
-                subtotalRow.getCell('quantity').numFmt = '#,##0.00';
-                subtotalRow.getCell('quantity').font = { bold: true };
-                subtotalRow.getCell('totalValue').value = group.subtotalValor;
-                subtotalRow.getCell('totalValue').numFmt = '$ #,##0.00';
-                subtotalRow.getCell('totalValue').font = { bold: true };
-                subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
-            }
+                
+                 if (Object.keys(group.subGroups).length > 1) {
+                    const subtotalRow = detailWorksheet.addRow([]);
+                    subtotalRow.getCell('conceptName').value = `Subtotal ${subGroupName}:`;
+                    subtotalRow.getCell('conceptName').font = { bold: true };
+                    subtotalRow.getCell('conceptName').alignment = { horizontal: 'right' };
+                    subtotalRow.getCell('quantity').value = subGroupData.subtotalCantidad;
+                    subtotalRow.getCell('quantity').numFmt = '#,##0.00';
+                    subtotalRow.getCell('quantity').font = { bold: true };
+                    subtotalRow.getCell('totalValue').value = subGroupData.subtotalValor;
+                    subtotalRow.getCell('totalValue').numFmt = '$ #,##0.00';
+                    subtotalRow.getCell('totalValue').font = { bold: true };
+                    subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6E6' } };
+                 }
+
+            });
+
+            const mainSubtotalRow = detailWorksheet.addRow([]);
+            mainSubtotalRow.getCell('conceptName').value = `Subtotal ${conceptName}:`;
+            mainSubtotalRow.getCell('conceptName').font = { bold: true };
+            mainSubtotalRow.getCell('conceptName').alignment = { horizontal: 'right' };
+            mainSubtotalRow.getCell('quantity').value = group.totalConceptoCantidad;
+            mainSubtotalRow.getCell('quantity').numFmt = '#,##0.00';
+            mainSubtotalRow.getCell('quantity').font = { bold: true };
+            mainSubtotalRow.getCell('totalValue').value = group.totalConceptoValor;
+            mainSubtotalRow.getCell('totalValue').numFmt = '$ #,##0.00';
+            mainSubtotalRow.getCell('totalValue').font = { bold: true };
+            mainSubtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
         });
     
         const totalGeneralDetalleRow = detailWorksheet.addRow([]);
@@ -2459,7 +2423,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             let conceptKey: string;
             let conceptName: string;
             let unitOfMeasure: string;
-            let containerKeyPart = (isMultiContainerSummary && row.conceptName.includes("POR CONTENEDOR")) ? row.container : "GENERAL";
+            const isSmylDailyFreezing = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && row.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)';
+            const containerKeyPart = (isMultiContainerSummary && row.conceptName.includes("POR CONTENEDOR")) ? row.container : "GENERAL";
 
 
             if (isLogisticsClient && settlementContainer) {
@@ -2474,6 +2439,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 conceptName = row.conceptName;
                 unitOfMeasure = 'HORA';
                 conceptKey = row.conceptName;
+            } else if (isSmylDailyFreezing && row.lotId) {
+                conceptName = `${row.conceptName} (Lote: ${row.lotId})`;
+                unitOfMeasure = row.unitOfMeasure;
+                conceptKey = `${row.conceptName}-${row.lotId}`;
             } else {
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
                 unitOfMeasure = row.unitOfMeasure;
@@ -2678,46 +2647,35 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
 
         for (const groupKey of sortedConceptKeys) {
-             const conceptGroup = settlementGroupedData[groupKey];
-             const isSpecialFresmarCase = settlementClient === 'COMERCIALIZADORA FRESMAR SAS' && 
-                                 (groupKey === 'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)' || 
-                                  groupKey === 'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)');
-
-            // Main Concept Header
-             detailBody.push([{ content: groupKey, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+            const conceptGroup = settlementGroupedData[groupKey];
+            const hasSubGroups = Object.keys(conceptGroup.subGroups).length > 1 || !conceptGroup.subGroups['general'];
             
-            if (isSpecialFresmarCase) {
-                // Iterate through tariff sub-groups
-                Object.entries(conceptGroup.subGroups).forEach(([subConceptName, subGroup]) => {
-                    // Tariff Sub-Group Header
-                    detailBody.push([{ content: subConceptName, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
+            detailBody.push([{ content: groupKey, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+        
+            if (hasSubGroups) {
+                Object.entries(conceptGroup.subGroups).forEach(([subGroupName, subGroupData]) => {
+                    if (subGroupName !== 'general') {
+                        detailBody.push([{ content: subGroupName, colSpan: 17, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }]);
+                    }
+                    subGroupData.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(row => detailBody.push(generateDetailRow(row)));
                     
-                    // Rows for this tariff
-                    subGroup.rows.forEach(row => {
-                        detailBody.push(generateDetailRow(row));
-                    });
-
-                    // Subtotal for this tariff
-                    detailBody.push([
-                        { content: `Subtotal ${subConceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
-                        { content: subGroup.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
-                        { content: '', colSpan: 2 },
-                        { content: subGroup.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } },
-                        { content: '' }
-                    ]);
+                    if (Object.keys(conceptGroup.subGroups).length > 1) {
+                         detailBody.push([
+                            { content: `Subtotal ${subGroupName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
+                            { content: subGroupData.subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+                            { content: '', colSpan: 2 },
+                            { content: subGroupData.subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } },
+                            { content: '' }
+                        ]);
+                    }
                 });
-
             } else {
-                // Original behavior for other clients/concepts
-                Object.values(conceptGroup.subGroups).forEach(subGroup => {
-                    subGroup.rows.forEach(row => {
-                        detailBody.push(generateDetailRow(row));
-                    });
+                 conceptGroup.subGroups['general']?.rows.forEach(row => {
+                    detailBody.push(generateDetailRow(row));
                 });
             }
 
-             // Grand subtotal for the concept
-             detailBody.push([
+            detailBody.push([
                 { content: `Subtotal ${groupKey}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#c9daf8' } },
                 { content: conceptGroup.totalConceptoCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: '#c9daf8' } },
                 { content: '', colSpan: 2, styles: {fillColor: '#c9daf8'} },
@@ -2786,14 +2744,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     }, [settlementReportData, hiddenRowIds]);
 
     const settlementGroupedData = useMemo(() => {
-    // THIS IS THE CODE I'M ADDING COMMENTS TO EXPLAIN
     const groupedByConcept = visibleSettlementData.reduce((acc: Record<string, { subGroups: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>, totalConceptoCantidad: number, totalConceptoValor: number }>, row) => {
         const conceptKey = row.conceptName;
         if (!acc[conceptKey]) {
             acc[conceptKey] = { subGroups: {}, totalConceptoCantidad: 0, totalConceptoValor: 0 };
         }
 
-        const subKey = row.subConceptName || 'general';
+        const isSmylDailyFreezing = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && row.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)';
+        
+        let subKey = row.subConceptName || 'general';
+        if (isSmylDailyFreezing && row.lotId) {
+            subKey = `Lote: ${row.lotId}`;
+        }
+        
         if (!acc[conceptKey].subGroups[subKey]) {
             acc[conceptKey].subGroups[subKey] = {
                 rows: [],
@@ -4100,10 +4063,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         <TableRow key={`${conceptName}-header-${groupIndex}`} className="bg-primary/20 hover:bg-primary/25">
                                                             <TableCell colSpan={19} className="font-bold text-primary p-2 text-lg">{conceptName}</TableCell>
                                                         </TableRow>,
-                                                        ...Object.entries(conceptGroup.subGroups).flatMap(([subConceptName, subGroup], subGroupIndex) => [
-                                                            <TableRow key={`${conceptName}-${subConceptName}-header-${subGroupIndex}`} className="bg-muted/50 hover:bg-muted/50">
-                                                                <TableCell colSpan={19} className="font-semibold text-muted-foreground p-2 pl-6">{subConceptName}</TableCell>
-                                                            </TableRow>,
+                                                        ...Object.entries(conceptGroup.subGroups).flatMap(([subGroupName, subGroup], subGroupIndex) => [
+                                                            (Object.keys(conceptGroup.subGroups).length > 1 || subGroupName !== 'general') && (
+                                                            <TableRow key={`${conceptName}-${subGroupName}-header`} className="bg-muted/50 hover:bg-muted/50">
+                                                                <TableCell colSpan={19} className="font-semibold text-muted-foreground p-2 pl-6">{subGroupName}</TableCell>
+                                                            </TableRow>
+                                                            ),
                                                             ...subGroup.rows.map((row: ClientSettlementRow) => (
                                                                 <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
                                                                     <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
@@ -4370,3 +4335,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+

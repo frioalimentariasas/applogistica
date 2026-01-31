@@ -414,7 +414,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
         
         <IndexCreationDialog isOpen={isIndexErrorOpen} onOpenChange={setIsIndexErrorOpen} errorMessage={indexErrorMessage} />
       </div>
-    </div>
+    //</div>
   );
 }
 
