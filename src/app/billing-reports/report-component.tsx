@@ -2744,159 +2744,159 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     }, [settlementReportData, hiddenRowIds]);
 
     const settlementGroupedData = useMemo(() => {
-    const groupedByConcept = visibleSettlementData.reduce((acc: Record<string, { subGroups: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>, totalConceptoCantidad: number, totalConceptoValor: number }>, row) => {
-        const conceptKey = row.conceptName;
-        if (!acc[conceptKey]) {
-            acc[conceptKey] = { subGroups: {}, totalConceptoCantidad: 0, totalConceptoValor: 0 };
-        }
-
-        const isSmylDailyFreezing = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && row.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)';
-        
-        let subKey = row.subConceptName || 'general';
-        if (isSmylDailyFreezing && row.lotId) {
-            subKey = `Lote: ${row.lotId}`;
-        }
-        
-        if (!acc[conceptKey].subGroups[subKey]) {
-            acc[conceptKey].subGroups[subKey] = {
-                rows: [],
-                subtotalCantidad: 0,
-                subtotalValor: 0,
-            };
-        }
-        acc[conceptKey].subGroups[subKey].rows.push(row);
-        acc[conceptKey].subGroups[subKey].subtotalCantidad += row.quantity || 0;
-        acc[conceptKey].subGroups[subKey].subtotalValor += row.totalValue || 0;
-        
-        acc[conceptKey].totalConceptoCantidad += row.quantity || 0;
-        acc[conceptKey].totalConceptoValor += row.totalValue || 0;
-
-        return acc;
-    }, {});
+        const groupedByConcept = visibleSettlementData.reduce((acc: Record<string, { subGroups: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>, totalConceptoCantidad: number, totalConceptoValor: number }>, row) => {
+            const conceptKey = row.conceptName;
+            if (!acc[conceptKey]) {
+                acc[conceptKey] = { subGroups: {}, totalConceptoCantidad: 0, totalConceptoValor: 0 };
+            }
     
-    const conceptOrder = [
-        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
-        'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
-        'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
-        'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
-        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-        'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
-        'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
-        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)',
-        'POSICIONES FIJAS CÁMARA CONGELADOS',
-        'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)',
-        'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
-        'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
-        'SERVICIO DE SECO -PALLET/DIA',
-        'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
-        'OPERACIÓN CARGUE',
-        'OPERACIÓN CARGUE/TONELADAS',
-        'OPERACIÓN DESCARGUE',
-        'OPERACIÓN DESCARGUE/TONELADAS',
-        'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
-        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (CONGELADO)',
-        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/CONGELADO',
-        'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
-        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
-        'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
-        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/REFRIGERADO',
-        'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (SECO)',
-        'MOVIMIENTO SALIDA PRODUCTOS - PALLET (CONGELADO)',
-        'MOVIMIENTO SALIDA PRODUCTOS - PALLET/CONGELADO',
-        'MOVIMIENTO SALIDA PRODUCTO - PALETA',
-        'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
-        'MOVIMIENTO SALIDA PRODUCTOS PALLET',
-        'MOVIMIENTO SALIDA PRODUCTOS - PALLET/REFRIGERADO',
-        'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)',
-        'SERVICIO ALISTAMIENTO (UNIDAD)',
-        'SERVICIO DE ALISTAMIENTO (UNIDAD)',
-        'SERVICIO DE ALISTAMIENTO CAJAS',
-        'TOMA DE PESOS POR ETIQUETA HRS',
-        'REESTIBADO',
-        'CONEXIÓN ELÉCTRICA CONTENEDOR',
-        'ALQUILER DE AREA PARA EMPAQUE/DIA',
-        'ALQUILER DE ÁREA PARA EMPAQUE/DIA',
-        'SERVICIO APOYO JORNAL',
-        'SERVICIO DE APOYO JORNAL',
-        'SERVICIO EMPAQUE EN SACOS',
-        'IMPRESIÓN FACTURAS',
-        'TRANSBORDO CANASTILLA',
-        'ALQUILER IMPRESORA ETIQUETADO',
-        'FMM DE INGRESO ZFPC',
-        'FMM DE INGRESO ZFPC (MANUAL)',
-        'FMM DE INGRESO ZFPC NACIONAL',
-        'FMM DE SALIDA ZFPC',
-        'FMM DE SALIDA ZFPC (MANUAL)',
-        'FMM DE SALIDA ZFPC NACIONAL',
-        'ARIN DE INGRESO ZFPC',
-        'ARIN DE INGRESO ZFPC (MANUAL)',
-        'ARIN DE INGRESO ZFPC NACIONAL',
-        'ARIN DE SALIDA ZFPC',
-        'ARIN DE SALIDA ZFPC (MANUAL)',
-        'ARIN DE SALIDA ZFPC NACIONAL',
-        'TIEMPO EXTRA ZFPC',
-        'INSPECCIÓN ZFPC',
-        'IN-HOUSE INSPECTOR ZFPC',
-        'HORA EXTRA DIURNA',
-        'HORA EXTRA NOCTURNA',
-        'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
-        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
-        'ALIMENTACIÓN',
-        'TRANSPORTE EXTRAORDINARIO',
-        'TRANSPORTE DOMINICAL Y FESTIVO',
-        'TIEMPO EXTRA FRIOAL (FIJO)',
-        'TIEMPO EXTRA FRIOAL',
-        'HORA EXTRA DIURNA (SUPERVISOR)',
-        'HORA EXTRA DIURNA (MONTACARGUISTA TRILATERAL)',
-        'HORA EXTRA DIURNA (MONTACARGUISTA NORMAL)',
-        'HORA EXTRA DIURNA (OPERARIO)',
-        'HORA EXTRA DIURNA (ASISTENTE)',
-        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (SUPERVISOR)',
-        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (ASISTENTE)',
-        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA TRILATERAL)',
-        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
-        'HORA EXTRA DIURNA DOMINGO Y FESTIVO (OPERARIO)',
-        'HORA EXTRA NOCTURNA (SUPERVISOR)',
-        'HORA EXTRA NOCTURNA (MONTACARGUISTA TRILATERAL)',
-        'HORA EXTRA NOCTURNA (MONTACARGUISTA NORMAL)',
-        'HORA EXTRA NOCTURNA (OPERARIO)',
-        'HORA EXTRA NOCTURNA (ASISTENTE)',
-        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (SUPERVISOR)',
-        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (ASISTENTE)',
-        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (MONTACARGUISTA TRILATERAL)',
-        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
-        'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (OPERARIO)',
-        'ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL',
-        'ETIQUETADO POR CAJA/ UNIDAD',
-        'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
-        'ESTIBA MADERA RECICLADA',
-        'SERVICIO DE INSPECCIÓN POR CAJA'
-    ];
+            const isSmylDailyFreezing = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && row.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)';
+            
+            let subKey = row.subConceptName || 'general';
+            if (isSmylDailyFreezing && row.lotId) {
+                subKey = `Lote: ${row.lotId}`;
+            }
+            
+            if (!acc[conceptKey].subGroups[subKey]) {
+                acc[conceptKey].subGroups[subKey] = {
+                    rows: [],
+                    subtotalCantidad: 0,
+                    subtotalValor: 0,
+                };
+            }
+            acc[conceptKey].subGroups[subKey].rows.push(row);
+            acc[conceptKey].subGroups[subKey].subtotalCantidad += row.quantity || 0;
+            acc[conceptKey].subGroups[subKey].subtotalValor += row.totalValue || 0;
+            
+            acc[conceptKey].totalConceptoCantidad += row.quantity || 0;
+            acc[conceptKey].totalConceptoValor += row.totalValue || 0;
     
-    // Convert the object to an array and sort it
-    const sortedGroupedData = Object.entries(groupedByConcept)
-      .sort(([keyA], [keyB]) => {
-        const indexA = conceptOrder.indexOf(keyA);
-        const indexB = conceptOrder.indexOf(keyB);
-        // If both keys are in conceptOrder, sort by their index
-        if (indexA !== -1 && indexB !== -1) {
-          return indexA - indexB;
-        }
-        // If only one is in conceptOrder, it comes first
-        if (indexA !== -1) return -1;
-        if (indexB !== -1) return 1;
-        // If neither are in conceptOrder, sort alphabetically
-        return keyA.localeCompare(keyB);
-      })
-      .reduce((acc, [key, value]) => {
-        acc[key] = value;
-        return acc;
-      }, {} as typeof groupedByConcept);
-
-    return sortedGroupedData;
-
-}, [visibleSettlementData, settlementClient]);
+            return acc;
+        }, {});
+        
+        const conceptOrder = [
+            'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC)',
+            'SERVICIO DE CONGELACIÓN - PALLET/DÍA (-18ºC)',
+            'SERVICIO DE CONGELACIÓN - PALETA/DIA (-18ºC)',
+            'SERVICIO DE CONGELACIÓN - PALLET/DIA (-18ºC) POR CONTENEDOR',
+            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            'SERVICIO LOGÍSTICO CONGELACIÓN (4 DÍAS)',
+            'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA VEHICULO LIVIANO (CARGUE Y ALMACENAMIENTO 1 DÍA)',
+            'POSICIONES FIJAS CÁMARA CONGELADOS',
+            'SERVICIO DE CONGELACIÓN - UBICACIÓN/DIA (-18ºC)',
+            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC)',
+            'SERVICIO DE REFRIGERACIÓN - PALLET/DIA (0°C A 4ºC) POR CONTENEDOR',
+            'SERVICIO DE SECO -PALLET/DIA',
+            'SERVICIO DE SECO -PALLET/DIA POR CONTENEDOR',
+            'OPERACIÓN CARGUE',
+            'OPERACIÓN CARGUE/TONELADAS',
+            'OPERACIÓN DESCARGUE',
+            'OPERACIÓN DESCARGUE/TONELADAS',
+            'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA',
+            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (CONGELADO)',
+            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/CONGELADO',
+            'MOVIMIENTO ENTRADA PRODUCTO - PALETA',
+            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET',
+            'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET/REFRIGERADO',
+            'MOVIMIENTO ENTRADA PRODUCTOS - PALLET (SECO)',
+            'MOVIMIENTO SALIDA PRODUCTOS - PALLET (CONGELADO)',
+            'MOVIMIENTO SALIDA PRODUCTOS - PALLET/CONGELADO',
+            'MOVIMIENTO SALIDA PRODUCTO - PALETA',
+            'MOVIMIENTO SALIDA PRODUCTOS - PALLET',
+            'MOVIMIENTO SALIDA PRODUCTOS PALLET',
+            'MOVIMIENTO SALIDA PRODUCTOS - PALLET/REFRIGERADO',
+            'MOVIMIENTO SALIDA PRODUCTOS - PALLET (SECO)',
+            'SERVICIO ALISTAMIENTO (UNIDAD)',
+            'SERVICIO DE ALISTAMIENTO (UNIDAD)',
+            'SERVICIO DE ALISTAMIENTO CAJAS',
+            'TOMA DE PESOS POR ETIQUETA HRS',
+            'REESTIBADO',
+            'CONEXIÓN ELÉCTRICA CONTENEDOR',
+            'ALQUILER DE AREA PARA EMPAQUE/DIA',
+            'ALQUILER DE ÁREA PARA EMPAQUE/DIA',
+            'SERVICIO APOYO JORNAL',
+            'SERVICIO DE APOYO JORNAL',
+            'SERVICIO EMPAQUE EN SACOS',
+            'IMPRESIÓN FACTURAS',
+            'TRANSBORDO CANASTILLA',
+            'ALQUILER IMPRESORA ETIQUETADO',
+            'FMM DE INGRESO ZFPC',
+            'FMM DE INGRESO ZFPC (MANUAL)',
+            'FMM DE INGRESO ZFPC NACIONAL',
+            'FMM DE SALIDA ZFPC',
+            'FMM DE SALIDA ZFPC (MANUAL)',
+            'FMM DE SALIDA ZFPC NACIONAL',
+            'ARIN DE INGRESO ZFPC',
+            'ARIN DE INGRESO ZFPC (MANUAL)',
+            'ARIN DE INGRESO ZFPC NACIONAL',
+            'ARIN DE SALIDA ZFPC',
+            'ARIN DE SALIDA ZFPC (MANUAL)',
+            'ARIN DE SALIDA ZFPC NACIONAL',
+            'TIEMPO EXTRA ZFPC',
+            'INSPECCIÓN ZFPC',
+            'IN-HOUSE INSPECTOR ZFPC',
+            'HORA EXTRA DIURNA',
+            'HORA EXTRA NOCTURNA',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO',
+            'ALIMENTACIÓN',
+            'TRANSPORTE EXTRAORDINARIO',
+            'TRANSPORTE DOMINICAL Y FESTIVO',
+            'TIEMPO EXTRA FRIOAL (FIJO)',
+            'TIEMPO EXTRA FRIOAL',
+            'HORA EXTRA DIURNA (SUPERVISOR)',
+            'HORA EXTRA DIURNA (MONTACARGUISTA TRILATERAL)',
+            'HORA EXTRA DIURNA (MONTACARGUISTA NORMAL)',
+            'HORA EXTRA DIURNA (OPERARIO)',
+            'HORA EXTRA DIURNA (ASISTENTE)',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO (SUPERVISOR)',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO (ASISTENTE)',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA TRILATERAL)',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
+            'HORA EXTRA DIURNA DOMINGO Y FESTIVO (OPERARIO)',
+            'HORA EXTRA NOCTURNA (SUPERVISOR)',
+            'HORA EXTRA NOCTURNA (MONTACARGUISTA TRILATERAL)',
+            'HORA EXTRA NOCTURNA (MONTACARGUISTA NORMAL)',
+            'HORA EXTRA NOCTURNA (OPERARIO)',
+            'HORA EXTRA NOCTURNA (ASISTENTE)',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (SUPERVISOR)',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (ASISTENTE)',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (MONTACARGUISTA TRILATERAL)',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
+            'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO (OPERARIO)',
+            'ETIQUETADO POR CAJA - UNIDAD SUMINISTRA FAL',
+            'ETIQUETADO POR CAJA/ UNIDAD',
+            'ETIQUETADO POR CAJA/ UNIDAD FAL COLOCA ETIQUETA',
+            'ESTIBA MADERA RECICLADA',
+            'SERVICIO DE INSPECCIÓN POR CAJA'
+        ];
+        
+        // Convert the object to an array and sort it
+        const sortedGroupedData = Object.entries(groupedByConcept)
+          .sort(([keyA], [keyB]) => {
+            const indexA = conceptOrder.indexOf(keyA);
+            const indexB = conceptOrder.indexOf(keyB);
+            // If both keys are in conceptOrder, sort by their index
+            if (indexA !== -1 && indexB !== -1) {
+              return indexA - indexB;
+            }
+            // If only one is in conceptOrder, it comes first
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            // If neither are in conceptOrder, sort alphabetically
+            return keyA.localeCompare(keyB);
+          })
+          .reduce((acc, [key, value]) => {
+            acc[key] = value;
+            return acc;
+          }, {} as typeof groupedByConcept);
+    
+        return sortedGroupedData;
+    
+    }, [visibleSettlementData, settlementClient]);
 
     const settlementTotalGeneral = useMemo(() => {
         return visibleSettlementData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
@@ -4059,11 +4059,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 {isSettlementLoading ? (
                                                     <TableRow><TableCell colSpan={19}><Skeleton className="h-8 w-full"/></TableCell></TableRow>
                                                 ) : Object.keys(settlementGroupedData).length > 0 ? (
-                                                     Object.entries(settlementGroupedData).flatMap(([conceptName, conceptGroup], groupIndex) => [
-                                                        <TableRow key={`${conceptName}-header-${groupIndex}`} className="bg-primary/20 hover:bg-primary/25">
+                                                     Object.entries(settlementGroupedData).flatMap(([conceptName, conceptGroup]) => [
+                                                        <TableRow key={`${conceptName}-header`} className="bg-primary/20 hover:bg-primary/25">
                                                             <TableCell colSpan={19} className="font-bold text-primary p-2 text-lg">{conceptName}</TableCell>
                                                         </TableRow>,
-                                                        ...Object.entries(conceptGroup.subGroups).flatMap(([subGroupName, subGroup], subGroupIndex) => [
+                                                        ...Object.entries(conceptGroup.subGroups).flatMap(([subGroupName, subGroup]) => [
                                                             (Object.keys(conceptGroup.subGroups).length > 1 || subGroupName !== 'general') && (
                                                             <TableRow key={`${conceptName}-${subGroupName}-header`} className="bg-muted/50 hover:bg-muted/50">
                                                                 <TableCell colSpan={19} className="font-semibold text-muted-foreground p-2 pl-6">{subGroupName}</TableCell>
@@ -4073,7 +4073,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
                                                                     <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                                     <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
-                                                                    <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
+                                                                    <TableCell className="text-xs p-2 whitespace-normal">{subGroupName === 'general' ? row.subConceptName : ''}</TableCell>
                                                                     <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
                                                                     <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
                                                                     <TableCell className="text-xs p-2">{row.placa}</TableCell>
@@ -4335,5 +4335,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
