@@ -2751,10 +2751,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
     
             const isSmylDailyFreezing = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' && row.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)';
+            const isContainerConcept = row.conceptName.includes("POR CONTENEDOR");
             
             let subKey = row.subConceptName || 'general';
             if (isSmylDailyFreezing && row.lotId) {
                 subKey = `Lote: ${row.lotId}`;
+            } else if (isContainerConcept && row.container && row.container !== 'N/A') {
+                subKey = `Contenedor: ${row.container}`;
             }
             
             if (!acc[conceptKey].subGroups[subKey]) {
@@ -4335,6 +4338,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 
