@@ -218,7 +218,11 @@ const formSchema = z.object({
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
-    const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
+    const allItems = data.despachoPorDestino
+        ? data.destinos.flatMap((d, destinoIndex) => 
+            (d.items || []).map((i, itemIndex) => ({ ...i, pathPrefix: `destinos.${destinoIndex}.items.${itemIndex}` }))
+        )
+        : (data.items || []).map((i, itemIndex) => ({ ...i, pathPrefix: `items.${itemIndex}` }));
     
     if (data.despachoPorDestino && data.destinos.length === 0) {
         ctx.addIssue({
@@ -249,23 +253,68 @@ const formSchema = z.object({
     if (data.despachoPorDestino) {
         data.destinos.forEach((destino, destinoIndex) => {
             const seenPallets = new Set<number>();
-            destino.items.forEach((item, itemIndex) => {
+            (destino.items || []).forEach((item, itemIndex) => {
                 const paletaNum = Number(item.paleta);
                 // Ignore summary (0) and special (999) pallets
                 if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
                     if (seenPallets.has(paletaNum)) {
                         ctx.addIssue({
                             code: z.ZodIssueCode.custom,
-                            message: "La paleta ya existe en este destino.",
-                            path: [`destinos`, destinoIndex, 'items', itemIndex, 'paleta'],
+                            message: "Paleta duplicada en este destino.",
+                            path: ['destinos', destinoIndex, 'items', itemIndex, 'paleta'],
                         });
                     }
                     seenPallets.add(paletaNum);
                 }
             });
         });
+    } else { // Check for duplicates in the main 'items' array
+        const seenPallets = new Set<number>();
+        (data.items || []).forEach((item, itemIndex) => {
+             const paletaNum = Number(item.paleta);
+             if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
+                 if (seenPallets.has(paletaNum)) {
+                     ctx.addIssue({
+                         code: z.ZodIssueCode.custom,
+                         message: "Paleta duplicada.",
+                         path: ['items', itemIndex, 'paleta'],
+                     });
+                 }
+                 seenPallets.add(paletaNum);
+             }
+        });
     }
     // END: Pallet duplication validation
+    
+    // START: Unique "complete" pallet validation
+    const palletsGrouped = allItems.reduce((acc, item) => {
+        const paletaNum = Number(item.paleta);
+        if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
+            if (!acc[paletaNum]) {
+                acc[paletaNum] = [];
+            }
+            acc[paletaNum].push(item);
+        }
+        return acc;
+    }, {} as Record<number, typeof allItems>);
+
+    for (const paletaNum in palletsGrouped) {
+        const itemsForPallet = palletsGrouped[paletaNum];
+        const completePallets = itemsForPallet.filter(item => !item.esPicking);
+        
+        if (completePallets.length > 1) {
+            // Add error to all but the first 'complete' pallet
+            for (let i = 1; i < completePallets.length; i++) {
+                const itemWithError = completePallets[i];
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Solo puede haber una paleta completa. Marque esta como Picking.",
+                    path: [...(itemWithError.pathPrefix?.split('.') || []), 'esPicking'],
+                });
+            }
+        }
+    }
+    // END: Unique "complete" pallet validation
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -1261,14 +1310,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                     <Checkbox
                                         checked={field.value}
                                         onCheckedChange={(checked) => {
-                                            const isChecked = checked === true;
-                                            field.onChange(isChecked);
-                                            // Reset the other array to avoid validation conflicts
-                                            if (isChecked) {
-                                                form.setValue('items', []);
-                                            } else {
-                                                form.setValue('destinos', []);
-                                            }
+                                            field.onChange(checked)
+                                            if (checked) form.setValue('items', []); else form.setValue('destinos', []);
                                         }}
                                     />
                                     </FormControl>
@@ -1297,7 +1340,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         render={({ field }) => (
                                             <FormItem className="mb-4">
                                                 <FormLabel>Nombre del Destino</FormLabel>
-                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} /></FormControl>
+                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
