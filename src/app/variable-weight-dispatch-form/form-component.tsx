@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -126,7 +125,7 @@ const destinoSchema = z.object({
 });
 
 const tempSchema = z.preprocess(
-    (val) => (val === "" ? null : val),
+    (val) => (val === "" || val === null ? null : val),
     z.coerce.number({ 
         invalid_type_error: "La temperatura debe ser un número." 
     })
@@ -248,45 +247,8 @@ const formSchema = z.object({
             path: ["totalPaletasDespacho"],
         });
     }
-    
-    // START: Pallet duplication validation
-    if (data.despachoPorDestino) {
-        data.destinos.forEach((destino, destinoIndex) => {
-            const seenPallets = new Set<number>();
-            (destino.items || []).forEach((item, itemIndex) => {
-                const paletaNum = Number(item.paleta);
-                // Ignore summary (0) and special (999) pallets
-                if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
-                    if (seenPallets.has(paletaNum)) {
-                        ctx.addIssue({
-                            code: z.ZodIssueCode.custom,
-                            message: "Paleta duplicada en este destino.",
-                            path: ['destinos', destinoIndex, 'items', itemIndex, 'paleta'],
-                        });
-                    }
-                    seenPallets.add(paletaNum);
-                }
-            });
-        });
-    } else { // Check for duplicates in the main 'items' array
-        const seenPallets = new Set<number>();
-        (data.items || []).forEach((item, itemIndex) => {
-             const paletaNum = Number(item.paleta);
-             if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
-                 if (seenPallets.has(paletaNum)) {
-                     ctx.addIssue({
-                         code: z.ZodIssueCode.custom,
-                         message: "Paleta duplicada.",
-                         path: ['items', itemIndex, 'paleta'],
-                     });
-                 }
-                 seenPallets.add(paletaNum);
-             }
-        });
-    }
-    // END: Pallet duplication validation
-    
-    // START: Unique "complete" pallet validation
+
+    // Group all items by pallet number, ignoring summary and special pallets
     const palletsGrouped = allItems.reduce((acc, item) => {
         const paletaNum = Number(item.paleta);
         if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
@@ -298,23 +260,25 @@ const formSchema = z.object({
         return acc;
     }, {} as Record<number, typeof allItems>);
 
+    // Validate each group
     for (const paletaNum in palletsGrouped) {
         const itemsForPallet = palletsGrouped[paletaNum];
+        
+        // Find all "complete" pallets in the group
         const completePallets = itemsForPallet.filter(item => !item.esPicking);
         
+        // If there is more than one "complete" pallet, add an error to the subsequent ones
         if (completePallets.length > 1) {
-            // Add error to all but the first 'complete' pallet
             for (let i = 1; i < completePallets.length; i++) {
                 const itemWithError = completePallets[i];
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
-                    message: "Solo puede haber una paleta completa. Marque esta como Picking.",
-                    path: [...(itemWithError.pathPrefix?.split('.') || []), 'esPicking'],
+                    message: "Ya existe una paleta completa con este número. Marque este ítem como 'Picking'.",
+                    path: [...(itemWithError.pathPrefix?.split('.') || []), 'paleta'],
                 });
             }
         }
     }
-    // END: Unique "complete" pallet validation
 });
 
 type FormValues = z.infer<typeof formSchema>;
