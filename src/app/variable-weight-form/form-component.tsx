@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -125,7 +124,7 @@ const destinoSchema = z.object({
 });
 
 const tempSchema = z.preprocess(
-    (val) => (val === "" ? null : val),
+    (val) => (val === "" || val === null ? null : val),
     z.coerce.number({ 
         invalid_type_error: "La temperatura debe ser un número." 
     })
@@ -217,54 +216,58 @@ const formSchema = z.object({
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
-    const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
+    const allItemsWithPath: ({ item: z.infer<typeof itemSchema>, path: (string|number)[] })[] = [];
     
-    if (data.despachoPorDestino && data.destinos.length === 0) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Debe agregar al menos un destino.",
-            path: ["destinos"],
+    if (data.despachoPorDestino) {
+        (data.destinos || []).forEach((destino, destinoIndex) => {
+            (destino.items || []).forEach((item, itemIndex) => {
+                allItemsWithPath.push({ item, path: ['destinos', destinoIndex, 'items', itemIndex, 'paleta'] });
+            });
         });
+    } else {
+        (data.items || []).forEach((item, itemIndex) => {
+            allItemsWithPath.push({ item, path: ['items', itemIndex, 'paleta'] });
+        });
+    }
+
+    if (data.despachoPorDestino && data.destinos.length === 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe agregar al menos un destino.", path: ["destinos"] });
     }
 
     if (!data.despachoPorDestino && data.items.length === 0) {
-         ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Debe agregar al menos un ítem.",
-            path: ["items"],
-        });
-    }
-
-    const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
-    if (data.despachoPorDestino && hasSummaryRow && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "El total de paletas del despacho es requerido.",
-            path: ["totalPaletasDespacho"],
-        });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe agregar al menos un ítem.", path: ["items"] });
     }
     
-    // START: Pallet duplication validation
-    if (data.despachoPorDestino) {
-        data.destinos.forEach((destino, destinoIndex) => {
-            const seenPallets = new Set<number>();
-            destino.items.forEach((item, itemIndex) => {
-                const paletaNum = Number(item.paleta);
-                // Ignore summary (0) and special (999) pallets
-                if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
-                    if (seenPallets.has(paletaNum)) {
-                        ctx.addIssue({
-                            code: z.ZodIssueCode.custom,
-                            message: "La paleta ya existe en este destino.",
-                            path: [`destinos`, destinoIndex, 'items', itemIndex, 'paleta'],
-                        });
-                    }
-                    seenPallets.add(paletaNum);
-                }
-            });
-        });
+    const hasSummaryRow = allItemsWithPath.some(({ item }) => Number(item.paleta) === 0);
+    if (data.despachoPorDestino && hasSummaryRow && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de paletas del despacho es requerido.", path: ["totalPaletasDespacho"] });
     }
-    // END: Pallet duplication validation
+
+    const palletsGrouped = allItemsWithPath.reduce((acc, { item, path }) => {
+        const paletaNum = Number(item.paleta);
+        if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
+            const key = String(paletaNum);
+            if (!acc[key]) acc[key] = [];
+            acc[key].push({ item, path });
+        }
+        return acc;
+    }, {} as Record<string, { item: z.infer<typeof itemSchema>, path: (string|number)[] }[]>);
+
+    for (const paletaNum in palletsGrouped) {
+        const itemsForPallet = palletsGrouped[paletaNum];
+        const completePallets = itemsForPallet.filter(({ item }) => !item.esPicking);
+        
+        if (completePallets.length > 1) {
+            for (let i = 1; i < completePallets.length; i++) {
+                const itemWithError = completePallets[i];
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Ya existe una paleta completa con este número. Marque este ítem como 'Picking'.",
+                    path: itemWithError.path,
+                });
+            }
+        }
+    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -346,7 +349,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
 
   const isAdmin = permissions.canManageSessions;
-  const isAuthorizedEditor = email === 'sistemas@frioalimentaria.com.co' || (submissionId && email === 'planta@frioalimentaria.com.co');
+  const isAuthorizedEditor = submissionId && (email === 'sistemas@frioalimentaria.com.co' || email === 'planta@frioalimentaria.com.co');
+
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
@@ -640,7 +644,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                 });
                 return;
             }
-            
+
             setAttachments(prev => [...prev, ...optimizedImages]);
         } catch (error) {
             console.error("Image optimization error:", error);
@@ -868,7 +872,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         setIsSubmitting(false);
     }
   }
-
+  
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     form.handleSubmit((data) => {
@@ -1005,6 +1009,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                     const basePath = despachoPorDestino && destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
                     form.setValue(`${basePath}.${itemIndex}.descripcion`, articulo.denominacionArticulo);
                     form.setValue(`${basePath}.${itemIndex}.codigo`, articulo.codigoProducto);
+                    form.setValue(`${basePath}.${itemIndex}.sesion`, articulo.sesion);
                 }
             }}
         />
@@ -1266,7 +1271,20 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                 </FormItem>
                                 )}
                             />
-                           
+                            {despachoPorDestino && isSummaryMode && (
+                                <FormField
+                                    control={form.control}
+                                    name="totalPaletasDespacho"
+                                    render={({ field }) => (
+                                        <FormItem className="max-w-xs">
+                                            <FormLabel>Total Paletas Despacho <span className="text-destructive">*</span></FormLabel>
+                                            <FormControl><Input type="text" inputMode="numeric" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                            <FormDescription>Total de paletas para el despacho completo.</FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
                         </div>
                      )}
                      {despachoPorDestino ? (
@@ -1288,7 +1306,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         render={({ field }) => (
                                             <FormItem className="mb-4">
                                                 <FormLabel>Nombre del Destino</FormLabel>
-                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
