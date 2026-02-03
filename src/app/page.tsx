@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes, ClipboardList, Users, TrendingUp, DollarSign, ListTodo, FileSpreadsheet, ListPlus, Edit, HardHat, FileCog, Wrench, Package, Calculator, TruckIcon, CalendarIcon } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes, ClipboardList, Users, TrendingUp, DollarSign, ListTodo, FileSpreadsheet, ListPlus, Edit, HardHat, FileCog, Wrench, Package, Calculator, TruckIcon, CalendarIcon, FileSignature } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -131,7 +131,7 @@ export default function Home() {
       [key: string]: { icon: React.FC<any>; items: typeof menuItems; }
   } = {
     'Operaciones Logísticas': { icon: FileCog, items: [] },
-    'Gestión y Liquidación Clientes': { icon: DollarSign, items: [] },
+    'Gestión y Liquidación Clientes': { icon: FileSignature, items: [] },
     'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [] },
     'Gestión de Maestros': { icon: Wrench, items: [] },
     'Parámetros y Seguridad': { icon: ShieldCheck, items: [] },
