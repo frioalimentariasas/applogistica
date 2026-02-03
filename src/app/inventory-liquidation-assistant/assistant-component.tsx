@@ -385,9 +385,9 @@ export function LiquidationAssistantComponent({ clients, billingConcepts }: { cl
               </Button>
               <div className="flex items-center justify-center gap-2">
                 <Calculator className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-bold text-primary">Asistente de Liquidación de Inventario </h1>
+                <h1 className="text-2xl font-bold text-primary">Asistente Liquidación Operaciones sin Contenedor/Lote</h1>
               </div>
-              <p className="text-sm text-gray-500">Calcule dinámicamente la liquidación de almacenamiento y movimientos de paletas.</p>
+              <p className="text-sm text-gray-500">Calcule dinámicamente la liquidación para mercancía que no posee trazabilidad de Contenedor/Lote (almacenamiento y movimientos E/S de paletas.)</p>
             </div>
           </div>
         </header>

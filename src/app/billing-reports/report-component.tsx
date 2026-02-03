@@ -2943,7 +2943,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             </Button>
                             <div className="flex items-center justify-center gap-2">
                                 <BookCopy className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Informes para Facturación Clientes</h1>
+                                <h1 className="text-2xl font-bold text-primary">Informes de Control y Liquidación Clientes</h1>
                             </div>
                              <p className="text-sm text-gray-500">Seleccione un tipo de informe y utilice los filtros para generar los datos.</p>
                         </div>
@@ -2953,8 +2953,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         </Button>
                     </div>
                 </header>
-
-                <Tabs defaultValue="client-settlement" className="w-full">
+                <Tabs defaultValue="client-settlement" className="w-full"> 
                     <TabsList className="grid w-full grid-cols-4 mb-6">
                         <TabsTrigger value="detailed-operation">Operaciones Detalladas</TabsTrigger>
                         <TabsTrigger value="inventory">Inventario Acumulado/Informe Ocupación</TabsTrigger>

@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes, ClipboardList, Users, TrendingUp, DollarSign, ListTodo, FileSpreadsheet, ListPlus, Edit, HardHat, FileCog, Briefcase, Wrench, Package, Calculator, TruckIcon, CalendarIcon } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes, ClipboardList, Users, TrendingUp, DollarSign, ListTodo, FileSpreadsheet, ListPlus, Edit, HardHat, FileCog, Wrench, Package, Calculator, TruckIcon, CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -102,10 +102,10 @@ export default function Home() {
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-clientes', icon: DollarSign, permission: 'canManageClientLiquidationConcepts', group: 'Gestión y Liquidación Clientes' },
     { label: 'Registro de Op. Manuales Clientes', href: '/operaciones-manuales-clientes', icon: Edit, permission: 'canManageClientManualOperations', group: 'Gestión y Liquidación Clientes' },
     { label: 'Calendario de Facturación', href: '/calendario-facturacion', icon: CalendarIcon, permission: 'canViewBillingCalendar', group: 'Gestión y Liquidación Clientes' },
-    { label: 'Informes de Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports', group: 'Gestión y Liquidación Clientes' },
+    { label: 'Informes de Control y Liquidación Clientes', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports', group: 'Gestión y Liquidación Clientes' },
     { label: 'Control de Versiones Liquidación', href: '/control-versiones-liquidacion', icon: FileCog, permission: 'canManageLiquidationVersions', group: 'Gestión y Liquidación Clientes' },
-    { label: 'Asistente de Liquidación SMYL', href: '/smyl-liquidation-assistant', icon: Package, permission: 'canViewSmylAssistant', group: 'Gestión y Liquidación Clientes' },
-    { label: 'Asistente de Liquidación de Inventario', href: '/inventory-liquidation-assistant', icon: Calculator, permission: 'canViewInventoryAssistant', group: 'Gestión y Liquidación Clientes' },
+    { label: 'Asistente de Verificación Liquidación Por Lote SMYL', href: '/smyl-liquidation-assistant', icon: Package, permission: 'canViewSmylAssistant', group: 'Gestión y Liquidación Clientes' },
+    { label: 'Asistente Liquidación Operaciones sin Contenedor/Lote', href: '/inventory-liquidation-assistant', icon: Calculator, permission: 'canViewInventoryAssistant', group: 'Gestión y Liquidación Clientes' },
 
     // Gestión y Liquidación Cuadrilla
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-cuadrilla', icon: DollarSign, permission: 'canManageLiquidationConcepts', group: 'Gestión y Liquidación Cuadrilla' },
@@ -131,7 +131,7 @@ export default function Home() {
       [key: string]: { icon: React.FC<any>; items: typeof menuItems; }
   } = {
     'Operaciones Logísticas': { icon: FileCog, items: [] },
-    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [] },
+    'Gestión y Liquidación Clientes': { icon: DollarSign, items: [] },
     'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [] },
     'Gestión de Maestros': { icon: Wrench, items: [] },
     'Parámetros y Seguridad': { icon: ShieldCheck, items: [] },

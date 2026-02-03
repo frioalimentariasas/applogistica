@@ -156,8 +156,8 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
                 }
             } 
             else if ((formType === 'variable-weight-reception' || formType === 'variable-weight-recepcion')) {
-                // This covers both subsequent GENERICO receptions and INGRESO DE SALDOS
-                if (tipoPedido === 'GENERICO' || tipoPedido === 'INGRESO DE SALDOS') {
+                // This covers both subsequent GENERICO receptions and INGRESO DE SALDOS and TUNEL A CÁMARA CONGELADOS
+                if (tipoPedido === 'GENERICO' || tipoPedido === 'INGRESO DE SALDOS' || tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
                     const palletsInMovement = new Set(lotItems.map((item: any) => item.paleta)).size;
                     if (palletsInMovement > 0) {
                         movements.push({

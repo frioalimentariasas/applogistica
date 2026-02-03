@@ -187,7 +187,7 @@ export function SmylLiquidationAssistantComponent() {
                             </Button>
                             <div className="flex items-center justify-center gap-2">
                                 <Package className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Asistente de Liquidación SMYL</h1>
+                                <h1 className="text-2xl font-bold text-primary">Asistente de Verificación Liquidación Por Lote SMYL</h1>
                             </div>
                             <p className="text-sm text-gray-500">Consulte el historial y saldo diario de un lote para facilitar la liquidación manual.</p>
                         </div>
