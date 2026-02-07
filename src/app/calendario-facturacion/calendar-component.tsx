@@ -76,6 +76,11 @@ const statusConfig = {
 
 const PrintStyles = () => (
     <style jsx global>{`
+        @page {
+            size: A4 landscape;
+            margin: 1.5cm;
+        }
+
         @media print {
             body {
                 background-color: white !important;
@@ -95,12 +100,18 @@ const PrintStyles = () => (
             }
             #calendar-card-header {
                 justify-content: center;
+                padding-bottom: 0.5rem;
             }
             .rdp-cell {
-                height: 6rem;
+                height: 8.5rem; /* Adjust height for landscape A4 */
             }
             .rdp {
                 margin: 0 auto;
+                width: 100%; /* Make calendar take full width of print area */
+            }
+            /* Hide the status legend when printing */
+            #calendar-card > div:last-child > div:last-child {
+                display: none;
             }
         }
     `}</style>
@@ -359,7 +370,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             components={{ Day: DayContent }}
                             classNames={{
                                 table: "w-full border-collapse",
-                                head_cell: "w-[14.2%] p-2 text-base font-bold text-foreground",
+                                head_cell: "w-[14.2%] p-2 text-base font-bold text-foreground border-2 border-black",
                                 row: "w-full",
                                 cell: "h-32 border-2 border-black text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
                                 day: "h-full w-full",
@@ -417,7 +428,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
         
         <IndexCreationDialog isOpen={isIndexErrorOpen} onOpenChange={setIsIndexErrorOpen} errorMessage={indexErrorMessage} />
       </div>
-    //</div>
+    {/*</div>*/}
   );
 }
 
@@ -636,3 +647,4 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
