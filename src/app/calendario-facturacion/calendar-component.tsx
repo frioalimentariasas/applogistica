@@ -348,6 +348,9 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             locale={es}
                             showOutsideDays
                             fixedWeeks
+                            formatters={{
+                                formatWeekdayName: (day) => format(day, 'cccc', { locale: es }).charAt(0).toUpperCase() + format(day, 'cccc', { locale: es }).slice(1)
+                            }}
                             modifiers={{ sunday: { dayOfWeek: [0] }, holiday: holidays }}
                             modifiersClassNames={{
                                 sunday: 'day-sunday',
@@ -356,9 +359,9 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                             components={{ Day: DayContent }}
                             classNames={{
                                 table: "w-full border-collapse",
-                                head_cell: "w-[14.2%] text-sm font-medium text-muted-foreground pb-2",
+                                head_cell: "w-[14.2%] p-2 text-base font-bold text-foreground",
                                 row: "w-full",
-                                cell: "h-32 border text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
+                                cell: "h-32 border-2 border-black text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
                                 day: "h-full w-full",
                                 day_today: "bg-accent/50 text-accent-foreground",
                             }}
