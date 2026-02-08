@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -77,7 +78,7 @@ const PrintStyles = () => (
     <style jsx global>{`
         @page {
             size: A4 landscape;
-            margin: 1.5cm;
+            margin: 1cm;
         }
 
         @media print {
@@ -368,7 +369,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                                 table: "w-full border-collapse",
                                 head_cell: "w-[14.2%] p-2 text-base font-bold text-foreground border-2 border-black",
                                 row: "w-full",
-                                cell: "h-24 border-2 border-black text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
+                                cell: "h-20 border-2 border-black text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
                                 day: "h-full w-full",
                                 day_today: "bg-accent/50 text-accent-foreground",
                             }}
