@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -101,9 +100,6 @@ const PrintStyles = () => (
             #calendar-card-header {
                 justify-content: center;
                 padding-bottom: 0.5rem;
-            }
-            .rdp-cell {
-                height: 8.5rem; /* Adjust height for landscape A4 */
             }
             .rdp {
                 margin: 0 auto;
@@ -372,7 +368,7 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
                                 table: "w-full border-collapse",
                                 head_cell: "w-[14.2%] p-2 text-base font-bold text-foreground border-2 border-black",
                                 row: "w-full",
-                                cell: "h-32 border-2 border-black text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
+                                cell: "h-24 border-2 border-black text-sm text-left align-top relative hover:bg-accent/50 cursor-pointer",
                                 day: "h-full w-full",
                                 day_today: "bg-accent/50 text-accent-foreground",
                             }}
@@ -428,7 +424,6 @@ export default function CalendarComponent({ clients }: { clients: ClientInfo[] }
         
         <IndexCreationDialog isOpen={isIndexErrorOpen} onOpenChange={setIsIndexErrorOpen} errorMessage={indexErrorMessage} />
       </div>
-    {/*</div>*/}
   );
 }
 
@@ -647,4 +642,3 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
-
