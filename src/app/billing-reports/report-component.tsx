@@ -1617,18 +1617,26 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             
             if (results.length === 0) {
                 toast({ title: 'Sin resultados', description: 'No se encontraron datos de inventario para exportar con los filtros seleccionados.' });
+                setIsExporting(false);
                 return;
             }
 
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Inventario Detallado');
             
-            // Assuming the first row contains headers
-            if (results.length > 0) {
-                const headers = Object.keys(results[0]);
-                worksheet.columns = headers.map(header => ({ header, key: header, width: 20 }));
-                worksheet.addRows(results);
-            }
+            const orderedHeaders = [
+                'FECHA', 'FECHAENT', 'FECHASAL', 'PROPIETARIO', 'COD_PROPIE', 'PALETA',
+                'SI', 'ARTICUL', 'VAR', 'VA', 'VARLOG', 'DENOMINACION', 'PAS', 'COLUMNA',
+                'ALTURA', 'SE', 'CAJAS', '(', 'CANTIDAD', 'LOTE', 'CONTENEDOR', 'FECHACAD'
+            ];
+
+            worksheet.columns = orderedHeaders.map(header => ({
+                header: header,
+                key: header,
+                width: header === 'DENOMINACION' ? 40 : header === 'PROPIETARIO' ? 30 : 15
+            }));
+            
+            worksheet.addRows(results);
             
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -4337,6 +4345,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 
