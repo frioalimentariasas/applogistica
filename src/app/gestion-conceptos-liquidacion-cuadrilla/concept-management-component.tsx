@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -20,7 +19,7 @@ import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,10 +44,7 @@ const conceptSchema = z.object({
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   unitOfMeasure: z.enum(['TONELADA', 'KILOGRAMOS', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
-  dayTariff: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
-  nightTariff: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor.").optional().nullable(),
-  holidayTariff: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor.").optional().nullable(),
-  dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().nullable(),
+  value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
 });
 
 type ConceptFormValues = z.infer<typeof conceptSchema>;
@@ -84,12 +80,9 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       conceptName: '',
       clientNames: ['TODOS (Cualquier Cliente)'],
       operationType: 'TODAS',
-      productType: 'TODOS',
+      productType: 'TODAS',
       unitOfMeasure: 'TONELADA',
-      dayTariff: 0,
-      nightTariff: 0,
-      holidayTariff: 0,
-      dayShiftEnd: '19:00',
+      value: 0,
     },
   });
 
@@ -117,10 +110,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
         operationType: 'TODAS',
         productType: 'TODAS',
         unitOfMeasure: 'TONELADA',
-        dayTariff: 0,
-        nightTariff: 0,
-        holidayTariff: 0,
-        dayShiftEnd: '19:00',
+        value: 0,
       });
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -207,10 +197,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
         { header: 'Tipo Operación', key: 'operationType', width: 20 },
         { header: 'Tipo Producto', key: 'productType', width: 20 },
         { header: 'Unidad de Medida', key: 'unitOfMeasure', width: 20 },
-        { header: 'Tarifa Diurna (L-S)', key: 'dayTariff', width: 20 },
-        { header: 'Tarifa Nocturna (L-S)', key: 'nightTariff', width: 20 },
-        { header: 'Tarifa Dom/Fes', key: 'holidayTariff', width: 20 },
-        { header: 'Hora Fin Turno Diurno', key: 'dayShiftEnd', width: 25 },
+        { header: 'Valor Unitario', key: 'value', width: 20 },
     ];
     
     const headerRow = worksheet.getRow(1);
@@ -229,15 +216,10 @@ export default function ConceptManagementComponent({ initialClients, initialConc
             operationType: concept.operationType,
             productType: concept.productType,
             unitOfMeasure: concept.unitOfMeasure,
-            dayTariff: concept.dayTariff,
-            nightTariff: concept.nightTariff,
-            holidayTariff: concept.holidayTariff,
-            dayShiftEnd: concept.dayShiftEnd,
+            value: concept.value,
         });
         const lastRow = worksheet.lastRow!;
-        lastRow.getCell('dayTariff').numFmt = '"$"#,##0.00';
-        lastRow.getCell('nightTariff').numFmt = '"$"#,##0.00';
-        lastRow.getCell('holidayTariff').numFmt = '"$"#,##0.00';
+        lastRow.getCell('value').numFmt = '"$"#,##0.00';
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -311,16 +293,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                 <FormField control={addForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                                <FormField control={addForm.control} name="dayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna (L-S)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                {(addForm.watch('conceptName') === 'CARGUE' || addForm.watch('conceptName') === 'DESCARGUE') && (
-                                    <>
-                                        <FormField control={addForm.control} name="nightTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna (L-S)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                        <FormField control={addForm.control} name="dayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Hora Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                    </>
-                                )}
-                                {addForm.watch('conceptName') === 'JORNAL ORDINARIO' && (
-                                    <FormField control={addForm.control} name="holidayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Dom/Fes</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                )}
+                                <FormField control={addForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                                 <Button type="submit" disabled={isSubmitting} className="w-full">
                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                                     Guardar Concepto
@@ -358,7 +331,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                         <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
                                         <TableHead>Concepto</TableHead>
                                         <TableHead>U. Medida</TableHead>
-                                        <TableHead>Tarifas</TableHead>
+                                        <TableHead>Valor</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -376,13 +349,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                                 </div>
                                             </TableCell>
                                             <TableCell>{c.unitOfMeasure}</TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col text-xs">
-                                                    <span>D: {c.dayTariff.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</span>
-                                                    {c.nightTariff != null && <span>N: {c.nightTariff.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</span>}
-                                                    {c.holidayTariff != null && <span>F: {c.holidayTariff.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</span>}
-                                                </div>
-                                            </TableCell>
+                                            <TableCell>{(c.value ?? 0).toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
                                             </TableCell>
@@ -403,50 +370,37 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       
       {/* Edit Dialog */}
       <Dialog open={!!conceptToEdit} onOpenChange={(isOpen) => { if (!isOpen) setConceptToEdit(null) }}>
-        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Editar Concepto de Liquidación</DialogTitle>
-          </DialogHeader>
-          <div className="flex-grow overflow-y-auto -mx-6 px-6">
-            <Form {...editForm}>
-              <form id="edit-concept-form" onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
-                  <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
-                  <FormField
-                    control={editForm.control}
-                    name="clientNames"
-                    render={({ field }) => (
-                      <FormItem>
-                          <FormLabel>Aplicar a Cliente(s)</FormLabel>
-                          <ClientMultiSelectDialog
-                              options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
-                              selected={field.value}
-                              onChange={field.onChange}
-                              placeholder="Seleccione clientes..."
-                          />
-                          <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField control={editForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                  <FormField control={editForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                  <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                  <FormField control={editForm.control} name="dayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna (L-S)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                  {(editForm.watch('conceptName') === 'CARGUE' || editForm.watch('conceptName') === 'DESCARGUE') && (
-                      <>
-                          <FormField control={editForm.control} name="nightTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna (L-S)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                          <FormField control={editForm.control} name="dayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Hora Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                      </>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar Concepto de Liquidación</DialogTitle></DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
+                <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField
+                  control={editForm.control}
+                  name="clientNames"
+                  render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Aplicar a Cliente(s)</FormLabel>
+                        <ClientMultiSelectDialog
+                            options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                            selected={field.value}
+                            onChange={field.onChange}
+                            placeholder="Seleccione clientes..."
+                        />
+                        <FormMessage />
+                    </FormItem>
                   )}
-                  {editForm.watch('conceptName') === 'JORNAL ORDINARIO' && (
-                      <FormField control={editForm.control} name="holidayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Dom/Fes</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                  )}
-              </form>
-            </Form>
-          </div>
-          <DialogFooter className="flex-shrink-0 border-t pt-4">
-              <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
-              <Button type="submit" form="edit-concept-form" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
-          </DialogFooter>
+                />
+                <FormField control={editForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                <FormField control={editForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                <FormField control={editForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
+                    <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
+                </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
       
@@ -567,3 +521,5 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
+    
