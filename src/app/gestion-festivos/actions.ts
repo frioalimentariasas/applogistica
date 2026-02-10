@@ -55,6 +55,7 @@ export async function addHoliday(dateString: string): Promise<{ success: boolean
     const docRef = await firestore.collection('holidays').add({ date: dateString });
     revalidatePath('/gestion-festivos');
     revalidatePath('/calendario-facturacion');
+    revalidatePath('/crew-performance-report');
     return { success: true, message: 'Festivo agregado.', newHoliday: { id: docRef.id, date: dateString } };
   } catch (error) {
     console.error('Error al agregar festivo:', error);
@@ -68,6 +69,7 @@ export async function deleteHoliday(id: string): Promise<{ success: boolean; mes
     await firestore.collection('holidays').doc(id).delete();
     revalidatePath('/gestion-festivos');
     revalidatePath('/calendario-facturacion');
+    revalidatePath('/crew-performance-report');
     return { success: true, message: 'Festivo eliminado con éxito.' };
   } catch (error) {
     console.error('Error al eliminar festivo:', error);

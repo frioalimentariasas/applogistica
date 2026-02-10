@@ -4,11 +4,11 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import { parse, differenceInMinutes, parseISO, format, startOfDay, endOfDay, addDays, subDays, getDay } from 'date-fns';
+import { parse, differenceInMinutes, parseISO, format, startOfDay, endOfDay, addDays, subDays, getDay, isSameDay } from 'date-fns';
 import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
 import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
 import { getNoveltiesForOperation, type NoveltyData } from './novelty-actions';
-import { getHolidaysInRange } from '@/app/gestion-festivos/actions';
+import { getHolidaysInRange, type Holiday } from '@/app/gestion-festivos/actions';
 
 
 const serializeTimestamps = (data: any): any => {
@@ -179,7 +179,7 @@ export interface CrewPerformanceReportRow {
 }
 
 
-const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]): { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] => {
+const calculateSettlements = (submission: any, billingConcepts: BillingConcept[], holidays: Holiday[]): { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] => {
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
     const clientName = formData.nombreCliente || formData.cliente;
@@ -199,7 +199,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         // Prioritize specific client concept over "TODOS"
         const concept = matchingConcepts.find(c => c.clientNames.includes(clientName)) || matchingConcepts[0];
         
-        if (concept && !settlements.some(s => s.conceptName === concept.conceptName)) {
+        if (concept && concept.value && !settlements.some(s => s.conceptName === concept.conceptName)) {
              settlements.push({
                 conceptName: concept.conceptName,
                 unitValue: concept.value,
@@ -210,6 +210,18 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     };
     
+    const addSettlementWithDirectValue = (conceptType: string, quantity: number, unitOfMeasure: string, unitValue: number) => {
+        if (unitValue > 0 && !settlements.some(s => s.conceptName === conceptType)) {
+             settlements.push({
+                conceptName: conceptType,
+                unitValue: unitValue,
+                quantity: quantity,
+                unitOfMeasure: unitOfMeasure,
+                totalValue: quantity * unitValue,
+            });
+        }
+    };
+
     // Process observations
     const observaciones = Array.isArray(formData.observaciones) ? formData.observaciones : [];
     const specialHandledConcepts = ['REESTIBADO', 'SALIDA PALETAS TUNEL', 'TRANSBORDO CANASTILLA'];
@@ -301,7 +313,25 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             // Handle JORNAL ORDINARIO
             if (formData.numeroOperariosCuadrilla > 0) {
                 const quantity = Number(formData.numeroOperariosCuadrilla);
-                addSettlement('JORNAL ORDINARIO', quantity, 'UNIDAD');
+                
+                const jornalConcept = billingConcepts.find(c => c.conceptName === 'JORNAL ORDINARIO');
+                
+                if (jornalConcept) {
+                    const operationDate = new Date(formData.fecha);
+                    const esDomingo = getDay(operationDate) === 0;
+                    const esFestivo = holidays.some(h => isSameDay(parseISO(h.date), operationDate));
+                    
+                    let tarifaAplicar = 0;
+                    if (esDomingo || esFestivo) {
+                        tarifaAplicar = jornalConcept.domingoFestivoTariff || 0;
+                    } else {
+                        tarifaAplicar = jornalConcept.lunesASabadoTariff || 0;
+                    }
+
+                    addSettlementWithDirectValue('JORNAL ORDINARIO', quantity, 'UNIDAD', tarifaAplicar);
+                } else {
+                    addSettlement('JORNAL ORDINARIO', quantity, 'UNIDAD');
+                }
             }
         }
     }
@@ -338,10 +368,11 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             .where('operationDate', '<=', serverQueryEndDate);
 
         
-        const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
+        const [submissionsSnapshot, manualOpsSnapshot, billingConcepts, holidays] = await Promise.all([
             submissionsQuery.get(),
             manualOpsQuery.get(),
-            getBillingConcepts()
+            getBillingConcepts(),
+            getHolidaysInRange(format(serverQueryStartDate, 'yyyy-MM-dd'), format(serverQueryEndDate, 'yyyy-MM-dd'))
         ]);
         
         const allSubmissionDocs = submissionsSnapshot.docs
@@ -373,7 +404,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     continue; 
                 }
                 
-                const allPossibleConcepts = calculateSettlements(doc, billingConcepts);
+                const allPossibleConcepts = calculateSettlements(doc, billingConcepts, holidays);
                 let indicatorOnlyOperation: { conceptName: string, toneladas: number, isPending: boolean } | null = null;
                 
                  if (formData.aplicaCuadrilla === 'no') {
@@ -564,5 +595,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
-
-    
