@@ -4,6 +4,7 @@
 
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
+import admin from 'firebase-admin';
 
 export interface BillingConcept {
   id: string;
@@ -12,7 +13,9 @@ export interface BillingConcept {
   operationType: 'recepcion' | 'despacho' | 'TODAS';
   productType: 'fijo' | 'variable' | 'TODOS';
   unitOfMeasure: 'TONELADA' | 'KILOGRAMOS' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA';
-  value: number;
+  value?: number;
+  lunesASabadoTariff?: number;
+  domingoFestivoTariff?: number;
 }
 
 // Fetches all concepts
@@ -30,7 +33,9 @@ export async function getBillingConcepts(): Promise<BillingConcept[]> {
         operationType: data.operationType,
         productType: data.productType,
         unitOfMeasure: data.unitOfMeasure,
-        value: Number(data.value),
+        value: data.value,
+        lunesASabadoTariff: data.lunesASabadoTariff,
+        domingoFestivoTariff: data.domingoFestivoTariff,
       } as BillingConcept;
     });
   } catch (error) {
@@ -44,10 +49,22 @@ export async function addBillingConcept(data: Omit<BillingConcept, 'id'>): Promi
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
   try {
-    const docRef = await firestore.collection('billing_concepts').add({
-      ...data,
-      value: Number(data.value)
-    });
+    const dataToSave: any = {
+      conceptName: data.conceptName,
+      clientNames: data.clientNames,
+      operationType: data.operationType,
+      productType: data.productType,
+      unitOfMeasure: data.unitOfMeasure,
+    };
+
+    if (data.conceptName === 'JORNAL ORDINARIO') {
+      dataToSave.lunesASabadoTariff = Number(data.lunesASabadoTariff);
+      dataToSave.domingoFestivoTariff = Number(data.domingoFestivoTariff);
+    } else {
+      dataToSave.value = Number(data.value);
+    }
+
+    const docRef = await firestore.collection('billing_concepts').add(dataToSave);
     revalidatePath('/gestion-conceptos-liquidacion-cuadrilla');
     return { success: true, message: 'Concepto agregado con éxito.', newConcept: { id: docRef.id, ...data } };
   } catch (error) {
@@ -60,10 +77,23 @@ export async function addBillingConcept(data: Omit<BillingConcept, 'id'>): Promi
 export async function updateBillingConcept(id: string, data: Omit<BillingConcept, 'id'>): Promise<{ success: boolean; message: string }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
-  const dataToUpdate = {
-    ...data,
-    value: Number(data.value),
+  const dataToUpdate: any = {
+    conceptName: data.conceptName,
+    clientNames: data.clientNames,
+    operationType: data.operationType,
+    productType: data.productType,
+    unitOfMeasure: data.unitOfMeasure,
   };
+  
+  if (data.conceptName === 'JORNAL ORDINARIO') {
+    dataToUpdate.lunesASabadoTariff = Number(data.lunesASabadoTariff);
+    dataToUpdate.domingoFestivoTariff = Number(data.domingoFestivoTariff);
+    dataToUpdate.value = admin.firestore.FieldValue.delete();
+  } else {
+    dataToUpdate.value = Number(data.value);
+    dataToUpdate.lunesASabadoTariff = admin.firestore.FieldValue.delete();
+    dataToUpdate.domingoFestivoTariff = admin.firestore.FieldValue.delete();
+  }
   
   try {
     await firestore.collection('billing_concepts').doc(id).update(dataToUpdate);
