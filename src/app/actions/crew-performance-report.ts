@@ -4,10 +4,11 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import { parse, differenceInMinutes, parseISO, format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
+import { parse, differenceInMinutes, parseISO, format, startOfDay, endOfDay, addDays, subDays, getDay } from 'date-fns';
 import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
 import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
 import { getNoveltiesForOperation, type NoveltyData } from './novelty-actions';
+import { getHolidaysInRange } from '@/app/gestion-festivos/actions';
 
 
 const serializeTimestamps = (data: any): any => {
@@ -563,3 +564,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
+
+    
