@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -349,7 +348,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                                 </div>
                                             </TableCell>
                                             <TableCell>{c.unitOfMeasure}</TableCell>
-                                            <TableCell>{(c.value ?? 0).toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                            <TableCell>{c.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
                                             </TableCell>
@@ -370,37 +369,41 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       
       {/* Edit Dialog */}
       <Dialog open={!!conceptToEdit} onOpenChange={(isOpen) => { if (!isOpen) setConceptToEdit(null) }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Editar Concepto de Liquidación</DialogTitle></DialogHeader>
-          <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
-                <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
-                <FormField
-                  control={editForm.control}
-                  name="clientNames"
-                  render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Aplicar a Cliente(s)</FormLabel>
-                        <ClientMultiSelectDialog
-                            options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
-                            selected={field.value}
-                            onChange={field.onChange}
-                            placeholder="Seleccione clientes..."
-                        />
-                        <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField control={editForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                <FormField control={editForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                <FormField control={editForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
-                    <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
-                </DialogFooter>
-            </form>
-          </Form>
+        <DialogContent className="flex flex-col max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Editar Concepto de Liquidación</DialogTitle>
+          </DialogHeader>
+          <div className="flex-grow overflow-y-auto pr-6 -mr-6 pl-1 -ml-1">
+            <Form {...editForm}>
+              <form id="edit-concept-form" onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
+                  <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
+                  <FormField
+                    control={editForm.control}
+                    name="clientNames"
+                    render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Aplicar a Cliente(s)</FormLabel>
+                          <ClientMultiSelectDialog
+                              options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                              selected={field.value}
+                              onChange={field.onChange}
+                              placeholder="Seleccione clientes..."
+                          />
+                          <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField control={editForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField control={editForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField control={editForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+              </form>
+            </Form>
+          </div>
+          <DialogFooter className="flex-shrink-0 pt-4">
+              <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
+              <Button type="submit" form="edit-concept-form" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
