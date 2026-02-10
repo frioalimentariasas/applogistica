@@ -8,6 +8,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
+import * as ExcelJS from 'exceljs';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -15,7 +16,7 @@ import { addBillingConcept, updateBillingConcept, deleteMultipleBillingConcepts,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Download } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -44,8 +45,10 @@ const conceptSchema = z.object({
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   unitOfMeasure: z.enum(['TONELADA', 'KILOGRAMOS', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
-  value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
-  excludeIfOtherApplies: z.boolean().default(false).optional(),
+  dayTariff: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
+  nightTariff: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor.").optional().nullable(),
+  holidayTariff: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor.").optional().nullable(),
+  dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().nullable(),
 });
 
 type ConceptFormValues = z.infer<typeof conceptSchema>;
@@ -81,10 +84,12 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       conceptName: '',
       clientNames: ['TODOS (Cualquier Cliente)'],
       operationType: 'TODAS',
-      productType: 'TODAS',
+      productType: 'TODOS',
       unitOfMeasure: 'TONELADA',
-      value: 0,
-      excludeIfOtherApplies: false,
+      dayTariff: 0,
+      nightTariff: 0,
+      holidayTariff: 0,
+      dayShiftEnd: '19:00',
     },
   });
 
@@ -112,8 +117,10 @@ export default function ConceptManagementComponent({ initialClients, initialConc
         operationType: 'TODAS',
         productType: 'TODAS',
         unitOfMeasure: 'TONELADA',
-        value: 0,
-        excludeIfOtherApplies: false,
+        dayTariff: 0,
+        nightTariff: 0,
+        holidayTariff: 0,
+        dayShiftEnd: '19:00',
       });
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -177,12 +184,75 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       setSelectedIds(new Set());
     }
   };
+  
+  const handleExportExcel = async () => {
+    if (concepts.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "No hay datos para exportar",
+            description: "No hay conceptos definidos para generar el archivo Excel.",
+        });
+        return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Conceptos Liquidación Cuadrilla');
+
+    const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
+    const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+
+    worksheet.columns = [
+        { header: 'Nombre del Concepto', key: 'conceptName', width: 30 },
+        { header: 'Cliente(s)', key: 'clientNames', width: 40 },
+        { header: 'Tipo Operación', key: 'operationType', width: 20 },
+        { header: 'Tipo Producto', key: 'productType', width: 20 },
+        { header: 'Unidad de Medida', key: 'unitOfMeasure', width: 20 },
+        { header: 'Tarifa Diurna (L-S)', key: 'dayTariff', width: 20 },
+        { header: 'Tarifa Nocturna (L-S)', key: 'nightTariff', width: 20 },
+        { header: 'Tarifa Dom/Fes', key: 'holidayTariff', width: 20 },
+        { header: 'Hora Fin Turno Diurno', key: 'dayShiftEnd', width: 25 },
+    ];
+    
+    const headerRow = worksheet.getRow(1);
+    headerRow.values = (worksheet.columns as any[]).map(c => c.header);
+    headerRow.eachCell(cell => {
+      cell.fill = headerFill;
+      cell.font = headerFont;
+      cell.alignment = { horizontal: 'center' };
+    });
+
+
+    concepts.forEach(concept => {
+        worksheet.addRow({
+            conceptName: concept.conceptName,
+            clientNames: concept.clientNames.join(', '),
+            operationType: concept.operationType,
+            productType: concept.productType,
+            unitOfMeasure: concept.unitOfMeasure,
+            dayTariff: concept.dayTariff,
+            nightTariff: concept.nightTariff,
+            holidayTariff: concept.holidayTariff,
+            dayShiftEnd: concept.dayShiftEnd,
+        });
+        const lastRow = worksheet.lastRow!;
+        lastRow.getCell('dayTariff').numFmt = '"$"#,##0.00';
+        lastRow.getCell('nightTariff').numFmt = '"$"#,##0.00';
+        lastRow.getCell('holidayTariff').numFmt = '"$"#,##0.00';
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = 'Conceptos_Liquidacion_Cuadrilla.xlsx';
+    link.click();
+  };
 
   if (authLoading) {
       return <div className="flex min-h-screen w-full items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
   }
 
-  if (!permissions.canManageStandards) { // Re-using permission
+  if (!permissions.canManageLiquidationConcepts) {
       return (
           <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
               <div className="max-w-xl mx-auto text-center">
@@ -241,7 +311,16 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                 <FormField control={addForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                                <FormField control={addForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                <FormField control={addForm.control} name="dayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna (L-S)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                {(addForm.watch('conceptName') === 'CARGUE' || addForm.watch('conceptName') === 'DESCARGUE') && (
+                                    <>
+                                        <FormField control={addForm.control} name="nightTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna (L-S)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <FormField control={addForm.control} name="dayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Hora Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                    </>
+                                )}
+                                {addForm.watch('conceptName') === 'JORNAL ORDINARIO' && (
+                                    <FormField control={addForm.control} name="holidayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Dom/Fes</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                )}
                                 <Button type="submit" disabled={isSubmitting} className="w-full">
                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                                     Guardar Concepto
@@ -256,12 +335,18 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle>Conceptos Actuales</CardTitle>
-                        {selectedIds.size > 0 && (
-                            <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar ({selectedIds.size})
+                        <div className="flex gap-2">
+                            {selectedIds.size > 0 && (
+                                <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar ({selectedIds.size})
+                                </Button>
+                            )}
+                            <Button onClick={handleExportExcel} variant="outline" size="sm" disabled={concepts.length === 0}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Exportar a Excel
                             </Button>
-                        )}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -273,7 +358,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                         <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
                                         <TableHead>Concepto</TableHead>
                                         <TableHead>U. Medida</TableHead>
-                                        <TableHead>Valor</TableHead>
+                                        <TableHead>Tarifas</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -291,7 +376,13 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                                 </div>
                                             </TableCell>
                                             <TableCell>{c.unitOfMeasure}</TableCell>
-                                            <TableCell>{c.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col text-xs">
+                                                    <span>D: {c.dayTariff.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</span>
+                                                    {c.nightTariff != null && <span>N: {c.nightTariff.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</span>}
+                                                    {c.holidayTariff != null && <span>F: {c.holidayTariff.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</span>}
+                                                </div>
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
                                             </TableCell>
@@ -337,9 +428,18 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                     )}
                   />
                   <FormField control={editForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                  <FormField control={editForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField control={editForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                   <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                  <FormField control={editForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                  <FormField control={editForm.control} name="dayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna (L-S)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                  {(editForm.watch('conceptName') === 'CARGUE' || editForm.watch('conceptName') === 'DESCARGUE') && (
+                      <>
+                          <FormField control={editForm.control} name="nightTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna (L-S)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                          <FormField control={editForm.control} name="dayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Hora Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                      </>
+                  )}
+                  {editForm.watch('conceptName') === 'JORNAL ORDINARIO' && (
+                      <FormField control={editForm.control} name="holidayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Dom/Fes</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                  )}
               </form>
             </Form>
           </div>
