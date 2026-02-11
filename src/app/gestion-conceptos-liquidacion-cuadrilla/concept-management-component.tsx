@@ -54,6 +54,7 @@ const conceptSchema = z.object({
   dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM').optional(),
 }).superRefine((data, ctx) => {
     const upperConceptName = data.conceptName?.toUpperCase();
+    const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
 
     if (upperConceptName === 'JORNAL ORDINARIO') {
         if (data.lunesASabadoTariff === undefined || data.lunesASabadoTariff === null) {
@@ -62,7 +63,7 @@ const conceptSchema = z.object({
         if (data.domingoFestivoTariff === undefined || data.domingoFestivoTariff === null) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La tarifa de Domingo y Festivo es requerida.", path: ["domingoFestivoTariff"] });
         }
-    } else if (upperConceptName === 'CARGUE' || upperConceptName === 'DESCARGUE') {
+    } else if (cargueDescargueConcepts.includes(upperConceptName)) {
          if (data.dayTariff === undefined || data.dayTariff === null) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La tarifa diurna es requerida.", path: ["dayTariff"] });
         }
@@ -248,6 +249,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       cell.alignment = { horizontal: 'center' };
     });
 
+    const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
 
     concepts.forEach(concept => {
         worksheet.addRow({
@@ -256,12 +258,12 @@ export default function ConceptManagementComponent({ initialClients, initialConc
             operationType: concept.operationType,
             productType: concept.productType,
             unitOfMeasure: concept.unitOfMeasure,
-            value: concept.conceptName !== 'JORNAL ORDINARIO' && concept.conceptName !== 'CARGUE' && concept.conceptName !== 'DESCARGUE' ? concept.value : '',
+            value: concept.conceptName !== 'JORNAL ORDINARIO' && !cargueDescargueConcepts.includes(concept.conceptName) ? concept.value : '',
             lunesASabadoTariff: concept.conceptName === 'JORNAL ORDINARIO' ? concept.lunesASabadoTariff : '',
             domingoFestivoTariff: concept.conceptName === 'JORNAL ORDINARIO' ? concept.domingoFestivoTariff : '',
-            dayTariff: concept.conceptName === 'CARGUE' || concept.conceptName === 'DESCARGUE' ? concept.dayTariff : '',
-            nightTariff: concept.conceptName === 'CARGUE' || concept.conceptName === 'DESCARGUE' ? concept.nightTariff : '',
-            dayShiftEnd: concept.conceptName === 'CARGUE' || concept.conceptName === 'DESCARGUE' ? concept.dayShiftEnd : '',
+            dayTariff: cargueDescargueConcepts.includes(concept.conceptName) ? concept.dayTariff : '',
+            nightTariff: cargueDescargueConcepts.includes(concept.conceptName) ? concept.nightTariff : '',
+            dayShiftEnd: cargueDescargueConcepts.includes(concept.conceptName) ? concept.dayShiftEnd : '',
         });
         const lastRow = worksheet.lastRow!;
         lastRow.getCell('value').numFmt = '"$"#,##0.00';
@@ -366,38 +368,41 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                 </TableHeader>
                                 <TableBody>
                                     {concepts.length > 0 ? (
-                                        concepts.map((c) => (
-                                        <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
-                                            <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
-                                            <TableCell>
-                                                <div className="font-medium flex items-center gap-2">
-                                                    {c.conceptName}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
-                                                    {(c.clientNames || []).join(', ')} / {c.operationType} / {c.productType}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>{c.unitOfMeasure}</TableCell>
-                                            <TableCell>
-                                                {c.conceptName === 'JORNAL ORDINARIO' ? (
-                                                    <div className="text-xs">
-                                                        <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                        <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                    </div>
-                                                ) : c.conceptName === 'CARGUE' || c.conceptName === 'DESCARGUE' ? (
-                                                     <div className="text-xs">
-                                                        <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                        <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                    </div>
-                                                ) : (
-                                                    c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
-                                            </TableCell>
-                                        </TableRow>
-                                        ))
+                                        concepts.map((c) => {
+                                            const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
+                                            return (
+                                                <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
+                                                    <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
+                                                    <TableCell>
+                                                        <div className="font-medium flex items-center gap-2">
+                                                            {c.conceptName}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
+                                                            {(c.clientNames || []).join(', ')} / {c.operationType} / {c.productType}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>{c.unitOfMeasure}</TableCell>
+                                                    <TableCell>
+                                                        {c.conceptName === 'JORNAL ORDINARIO' ? (
+                                                            <div className="text-xs">
+                                                                <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                            </div>
+                                                        ) : cargueDescargueConcepts.includes(c.conceptName) ? (
+                                                             <div className="text-xs">
+                                                                <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                            </div>
+                                                        ) : (
+                                                            c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })
                                     ) : (
                                         <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos definidos.</TableCell></TableRow>
                                     )}
@@ -450,7 +455,8 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
     const watchedConceptName = form.watch('conceptName');
     const upperConceptName = watchedConceptName?.toUpperCase();
     const isJornal = upperConceptName === 'JORNAL ORDINARIO';
-    const isCargueDescargue = upperConceptName === 'CARGUE' || upperConceptName === 'DESCARGUE';
+    const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
+    const isCargueDescargue = cargueDescargueConcepts.includes(upperConceptName);
 
     return (
         <div className="space-y-4">
@@ -472,7 +478,7 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
                 )}
             />
             <FormField control={form.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
              {isJornal ? (
                 <>
@@ -488,12 +494,12 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
                             <FormLabel>Hora Fin Turno Diurno</FormLabel>
                             <div className="flex items-center gap-2">
                                 <FormControl>
-                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                    <Input type="time" placeholder="HH:MM" {...field} />
                                 </FormControl>
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon"><Info className="h-4 w-4" /></Button></TooltipTrigger>
-                                        <TooltipContent><p>Las operaciones que terminen después de esta hora se considerarán nocturnas.</p></TooltipContent>
+                                        <TooltipContent><p>Las operaciones que inicien después de esta hora se considerarán nocturnas.</p></TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
                             </div>

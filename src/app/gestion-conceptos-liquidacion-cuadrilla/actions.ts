@@ -64,11 +64,12 @@ export async function addBillingConcept(data: Omit<BillingConcept, 'id'>): Promi
     };
 
     const upperConceptName = data.conceptName.toUpperCase();
+    const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
 
     if (upperConceptName === 'JORNAL ORDINARIO') {
       dataToSave.lunesASabadoTariff = Number(data.lunesASabadoTariff);
       dataToSave.domingoFestivoTariff = Number(data.domingoFestivoTariff);
-    } else if (upperConceptName === 'CARGUE' || upperConceptName === 'DESCARGUE') {
+    } else if (cargueDescargueConcepts.includes(upperConceptName)) {
       dataToSave.dayTariff = Number(data.dayTariff);
       dataToSave.nightTariff = Number(data.nightTariff);
       dataToSave.dayShiftEnd = data.dayShiftEnd;
@@ -98,6 +99,7 @@ export async function updateBillingConcept(id: string, data: Omit<BillingConcept
   };
   
   const upperConceptName = data.conceptName.toUpperCase();
+  const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
 
   if (upperConceptName === 'JORNAL ORDINARIO') {
     dataToUpdate.lunesASabadoTariff = Number(data.lunesASabadoTariff);
@@ -106,7 +108,7 @@ export async function updateBillingConcept(id: string, data: Omit<BillingConcept
     dataToUpdate.dayTariff = admin.firestore.FieldValue.delete();
     dataToUpdate.nightTariff = admin.firestore.FieldValue.delete();
     dataToUpdate.dayShiftEnd = admin.firestore.FieldValue.delete();
-  } else if (upperConceptName === 'CARGUE' || upperConceptName === 'DESCARGUE') {
+  } else if (cargueDescargueConcepts.includes(upperConceptName)) {
     dataToUpdate.dayTariff = Number(data.dayTariff);
     dataToUpdate.nightTariff = Number(data.nightTariff);
     dataToUpdate.dayShiftEnd = data.dayShiftEnd;

@@ -184,16 +184,12 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const { formData, formType } = submission;
     const clientName = formData.nombreCliente || formData.cliente;
 
-    const findMatchingConcepts = (name: string, unit: string) => {
-        return billingConcepts.filter(c => 
-            c.conceptName.toUpperCase() === name.toUpperCase() &&
-            c.unitOfMeasure.toUpperCase() === unit.toUpperCase() &&
+    const addSettlement = (conceptType: string, quantity: number, quantityType: string) => {
+        const matchingConcepts = billingConcepts.filter(c => 
+            c.conceptName.toUpperCase() === conceptType.toUpperCase() &&
+            c.unitOfMeasure.toUpperCase() === quantityType.toUpperCase() &&
             (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'))
         );
-    };
-
-    const addSettlement = (conceptType: string, quantity: number, quantityType: string) => {
-        const matchingConcepts = findMatchingConcepts(conceptType, quantityType);
         if (matchingConcepts.length === 0) return;
         
         // Prioritize specific client concept over "TODOS"
@@ -509,7 +505,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 const upperConcept = concept.toUpperCase();
                 const opDate = new Date(operationDate);
 
-                if (upperConcept === 'CARGUE' || upperConcept === 'DESCARGUE') {
+                const conceptsWithDayNightTariff = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
+
+                if (conceptsWithDayNightTariff.includes(upperConcept)) {
                     const dayShiftEnd = matchingConcept.dayShiftEnd;
                     const esDomingoOFestivo = getDay(opDate) === 0 || holidays.some(h => isSameDay(parseISO(h.date), opDate));
                     let esNocturno = false;
@@ -548,6 +546,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     valorTotalConcepto = valorUnitario * quantity;
                 }
 
+                const isDespacho = ['CARGUE', 'SALIDA', 'TONELADAS/CARGADAS'].some(term => upperConcept.includes(term));
 
                 finalReportRows.push({
                     id: id,
@@ -557,10 +556,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     createdAt: createdAt,
                     operario: createdBy?.displayName || 'N/A',
                     cliente: clientName || 'N/A',
-                    tipoOperacion: (upperConcept.includes('CARGUE') || upperConcept.includes('SALIDA')) ? 'Despacho' : 'Recepción',
+                    tipoOperacion: isDespacho ? 'Despacho' : 'Recepción',
                     tipoProducto: 'Manual',
                     productos: [],
-                    kilos: matchingConcept?.unitOfMeasure === 'TONELADA' ? quantity * 1000 : 0,
+                    kilos: (matchingConcept?.unitOfMeasure === 'TONELADA' || matchingConcept?.unitOfMeasure === 'KILOGRAMOS') ? quantity * 1000 : 0,
                     horaInicio: startTime,
                     horaFin: endTime,
                     totalDurationMinutes: null,
@@ -646,5 +645,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
+
 
 
