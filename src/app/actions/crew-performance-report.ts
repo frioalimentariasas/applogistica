@@ -502,22 +502,52 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 
                 const matchingConcept = billingConcepts.find(c => c.conceptName.toUpperCase() === concept.toUpperCase());
                 
-                let valorTotalConcepto = 0;
-                const valorUnitario = matchingConcept?.value || 0;
-                const upperConcept = concept.toUpperCase();
+                if (!matchingConcept) continue;
 
-                if (upperConcept === 'CARGUE DE CANASTAS') {
+                let valorTotalConcepto = 0;
+                let valorUnitario = 0;
+                const upperConcept = concept.toUpperCase();
+                const opDate = new Date(operationDate);
+
+                if (upperConcept === 'CARGUE' || upperConcept === 'DESCARGUE') {
+                    const dayShiftEnd = matchingConcept.dayShiftEnd;
+                    const esDomingoOFestivo = getDay(opDate) === 0 || holidays.some(h => isSameDay(parseISO(h.date), opDate));
+                    let esNocturno = false;
+                    if (startTime && dayShiftEnd) {
+                        try {
+                            const startTimeParsed = parse(startTime, 'HH:mm', new Date());
+                            const shiftEndTimeParsed = parse(dayShiftEnd, 'HH:mm', new Date());
+                            if (startTimeParsed >= shiftEndTimeParsed) {
+                                esNocturno = true;
+                            }
+                        } catch (e) {
+                            console.error("Error parsing time for manual tariff calculation", e);
+                        }
+                    }
+                    valorUnitario = (esDomingoOFestivo || esNocturno) ? (matchingConcept.nightTariff || 0) : (matchingConcept.dayTariff || 0);
+                    valorTotalConcepto = valorUnitario * quantity;
+
+                } else if (upperConcept === 'JORNAL ORDINARIO') {
+                    const esDomingoOFestivo = getDay(opDate) === 0 || holidays.some(h => isSameDay(parseISO(h.date), opDate));
+                    valorUnitario = esDomingoOFestivo ? (matchingConcept.domingoFestivoTariff || 0) : (matchingConcept.lunesASabadoTariff || 0);
+                    valorTotalConcepto = valorUnitario * quantity;
+
+                } else if (upperConcept === 'CARGUE DE CANASTAS') {
+                    valorUnitario = matchingConcept?.value || 0;
                     valorTotalConcepto = valorUnitario * quantity;
                 } else if (upperConcept === 'APOYO DE MONTACARGAS') {
+                    valorUnitario = matchingConcept?.value || 0;
                     const durationMinutes = calculateDuration(startTime, endTime);
                     if (durationMinutes !== null && durationMinutes > 0) {
                         const durationHours = durationMinutes / 60;
                         const hourlyRate = valorUnitario / 8; // Value is for an 8-hour shift
                         valorTotalConcepto = hourlyRate * durationHours * quantity; // quantity is units
                     }
-                } else {
+                } else { // Generic case for other manual concepts
+                    valorUnitario = matchingConcept?.value || 0;
                     valorTotalConcepto = valorUnitario * quantity;
                 }
+
 
                 finalReportRows.push({
                     id: id,
@@ -616,4 +646,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
+
 
