@@ -43,7 +43,7 @@ const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
-  productType: z.enum(['fijo', 'variable', 'TODAS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
+  productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   unitOfMeasure: z.enum(['TONELADA', 'KILOGRAMOS', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   value: z.coerce.number().min(0).optional(),
   lunesASabadoTariff: z.coerce.number().min(0).optional(),
@@ -86,7 +86,7 @@ const addFormDefaultValues: ConceptFormValues = {
   conceptName: '',
   clientNames: ['TODOS (Cualquier Cliente)'],
   operationType: 'TODAS',
-  productType: 'TODAS',
+  productType: 'TODOS',
   unitOfMeasure: 'TONELADA',
   value: 0,
   lunesASabadoTariff: 0,
@@ -419,14 +419,23 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       
       {/* Edit Dialog */}
       <Dialog open={!!conceptToEdit} onOpenChange={(isOpen) => { if (!isOpen) setConceptToEdit(null) }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Editar Concepto de Liquidación</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
-                <ConceptFormFields form={editForm} clientOptions={clientOptions} />
-                <DialogFooter>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="flex flex-col h-full overflow-hidden">
+                <DialogHeader>
+                    <DialogTitle>Editar Concepto de Liquidación</DialogTitle>
+                </DialogHeader>
+                <div className="flex-grow overflow-y-auto pr-4 -mr-4">
+                    <div className="space-y-4 pt-4">
+                      <ConceptFormFields form={editForm} clientOptions={clientOptions} />
+                    </div>
+                </div>
+                <DialogFooter className="flex-shrink-0 pt-4">
                     <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
-                    <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
+                    <Button type="submit" disabled={isEditing}>
+                      {isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Guardar Cambios
+                    </Button>
                 </DialogFooter>
             </form>
           </Form>
@@ -612,3 +621,5 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
+    
