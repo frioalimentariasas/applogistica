@@ -11,11 +11,14 @@ export interface BillingConcept {
   conceptName: string;
   clientNames: string[]; // "TODOS (Cualquier Cliente)" or specific client names
   operationType: 'recepcion' | 'despacho' | 'TODAS';
-  productType: 'fijo' | 'variable' | 'TODOS';
+  productType: 'fijo' | 'variable' | 'TODAS';
   unitOfMeasure: 'TONELADA' | 'KILOGRAMOS' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA';
   value?: number;
   lunesASabadoTariff?: number;
   domingoFestivoTariff?: number;
+  dayTariff?: number;
+  nightTariff?: number;
+  dayShiftEnd?: string;
 }
 
 // Fetches all concepts
@@ -36,6 +39,9 @@ export async function getBillingConcepts(): Promise<BillingConcept[]> {
         value: data.value,
         lunesASabadoTariff: data.lunesASabadoTariff,
         domingoFestivoTariff: data.domingoFestivoTariff,
+        dayTariff: data.dayTariff,
+        nightTariff: data.nightTariff,
+        dayShiftEnd: data.dayShiftEnd,
       } as BillingConcept;
     });
   } catch (error) {
@@ -57,9 +63,15 @@ export async function addBillingConcept(data: Omit<BillingConcept, 'id'>): Promi
       unitOfMeasure: data.unitOfMeasure,
     };
 
-    if (data.conceptName === 'JORNAL ORDINARIO') {
+    const upperConceptName = data.conceptName.toUpperCase();
+
+    if (upperConceptName === 'JORNAL ORDINARIO') {
       dataToSave.lunesASabadoTariff = Number(data.lunesASabadoTariff);
       dataToSave.domingoFestivoTariff = Number(data.domingoFestivoTariff);
+    } else if (upperConceptName === 'CARGUE' || upperConceptName === 'DESCARGUE') {
+      dataToSave.dayTariff = Number(data.dayTariff);
+      dataToSave.nightTariff = Number(data.nightTariff);
+      dataToSave.dayShiftEnd = data.dayShiftEnd;
     } else {
       dataToSave.value = Number(data.value);
     }
@@ -85,14 +97,29 @@ export async function updateBillingConcept(id: string, data: Omit<BillingConcept
     unitOfMeasure: data.unitOfMeasure,
   };
   
-  if (data.conceptName === 'JORNAL ORDINARIO') {
+  const upperConceptName = data.conceptName.toUpperCase();
+
+  if (upperConceptName === 'JORNAL ORDINARIO') {
     dataToUpdate.lunesASabadoTariff = Number(data.lunesASabadoTariff);
     dataToUpdate.domingoFestivoTariff = Number(data.domingoFestivoTariff);
     dataToUpdate.value = admin.firestore.FieldValue.delete();
+    dataToUpdate.dayTariff = admin.firestore.FieldValue.delete();
+    dataToUpdate.nightTariff = admin.firestore.FieldValue.delete();
+    dataToUpdate.dayShiftEnd = admin.firestore.FieldValue.delete();
+  } else if (upperConceptName === 'CARGUE' || upperConceptName === 'DESCARGUE') {
+    dataToUpdate.dayTariff = Number(data.dayTariff);
+    dataToUpdate.nightTariff = Number(data.nightTariff);
+    dataToUpdate.dayShiftEnd = data.dayShiftEnd;
+    dataToUpdate.value = admin.firestore.FieldValue.delete();
+    dataToUpdate.lunesASabadoTariff = admin.firestore.FieldValue.delete();
+    dataToUpdate.domingoFestivoTariff = admin.firestore.FieldValue.delete();
   } else {
     dataToUpdate.value = Number(data.value);
     dataToUpdate.lunesASabadoTariff = admin.firestore.FieldValue.delete();
     dataToUpdate.domingoFestivoTariff = admin.firestore.FieldValue.delete();
+    dataToUpdate.dayTariff = admin.firestore.FieldValue.delete();
+    dataToUpdate.nightTariff = admin.firestore.FieldValue.delete();
+    dataToUpdate.dayShiftEnd = admin.firestore.FieldValue.delete();
   }
   
   try {

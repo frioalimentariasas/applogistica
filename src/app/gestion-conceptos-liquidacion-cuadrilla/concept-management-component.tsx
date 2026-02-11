@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -8,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import * as ExcelJS from 'exceljs';
+import { format } from 'date-fns';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -15,7 +17,7 @@ import { addBillingConcept, updateBillingConcept, deleteMultipleBillingConcepts,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Download } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Download, Clock } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -42,20 +44,33 @@ const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
-  productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
+  productType: z.enum(['fijo', 'variable', 'TODAS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   unitOfMeasure: z.enum(['TONELADA', 'KILOGRAMOS', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
-  value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor.").optional(),
-  lunesASabadoTariff: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor.").optional(),
-  domingoFestivoTariff: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor.").optional(),
+  value: z.coerce.number().min(0).optional(),
+  lunesASabadoTariff: z.coerce.number().min(0).optional(),
+  domingoFestivoTariff: z.coerce.number().min(0).optional(),
+  dayTariff: z.coerce.number().min(0).optional(),
+  nightTariff: z.coerce.number().min(0).optional(),
+  dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM').optional(),
 }).superRefine((data, ctx) => {
-    const isJornal = data.conceptName?.toUpperCase() === 'JORNAL ORDINARIO';
+    const upperConceptName = data.conceptName?.toUpperCase();
 
-    if (isJornal) {
+    if (upperConceptName === 'JORNAL ORDINARIO') {
         if (data.lunesASabadoTariff === undefined || data.lunesASabadoTariff === null) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La tarifa de Lunes a Sábado es requerida.", path: ["lunesASabadoTariff"] });
         }
         if (data.domingoFestivoTariff === undefined || data.domingoFestivoTariff === null) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La tarifa de Domingo y Festivo es requerida.", path: ["domingoFestivoTariff"] });
+        }
+    } else if (upperConceptName === 'CARGUE' || upperConceptName === 'DESCARGUE') {
+         if (data.dayTariff === undefined || data.dayTariff === null) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La tarifa diurna es requerida.", path: ["dayTariff"] });
+        }
+        if (data.nightTariff === undefined || data.nightTariff === null) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La tarifa nocturna es requerida.", path: ["nightTariff"] });
+        }
+        if (!data.dayShiftEnd) {
+             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin del turno diurno es requerida.", path: ["dayShiftEnd"] });
         }
     } else {
         if (data.value === undefined || data.value === null) {
@@ -63,6 +78,7 @@ const conceptSchema = z.object({
         }
     }
 });
+
 
 type ConceptFormValues = z.infer<typeof conceptSchema>;
 
@@ -100,6 +116,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       productType: 'TODAS',
       unitOfMeasure: 'TONELADA',
       value: 0,
+      dayShiftEnd: '18:00',
     },
   });
 
@@ -128,6 +145,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
         productType: 'TODAS',
         unitOfMeasure: 'TONELADA',
         value: 0,
+        dayShiftEnd: '18:00',
       });
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -217,6 +235,9 @@ export default function ConceptManagementComponent({ initialClients, initialConc
         { header: 'Valor Unitario', key: 'value', width: 20 },
         { header: 'Tarifa L-S', key: 'lunesASabadoTariff', width: 20 },
         { header: 'Tarifa D-F', key: 'domingoFestivoTariff', width: 20 },
+        { header: 'Tarifa Diurna', key: 'dayTariff', width: 20 },
+        { header: 'Tarifa Nocturna', key: 'nightTariff', width: 20 },
+        { header: 'Fin Turno Diurno', key: 'dayShiftEnd', width: 20 },
     ];
     
     const headerRow = worksheet.getRow(1);
@@ -235,14 +256,19 @@ export default function ConceptManagementComponent({ initialClients, initialConc
             operationType: concept.operationType,
             productType: concept.productType,
             unitOfMeasure: concept.unitOfMeasure,
-            value: concept.conceptName !== 'JORNAL ORDINARIO' ? concept.value : '',
+            value: concept.conceptName !== 'JORNAL ORDINARIO' && concept.conceptName !== 'CARGUE' && concept.conceptName !== 'DESCARGUE' ? concept.value : '',
             lunesASabadoTariff: concept.conceptName === 'JORNAL ORDINARIO' ? concept.lunesASabadoTariff : '',
             domingoFestivoTariff: concept.conceptName === 'JORNAL ORDINARIO' ? concept.domingoFestivoTariff : '',
+            dayTariff: concept.conceptName === 'CARGUE' || concept.conceptName === 'DESCARGUE' ? concept.dayTariff : '',
+            nightTariff: concept.conceptName === 'CARGUE' || concept.conceptName === 'DESCARGUE' ? concept.nightTariff : '',
+            dayShiftEnd: concept.conceptName === 'CARGUE' || concept.conceptName === 'DESCARGUE' ? concept.dayShiftEnd : '',
         });
         const lastRow = worksheet.lastRow!;
         lastRow.getCell('value').numFmt = '"$"#,##0.00';
         lastRow.getCell('lunesASabadoTariff').numFmt = '"$"#,##0.00';
         lastRow.getCell('domingoFestivoTariff').numFmt = '"$"#,##0.00';
+        lastRow.getCell('dayTariff').numFmt = '"$"#,##0.00';
+        lastRow.getCell('nightTariff').numFmt = '"$"#,##0.00';
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -358,6 +384,11 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                                         <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                                         <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                                     </div>
+                                                ) : c.conceptName === 'CARGUE' || c.conceptName === 'DESCARGUE' ? (
+                                                     <div className="text-xs">
+                                                        <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                        <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                    </div>
                                                 ) : (
                                                     c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
                                                 )}
@@ -417,7 +448,9 @@ export default function ConceptManagementComponent({ initialClients, initialConc
 
 function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: ClientInfo[] }) {
     const watchedConceptName = form.watch('conceptName');
-    const isJornal = watchedConceptName?.toUpperCase() === 'JORNAL ORDINARIO';
+    const upperConceptName = watchedConceptName?.toUpperCase();
+    const isJornal = upperConceptName === 'JORNAL ORDINARIO';
+    const isCargueDescargue = upperConceptName === 'CARGUE' || upperConceptName === 'DESCARGUE';
 
     return (
         <div className="space-y-4">
@@ -439,12 +472,34 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
                 )}
             />
             <FormField control={form.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
              {isJornal ? (
                 <>
                     <FormField control={form.control} name="lunesASabadoTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Lunes a Sábado (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
                     <FormField control={form.control} name="domingoFestivoTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Domingo y Festivo (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
+                </>
+            ) : isCargueDescargue ? (
+                 <>
+                    <FormField control={form.control} name="dayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="nightTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna/Festiva (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
+                     <FormField control={form.control} name="dayShiftEnd" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Hora Fin Turno Diurno</FormLabel>
+                            <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                </FormControl>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon"><Info className="h-4 w-4" /></Button></TooltipTrigger>
+                                        <TooltipContent><p>Las operaciones que terminen después de esta hora se considerarán nocturnas.</p></TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
                 </>
             ) : (
                 <FormField control={form.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
