@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -83,6 +82,21 @@ const conceptSchema = z.object({
 
 type ConceptFormValues = z.infer<typeof conceptSchema>;
 
+const addFormDefaultValues: ConceptFormValues = {
+  conceptName: '',
+  clientNames: ['TODOS (Cualquier Cliente)'],
+  operationType: 'TODAS',
+  productType: 'TODAS',
+  unitOfMeasure: 'TONELADA',
+  value: 0,
+  lunesASabadoTariff: 0,
+  domingoFestivoTariff: 0,
+  dayTariff: 0,
+  nightTariff: 0,
+  dayShiftEnd: '18:00',
+};
+
+
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
         <div className="rounded-full bg-destructive/10 p-4">
@@ -110,15 +124,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   
   const addForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
-    defaultValues: {
-      conceptName: '',
-      clientNames: ['TODOS (Cualquier Cliente)'],
-      operationType: 'TODAS',
-      productType: 'TODAS',
-      unitOfMeasure: 'TONELADA',
-      value: 0,
-      dayShiftEnd: '18:00',
-    },
+    defaultValues: addFormDefaultValues,
   });
 
   const editForm = useForm<ConceptFormValues>({
@@ -139,15 +145,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     if (result.success && result.newConcept) {
       toast({ title: 'Éxito', description: result.message });
       setConcepts(prev => [...prev, result.newConcept!].sort((a,b) => a.conceptName.localeCompare(b.conceptName)));
-      addForm.reset({
-        conceptName: '',
-        clientNames: ['TODOS (Cualquier Cliente)'],
-        operationType: 'TODAS',
-        productType: 'TODAS',
-        unitOfMeasure: 'TONELADA',
-        value: 0,
-        dayShiftEnd: '18:00',
-      });
+      addForm.reset(addFormDefaultValues);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -189,7 +187,10 @@ export default function ConceptManagementComponent({ initialClients, initialConc
 
   const openEditDialog = (concept: BillingConcept) => {
     setConceptToEdit(concept);
-    editForm.reset(concept);
+    editForm.reset({
+      ...addFormDefaultValues, // Ensure all fields have a default
+      ...concept, // Overwrite with existing data
+    });
   };
 
   const handleRowSelect = (id: string, checked: boolean) => {
@@ -388,7 +389,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                                                 <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                                                 <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                                             </div>
-                                                        ) : cargueDescargueConcepts.includes(c.conceptName) ? (
+                                                        ) : cargueDescargueConcepts.includes(c.conceptName.toUpperCase()) ? (
                                                              <div className="text-xs">
                                                                 <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                                                 <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
@@ -482,19 +483,19 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
             <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
              {isJornal ? (
                 <>
-                    <FormField control={form.control} name="lunesASabadoTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Lunes a Sábado (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
-                    <FormField control={form.control} name="domingoFestivoTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Domingo y Festivo (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="lunesASabadoTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Lunes a Sábado (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="domingoFestivoTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Domingo y Festivo (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
                 </>
             ) : isCargueDescargue ? (
                  <>
-                    <FormField control={form.control} name="dayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
-                    <FormField control={form.control} name="nightTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna/Festiva (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="dayTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="nightTariff" render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna/Festiva (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
                      <FormField control={form.control} name="dayShiftEnd" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Hora Fin Turno Diurno</FormLabel>
                             <div className="flex items-center gap-2">
                                 <FormControl>
-                                    <Input type="time" placeholder="HH:MM" {...field} />
+                                    <Input type="time" placeholder="HH:MM" {...field} value={field.value ?? ''} />
                                 </FormControl>
                                 <TooltipProvider>
                                     <Tooltip>
@@ -508,7 +509,7 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
                     )}/>
                 </>
             ) : (
-                <FormField control={form.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? 0} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
             )}
         </div>
     )
@@ -538,12 +539,15 @@ function ClientMultiSelectDialog({
   const handleSelect = (valueToToggle: string) => {
     const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
     
+    // If "TODOS" is clicked
     if (isTodos) {
+      // If it's already selected, unselect it. Otherwise, select only it.
       onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
     } else {
+      // If a specific client is clicked
       const newSelection = selected.includes(valueToToggle)
-        ? selected.filter(s => s !== valueToToggle)
-        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle];
+        ? selected.filter(s => s !== valueToToggle) // Unselect it
+        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle]; // Select it and remove "TODOS"
       onChange(newSelection);
     }
   };
