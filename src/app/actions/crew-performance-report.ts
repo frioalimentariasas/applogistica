@@ -271,7 +271,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                           unitOfMeasure: 'TONELADA', 
                           totalValue: 0
                       });
-                 } else if (kilos >= 0) { 
+                 } else if (kilos >= 0) {
                     const relevantConcepts = billingConcepts.filter(c => 
                         c.conceptName.toUpperCase() === conceptName.toUpperCase() &&
                         (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)')) &&
@@ -281,15 +281,36 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     const concept = relevantConcepts.find(c => c.clientNames.includes(clientName)) || relevantConcepts[0];
 
                     if (concept) {
+                        const operationDate = new Date(formData.fecha);
+                        const horaInicio = formData.horaInicio;
+                        const dayShiftEnd = concept.dayShiftEnd;
+
+                        const esDomingoOFestivo = getDay(operationDate) === 0 || holidays.some(h => isSameDay(parseISO(h.date), operationDate));
+                        
+                        let esNocturno = false;
+                        if (horaInicio && dayShiftEnd) {
+                            try {
+                                const startTime = parse(horaInicio, 'HH:mm', new Date());
+                                const shiftEndTime = parse(dayShiftEnd, 'HH:mm', new Date());
+                                if (startTime >= shiftEndTime) {
+                                    esNocturno = true;
+                                }
+                            } catch (e) {
+                                console.error("Error parsing time for tariff calculation", e);
+                            }
+                        }
+                        
+                        const tarifaAplicar = (esDomingoOFestivo || esNocturno) ? (concept.nightTariff || 0) : (concept.dayTariff || 0);
+
                         if (concept.unitOfMeasure === 'TONELADA') {
                             const quantity = kilos / 1000;
-                            addSettlement(conceptName, quantity, 'TONELADA');
+                            addSettlementWithDirectValue(conceptName, quantity, 'TONELADA', tarifaAplicar);
                         } else if (concept.unitOfMeasure === 'KILOGRAMOS') {
                             const quantity = kilos;
-                            addSettlement(conceptName, quantity, 'KILOGRAMOS');
+                            addSettlementWithDirectValue(conceptName, quantity, 'KILOGRAMOS', tarifaAplicar);
                         }
                     } else {
-                        // Fallback to old behavior if no matching concept is found.
+                        // Fallback
                         const toneladas = kilos / 1000;
                         addSettlement(conceptName, toneladas, 'TONELADA');
                     }
@@ -595,3 +616,4 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
+
