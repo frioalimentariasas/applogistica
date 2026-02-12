@@ -1,10 +1,9 @@
 
-
 "use client";
 
 import * as React from 'react';
 import { useState, useMemo } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
@@ -17,7 +16,7 @@ import { addBillingConcept, updateBillingConcept, deleteMultipleBillingConcepts,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Download, Clock } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Download, Clock, Calculator, ListChecks, Eye, Warehouse, Sparkles } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -40,6 +39,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
@@ -126,6 +126,11 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [togglingStatusId, setTogglingStatusId] = useState<string | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // New states for filtering
+  const [searchTerm, setSearchTerm] = useState('');
+  const [clientFilter, setClientFilter] = useState<string[]>([]);
   
   const addForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
@@ -140,6 +145,14 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
     ...initialClients
   ], [initialClients]);
+
+  const filteredConcepts = useMemo(() => {
+    return concepts.filter(c => {
+        const searchTermMatch = searchTerm === '' || c.conceptName.toLowerCase().includes(searchTerm.toLowerCase());
+        const clientMatch = clientFilter.length === 0 || c.clientNames.some(name => clientFilter.includes(name));
+        return searchTermMatch && clientMatch;
+    }).sort((a, b) => a.conceptName.localeCompare(b.conceptName));
+  }, [concepts, searchTerm, clientFilter]);
   
   const onAddSubmit: SubmitHandler<ConceptFormValues> = async (data) => {
     setIsSubmitting(true);
@@ -151,6 +164,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       toast({ title: 'Éxito', description: result.message });
       setConcepts(prev => [...prev, result.newConcept!].sort((a,b) => a.conceptName.localeCompare(b.conceptName)));
       addForm.reset(addFormDefaultValues);
+      setIsAddDialogOpen(false);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -205,13 +219,13 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   };
 
   const isAllSelected = useMemo(() => {
-    if (concepts.length === 0) return false;
-    return concepts.every(s => selectedIds.has(s.id));
-  }, [selectedIds, concepts]);
+    if (filteredConcepts.length === 0) return false;
+    return filteredConcepts.every(s => selectedIds.has(s.id));
+  }, [selectedIds, filteredConcepts]);
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(concepts.map(s => s.id)));
+      setSelectedIds(new Set(filteredConcepts.map(s => s.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -267,9 +281,9 @@ export default function ConceptManagementComponent({ initialClients, initialConc
             value: concept.conceptName !== 'JORNAL ORDINARIO' && !cargueDescargueConcepts.includes(concept.conceptName) ? concept.value : '',
             lunesASabadoTariff: concept.conceptName === 'JORNAL ORDINARIO' ? concept.lunesASabadoTariff : '',
             domingoFestivoTariff: concept.conceptName === 'JORNAL ORDINARIO' ? concept.domingoFestivoTariff : '',
-            dayTariff: cargueDescargueConcepts.includes(concept.conceptName) ? concept.dayTariff : '',
-            nightTariff: cargueDescargueConcepts.includes(concept.conceptName) ? concept.nightTariff : '',
-            dayShiftEnd: cargueDescargueConcepts.includes(concept.conceptName) ? concept.dayShiftEnd : '',
+            dayTariff: cargueDescargueConcepts.includes(concept.conceptName.toUpperCase()) ? concept.dayTariff : '',
+            nightTariff: cargueDescargueConcepts.includes(concept.conceptName.toUpperCase()) ? concept.nightTariff : '',
+            dayShiftEnd: cargueDescargueConcepts.includes(concept.conceptName.toUpperCase()) ? concept.dayShiftEnd : '',
         });
         const lastRow = worksheet.lastRow!;
         lastRow.getCell('value').numFmt = '"$"#,##0.00';
@@ -332,111 +346,130 @@ export default function ConceptManagementComponent({ initialClients, initialConc
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Nuevo Concepto de Liquidación</CardTitle>
-                        <CardDescription>Cree una regla de cobro para una operación.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Form {...addForm}>
-                            <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                                <ConceptFormFields form={addForm} clientOptions={clientOptions} />
-                                <Button type="submit" disabled={isSubmitting} className="w-full">
-                                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                    Guardar Concepto
-                                </Button>
-                            </form>
-                        </Form>
-                    </CardContent>
-                </Card>
-            </div>
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <CardTitle>Conceptos Actuales</CardTitle>
-                        <div className="flex gap-2">
-                            {selectedIds.size > 0 && (
-                                <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Eliminar ({selectedIds.size})
-                                </Button>
-                            )}
-                            <Button onClick={handleExportExcel} variant="outline" size="sm" disabled={concepts.length === 0}>
-                                <Download className="mr-2 h-4 w-4" />
-                                Exportar a Excel
+        <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center flex-wrap gap-4">
+                    <CardTitle>Conceptos Existentes</CardTitle>
+                     <div className="flex gap-2">
+                        {selectedIds.size > 0 && (
+                            <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar ({selectedIds.size})
                             </Button>
-                        </div>
+                        )}
+                        <Button onClick={handleExportExcel} variant="outline" size="sm" disabled={concepts.length === 0}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Exportar a Excel
+                        </Button>
+                         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Concepto</Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
+                                <Form {...addForm}>
+                                <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="flex flex-col h-full overflow-hidden">
+                                <DialogHeader>
+                                    <DialogTitle>Nuevo Concepto de Liquidación</DialogTitle>
+                                    <DialogDescription>Cree una regla de cobro para una operación.</DialogDescription>
+                                </DialogHeader>
+                                <div className="flex-grow overflow-y-auto pr-4 -mr-4">
+                                    <div className="space-y-4 pt-4">
+                                        <ConceptFormFields form={addForm} clientOptions={clientOptions} />
+                                    </div>
+                                </div>
+                                <DialogFooter className="flex-shrink-0 pt-4">
+                                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
+                                    <Button type="submit" disabled={isSubmitting}>
+                                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                                        Guardar Concepto
+                                    </Button>
+                                </DialogFooter>
+                                </form>
+                                </Form>
+                            </DialogContent>
+                        </Dialog>
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
-                        <ScrollArea className="h-[500px]">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
-                                        <TableHead>Concepto</TableHead>
-                                        <TableHead>Valor</TableHead>
-                                        <TableHead>Estado</TableHead>
-                                        <TableHead className="text-right">Acciones</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {concepts.length > 0 ? (
-                                        concepts.map((c) => {
-                                            const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
-                                            return (
-                                                <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
-                                                    <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium flex items-center gap-2">
-                                                            {c.conceptName}
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <Input
+                        placeholder="Buscar por nombre de concepto..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <ClientMultiSelectDialog
+                        options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                        selected={clientFilter}
+                        onChange={setClientFilter}
+                        placeholder="Filtrar por cliente..."
+                    />
+                </div>
+                 <div className="rounded-md border">
+                    <ScrollArea className="h-[500px]">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} disabled={filteredConcepts.length === 0} /></TableHead>
+                                    <TableHead>Concepto</TableHead>
+                                    <TableHead>Valor</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead className="text-right">Acciones</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredConcepts.length > 0 ? (
+                                    filteredConcepts.map((c) => {
+                                        const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
+                                        return (
+                                            <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
+                                                <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
+                                                <TableCell>
+                                                    <div className="font-medium flex items-center gap-2">
+                                                        {c.conceptName}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
+                                                        {(c.clientNames || []).join(', ')} / {c.operationType} / {c.productType}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {c.conceptName === 'JORNAL ORDINARIO' ? (
+                                                        <div className="text-xs">
+                                                            <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                            <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
                                                         </div>
-                                                        <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
-                                                            {(c.clientNames || []).join(', ')} / {c.operationType} / {c.productType}
+                                                    ) : cargueDescargueConcepts.includes(c.conceptName.toUpperCase()) ? (
+                                                         <div className="text-xs">
+                                                            <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                            <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                            <p className="text-muted-foreground">Fin turno: {c.dayShiftEnd}</p>
                                                         </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {c.conceptName === 'JORNAL ORDINARIO' ? (
-                                                            <div className="text-xs">
-                                                                <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                                <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                            </div>
-                                                        ) : cargueDescargueConcepts.includes(c.conceptName.toUpperCase()) ? (
-                                                             <div className="text-xs">
-                                                                <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                                <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                            </div>
-                                                        ) : (
-                                                            c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Switch
-                                                            checked={c.status === 'activo'}
-                                                            onCheckedChange={() => handleToggleStatus(c.id, c.status)}
-                                                            disabled={togglingStatusId === c.id}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            )
-                                        })
-                                    ) : (
-                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos definidos.</TableCell></TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </ScrollArea>
-                    </div>
-                </CardContent>
-              </Card>
-            </div>
+                                                    ) : (
+                                                        c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
+                                                    )}
+                                                </TableCell>
+                                                 <TableCell>
+                                                    <Switch
+                                                        checked={c.status === 'activo'}
+                                                        onCheckedChange={() => handleToggleStatus(c.id, c.status)}
+                                                        disabled={togglingStatusId === c.id}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })
+                                ) : (
+                                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos que coincidan con la búsqueda.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </ScrollArea>
+                </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
       
@@ -482,7 +515,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
 }
 
 function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: ClientInfo[] }) {
-    const watchedConceptName = form.watch('conceptName');
+    const watchedConceptName = useWatch({ control: form.control, name: 'conceptName' });
     const upperConceptName = watchedConceptName?.toUpperCase();
     const isJornal = upperConceptName === 'JORNAL ORDINARIO';
     const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
@@ -499,7 +532,7 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
                     <FormLabel>Aplicar a Cliente(s)</FormLabel>
                     <ClientMultiSelectDialog
                         options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
-                        selected={field.value}
+                        selected={field.value || []}
                         onChange={field.onChange}
                         placeholder="Seleccione clientes..."
                     />
