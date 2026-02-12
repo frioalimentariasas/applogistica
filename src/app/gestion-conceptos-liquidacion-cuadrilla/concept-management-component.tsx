@@ -139,6 +139,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
 
   const editForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
+    defaultValues: addFormDefaultValues,
   });
 
   const clientOptions: ClientInfo[] = useMemo(() => [
@@ -350,7 +351,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
             <CardHeader>
                 <div className="flex justify-between items-center flex-wrap gap-4">
                     <CardTitle>Conceptos Existentes</CardTitle>
-                     <div className="flex gap-2">
+                    <div className="flex gap-2">
                         {selectedIds.size > 0 && (
                             <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -361,7 +362,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                             <Download className="mr-2 h-4 w-4" />
                             Exportar a Excel
                         </Button>
-                         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                             <DialogTrigger asChild>
                                 <Button><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Concepto</Button>
                             </DialogTrigger>
@@ -470,7 +471,6 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                 </div>
             </CardContent>
           </Card>
-        </div>
       </div>
       
       {/* Edit Dialog */}
@@ -674,5 +674,3 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
-
-    
