@@ -499,7 +499,7 @@ export default function CrewPerformanceReportPage() {
                      if (valorUnitario === conceptConfig.dayTariff) {
                         tariffLabel = '(DIURNA)';
                     } else if (valorUnitario === conceptConfig.nightTariff) {
-                        tariffLabel = '(NOCTURNA/FESTIVA)';
+                        tariffLabel = '(NOCTURNA)';
                     }
                 }
             }
