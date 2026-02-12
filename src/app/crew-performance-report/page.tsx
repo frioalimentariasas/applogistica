@@ -476,37 +476,65 @@ export default function CrewPerformanceReportPage() {
 
      const conceptSummary = useMemo(() => {
         if (liquidationData.length === 0) return null;
-        
+    
         const summary = liquidationData.reduce((acc, row) => {
             const { conceptoLiquidado, cantidadConcepto, valorUnitario, valorTotalConcepto, unidadMedidaConcepto } = row;
-
+    
             if (conceptoLiquidado === 'No Aplica') return acc;
-            if (!acc[conceptoLiquidado]) {
-                const firstValidEntry = reportData.find(r => r.conceptoLiquidado === conceptoLiquidado && r.valorUnitario > 0);
-                acc[conceptoLiquidado] = {
+            
+            const conceptConfig = allBillingConcepts.find(c => c.conceptName === conceptoLiquidado);
+            let tariffLabel = '';
+    
+            if (conceptConfig) {
+                const upperConceptName = conceptoLiquidado.toUpperCase();
+                const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
+    
+                if (upperConceptName === 'JORNAL ORDINARIO') {
+                    if (valorUnitario === conceptConfig.lunesASabadoTariff) {
+                        tariffLabel = '(LUNES A SÁBADO)';
+                    } else if (valorUnitario === conceptConfig.domingoFestivoTariff) {
+                        tariffLabel = '(DOMINGO Y FESTIVO)';
+                    }
+                } else if (cargueDescargueConcepts.includes(upperConceptName)) {
+                     if (valorUnitario === conceptConfig.dayTariff) {
+                        tariffLabel = '(DIURNA)';
+                    } else if (valorUnitario === conceptConfig.nightTariff) {
+                        tariffLabel = '(NOCTURNA/FESTIVA)';
+                    }
+                }
+            }
+            
+            const key = `${conceptoLiquidado}|${valorUnitario}`;
+            const name = `${conceptoLiquidado} ${tariffLabel}`.trim();
+            
+            if (!acc[key]) {
+                acc[key] = {
+                    name: name,
                     totalCantidad: 0,
                     totalValor: 0,
                     unidadMedida: unidadMedidaConcepto,
-                    valorUnitario: firstValidEntry ? firstValidEntry.valorUnitario : 0, 
+                    valorUnitario: valorUnitario,
                 };
             }
             
             if (cantidadConcepto !== -1) {
-                 acc[conceptoLiquidado].totalCantidad += cantidadConcepto;
-                 acc[conceptoLiquidado].totalValor += valorTotalConcepto;
+                 acc[key].totalCantidad += cantidadConcepto;
+                 acc[key].totalValor += valorTotalConcepto;
             }
             return acc;
-        }, {} as Record<string, { totalCantidad: number, totalValor: number, unidadMedida: string, valorUnitario: number }>);
-
-        return Object.entries(summary).map(([name, data], index) => ({
+        }, {} as Record<string, { name: string; totalCantidad: number, totalValor: number, unidadMedida: string, valorUnitario: number }>);
+    
+        const sortedSummary = Object.values(summary).sort((a, b) => {
+            if (a.name < b.name) return -1;
+            if (a.name > b.name) return 1;
+            return a.valorUnitario - b.valorUnitario;
+        });
+    
+        return sortedSummary.map((data, index) => ({
             item: index + 1,
-            name,
-            totalCantidad: data.totalCantidad,
-            valorUnitario: data.valorUnitario,
-            totalValor: data.totalValor,
-            unidadMedida: data.unidadMedida
+            ...data
         }));
-     }, [liquidationData, reportData]);
+     }, [liquidationData, allBillingConcepts]);
 
 
     const handleExportExcel = async (type: 'productivity' | 'settlement') => {
@@ -685,7 +713,7 @@ export default function CrewPerformanceReportPage() {
                 const wsSum = workbook.addWorksheet('Resumen_Conceptos');
                 const columnsSum = [
                     { header: 'Item', key: 'item', width: 10 },
-                    { header: 'Concepto', key: 'concepto', width: 30 },
+                    { header: 'Concepto', key: 'concepto', width: 40 },
                     { header: 'Total Cantidad', key: 'totalCantidad', width: 18 },
                     { header: 'Unidad Medida', key: 'unidad', width: 18 },
                     { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 20 },
