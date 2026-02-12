@@ -13,6 +13,7 @@ export interface BillingConcept {
   operationType: 'recepcion' | 'despacho' | 'TODAS';
   productType: 'fijo' | 'variable' | 'TODAS';
   unitOfMeasure: 'TONELADA' | 'KILOGRAMOS' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA';
+  status: 'activo' | 'inactivo';
   value?: number;
   lunesASabadoTariff?: number;
   domingoFestivoTariff?: number;
@@ -36,6 +37,7 @@ export async function getBillingConcepts(): Promise<BillingConcept[]> {
         operationType: data.operationType,
         productType: data.productType,
         unitOfMeasure: data.unitOfMeasure,
+        status: data.status || 'activo',
         value: data.value,
         lunesASabadoTariff: data.lunesASabadoTariff,
         domingoFestivoTariff: data.domingoFestivoTariff,
@@ -61,6 +63,7 @@ export async function addBillingConcept(data: Omit<BillingConcept, 'id'>): Promi
       operationType: data.operationType,
       productType: data.productType,
       unitOfMeasure: data.unitOfMeasure,
+      status: 'activo',
     };
 
     const upperConceptName = data.conceptName.toUpperCase();
@@ -96,6 +99,7 @@ export async function updateBillingConcept(id: string, data: Omit<BillingConcept
     operationType: data.operationType,
     productType: data.productType,
     unitOfMeasure: data.unitOfMeasure,
+    status: data.status,
   };
   
   const upperConceptName = data.conceptName.toUpperCase();
@@ -134,6 +138,20 @@ export async function updateBillingConcept(id: string, data: Omit<BillingConcept
   }
 }
 
+export async function toggleConceptStatus(id: string, currentStatus: 'activo' | 'inactivo'): Promise<{ success: boolean; message: string }> {
+  if (!firestore) {
+    return { success: false, message: 'Error de configuración del servidor.' };
+  }
+  const newStatus = currentStatus === 'activo' ? 'inactivo' : 'activo';
+  try {
+    await firestore.collection('billing_concepts').doc(id).update({ status: newStatus });
+    revalidatePath('/gestion-conceptos-liquidacion-cuadrilla');
+    return { success: true, message: `Concepto ${newStatus}.` };
+  } catch (error) {
+    console.error(`Error al cambiar el estado del concepto ${id}:`, error);
+    return { success: false, message: 'Ocurrió un error en el servidor.' };
+  }
+}
 
 // Action to delete one or more concepts
 export async function deleteMultipleBillingConcepts(ids: string[]): Promise<{ success: boolean; message: string }> {

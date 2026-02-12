@@ -1,5 +1,6 @@
 
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -385,13 +386,15 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             .where('operationDate', '<=', serverQueryEndDate);
 
         
-        const [submissionsSnapshot, manualOpsSnapshot, billingConcepts, holidays] = await Promise.all([
+        const [submissionsSnapshot, manualOpsSnapshot, allBillingConcepts, holidays] = await Promise.all([
             submissionsQuery.get(),
             manualOpsQuery.get(),
             getBillingConcepts(),
             getHolidaysInRange(format(serverQueryStartDate, 'yyyy-MM-dd'), format(serverQueryEndDate, 'yyyy-MM-dd'))
         ]);
         
+        const billingConcepts = allBillingConcepts.filter(c => c.status === 'activo');
+
         const allSubmissionDocs = submissionsSnapshot.docs
             .map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }))
             .filter(submission => {
@@ -645,6 +648,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
+
 
 
 

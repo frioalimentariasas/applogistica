@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -12,7 +13,7 @@ import { format } from 'date-fns';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { addBillingConcept, updateBillingConcept, deleteMultipleBillingConcepts, type BillingConcept } from './actions';
+import { addBillingConcept, updateBillingConcept, deleteMultipleBillingConcepts, toggleConceptStatus, type BillingConcept } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,13 +39,15 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Switch } from '@/components/ui/switch';
 
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
-  productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
+  productType: z.enum(['fijo', 'variable', 'TODAS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   unitOfMeasure: z.enum(['TONELADA', 'KILOGRAMOS', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
+  status: z.enum(['activo', 'inactivo']).default('activo'),
   value: z.coerce.number().min(0).optional(),
   lunesASabadoTariff: z.coerce.number().min(0).optional(),
   domingoFestivoTariff: z.coerce.number().min(0).optional(),
@@ -86,8 +89,9 @@ const addFormDefaultValues: ConceptFormValues = {
   conceptName: '',
   clientNames: ['TODOS (Cualquier Cliente)'],
   operationType: 'TODAS',
-  productType: 'TODOS',
+  productType: 'TODAS',
   unitOfMeasure: 'TONELADA',
+  status: 'activo',
   value: 0,
   lunesASabadoTariff: 0,
   domingoFestivoTariff: 0,
@@ -121,6 +125,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [togglingStatusId, setTogglingStatusId] = useState<string | null>(null);
   
   const addForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
@@ -282,6 +287,18 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     link.click();
   };
 
+  const handleToggleStatus = async (id: string, currentStatus: 'activo' | 'inactivo') => {
+      setTogglingStatusId(id);
+      const result = await toggleConceptStatus(id, currentStatus);
+      if (result.success) {
+          toast({ title: "Estado Actualizado", description: result.message });
+          setConcepts(prev => prev.map(c => c.id === id ? { ...c, status: c.status === 'activo' ? 'inactivo' : 'activo' } : c));
+      } else {
+          toast({ variant: "destructive", title: "Error", description: result.message });
+      }
+      setTogglingStatusId(null);
+  };
+
   if (authLoading) {
       return <div className="flex min-h-screen w-full items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
   }
@@ -362,8 +379,8 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                     <TableRow>
                                         <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
                                         <TableHead>Concepto</TableHead>
-                                        <TableHead>U. Medida</TableHead>
                                         <TableHead>Valor</TableHead>
+                                        <TableHead>Estado</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -382,7 +399,6 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                                             {(c.clientNames || []).join(', ')} / {c.operationType} / {c.productType}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell>{c.unitOfMeasure}</TableCell>
                                                     <TableCell>
                                                         {c.conceptName === 'JORNAL ORDINARIO' ? (
                                                             <div className="text-xs">
@@ -397,6 +413,13 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                                         ) : (
                                                             c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
                                                         )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Switch
+                                                            checked={c.status === 'activo'}
+                                                            onCheckedChange={() => handleToggleStatus(c.id, c.status)}
+                                                            disabled={togglingStatusId === c.id}
+                                                        />
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
@@ -432,10 +455,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                 </div>
                 <DialogFooter className="flex-shrink-0 pt-4">
                     <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
-                    <Button type="submit" disabled={isEditing}>
-                      {isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Guardar Cambios
-                    </Button>
+                    <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
                 </DialogFooter>
             </form>
           </Form>
@@ -488,7 +508,7 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
                 )}
             />
             <FormField control={form.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
              {isJornal ? (
                 <>
