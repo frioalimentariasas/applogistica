@@ -610,24 +610,463 @@ export async function getAvailableInventoryYears(): Promise<number[]> {
         return [];
     }
 }
+
+export async function getSessionsWithInventoryForClient(clientName: string, startDate: string, endDate: string): Promise<string[]> {
+    if (!firestore) {
+        throw new Error('El servidor no está configurado correctamente.');
+    }
+    if (!clientName || !startDate || !endDate) {
+        return [];
+    }
+
+    try {
+        const snapshot = await firestore.collection('dailyInventories')
+            .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
+            .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
+            .get();
+
+        if (snapshot.empty) {
+            return [];
+        }
+
+        const sessions = new Set<string>();
+
+        snapshot.docs.forEach(doc => {
+            const inventoryDay = doc.data();
+            if (inventoryDay && Array.isArray(inventoryDay.data)) {
+                inventoryDay.data.forEach((row: InventoryRow) => {
+                    const rowClient = row?.PROPIETARIO?.trim();
+                    if (rowClient && rowClient === clientName && row.SE) {
+                        const sesion = String(row.SE).trim().toUpperCase();
+                        if (sesion) {
+                            sessions.add(sesion);
+                        }
+                    }
+                });
+            }
+        });
+
+        return Array.from(sessions).sort();
+    } catch (error) {
+        console.error('Error fetching sessions with inventory:', error);
+        throw new Error('No se pudo obtener la lista de sesiones con inventario.');
+    }
+}
     
     
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+- src/app/inventory-report/page.tsx:
+```tsx
+
+"use client";
+
+import { Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
+import { Loader2, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import BillingReportComponent from '../billing-reports/report-component';
+import { getClients } from '../actions/clients';
+
+const AccessDenied = () => (
+    <div className="flex flex-col items-center justify-center text-center gap-4">
+        <div className="rounded-full bg-destructive/10 p-4">
+            <ShieldAlert className="h-12 w-12 text-destructive" />
+        </div>
+        <h3 className="text-xl font-semibold">Acceso Denegado</h3>
+        <p className="text-muted-foreground">
+            No tiene permisos para acceder a esta página.
+        </p>
+    </div>
+);
+
+export default function InventoryReportPageWrapper() {
+    const { user, permissions, loading: authLoading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!authLoading && !user) {
+            router.push('/login');
+        }
+    }, [user, authLoading, router]);
+
+    if (authLoading) {
+        return (
+            <div className="flex min-h-screen w-full items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+        );
+    }
+    
+    if (!user || !permissions.canViewBillingReports) {
+        return (
+            <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+                <div className="max-w-xl mx-auto text-center">
+                    <AccessDenied />
+                     <Button onClick={() => router.push('/')} className="mt-6">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Volver al Inicio
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Cargando...</div>}>
+            <InventoryReportPage />
+        </Suspense>
+    );
+}
+
+
+async function InventoryReportPage() {
+    const clients = await getClients();
+    
+    return <BillingReportComponent clients={clients} />
+}
+```
+- src/components/app/firebase-checker.tsx:
+```tsx
+"use client";
+
+import { useEffect, useState } from 'react';
+import { app } from '@/lib/firebase';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal, CheckCircle2, AlertTriangle } from 'lucide-react';
+
+export function FirebaseChecker() {
+  const [status, setStatus] = useState<"checking" | "success" | "error" | "unconfigured">("checking");
+  const [projectId, setProjectId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        if (app) {
+            try {
+                const id = app.options.projectId;
+                if (id) {
+                    setProjectId(id);
+                    setStatus("success");
+                } else {
+                    setStatus("error");
+                }
+            } catch (e: any) {
+                console.error("Firebase Checker Error:", e);
+                setStatus("error");
+            }
+        } else {
+            setStatus("unconfigured");
+        }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (status === "unconfigured") {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Firebase no está configurado</AlertTitle>
+        <AlertDescription>
+          Tu aplicación no está conectada a Firebase. Por favor, completa la configuración en tu archivo <strong>.env</strong> para continuar.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  
+  if (status === "error") {
+    return (
+      <Alert variant="destructive">
+        <Terminal className="h-4 w-4" />
+        <AlertTitle>Error de Configuración de Firebase</AlertTitle>
+        <AlertDescription>
+          Ocurrió un error desconocido al intentar conectar con Firebase. Revisa la consola para más detalles y asegúrate de que las variables de entorno son correctas.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (status === "success" && projectId) {
+    /*
+    return (
+      <Alert variant="default" className="border-green-500 bg-green-50 text-green-800 [&>svg]:text-green-600">
+         <CheckCircle2 className="h-4 w-4" />
+        <AlertTitle>¡Conexión Exitosa!</AlertTitle>
+        <AlertDescription>
+          Tu aplicación está conectada al proyecto de Firebase: <span className="font-bold">{projectId}</span>
+        </AlertDescription>
+      </Alert>
+    );
+    */
+    return null;
+  }
+
+  return (
+    <Alert>
+      <Terminal className="h-4 w-4" />
+      <AlertTitle>Verificando Conexión...</AlertTitle>
+      <AlertDescription>
+        Intentando conectar con Firebase.
+      </AlertDescription>
+    </Alert>
+  );
+}
+```
+- src/lib/firebase-admin.ts:
+```ts
+import admin from 'firebase-admin';
+
+function initializeAdmin() {
+  if (admin.apps.length > 0) {
+    return admin.app();
+  }
+
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    console.error('Firebase Admin initialization skipped: FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
+    return null;
+  }
+
+  try {
+    const serviceAccount = JSON.parse(
+      process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string
+    );
+    return admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    });
+  } catch (error: any) {
+    console.error('Firebase Admin SDK initialization error:', error.stack);
+    return null;
+  }
+}
+
+const app = initializeAdmin();
+
+const firestore = app ? admin.firestore() : null;
+const storage = app ? admin.storage() : null;
+const auth = app ? admin.auth() : null;
+
+export { firestore, storage, auth };
+```
+- src/lib/firebase.ts:
+```ts
+import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
+import { getFirestore } from 'firebase/firestore';
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+let app: FirebaseApp | null = null;
+let auth: ReturnType<typeof getAuth> | null = null;
+let storage: ReturnType<typeof getStorage> | null = null;
+let db: ReturnType<typeof getFirestore> | null = null;
+
+// Initialize Firebase only if the config is present
+if (firebaseConfig.projectId && firebaseConfig.apiKey) {
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  storage = getStorage(app);
+  db = getFirestore(app);
+}
+export { app, auth, storage, db };
+
+
+```
+- src/lib/utils.ts:
+```ts
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+```
+- tsconfig.json:
+```json
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+```
