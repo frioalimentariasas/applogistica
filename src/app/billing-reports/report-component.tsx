@@ -18,7 +18,7 @@ import Link from 'next/link';
 
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
-import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport, getAvailableInventoryYears } from '@/app/actions/inventory-report';
+import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport, ClientInventoryDetail, getTunelWeightReport, type TunelWeightReport, getAvailableInventoryYears, getSessionsWithInventoryForClient } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
 import { getSettlementVersions, saveSettlementVersion, type SettlementVersion } from './actions/settlement-versions';
@@ -263,6 +263,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [consolidatedSesion, setConsolidatedSesion] = useState<string>('');
     const [isConsolidatedClientDialogOpen, setIsConsolidatedClientDialogOpen] = useState(false);
     const [consolidatedClientSearch, setConsolidatedClientSearch] = useState("");
+    const [availableConsolidatedSessions, setAvailableConsolidatedSessions] = useState<string[]>([]);
+    const [isLoadingConsolidatedSessions, setIsLoadingConsolidatedSessions] = useState(false);
 
     // State for detailed inventory export
     const [exportClients, setExportClients] = useState<string[]>([]);
@@ -464,6 +466,32 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         getAvailableInventoryYears().then(setAvailableInventoryYears);
     }, []);
+
+    useEffect(() => {
+        const fetchSessions = async () => {
+            if (consolidatedClient && consolidatedDateRange?.from && consolidatedDateRange?.to) {
+                setIsLoadingConsolidatedSessions(true);
+                setConsolidatedSesion(''); // Reset session on client/date change
+                try {
+                    const results = await getSessionsWithInventoryForClient(
+                        consolidatedClient,
+                        format(consolidatedDateRange.from, 'yyyy-MM-dd'),
+                        format(consolidatedDateRange.to, 'yyyy-MM-dd')
+                    );
+                    setAvailableConsolidatedSessions(results);
+                } catch (error) {
+                    toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las sesiones disponibles.' });
+                    setAvailableConsolidatedSessions([]);
+                } finally {
+                    setIsLoadingConsolidatedSessions(false);
+                }
+            } else {
+                setAvailableConsolidatedSessions([]);
+                setConsolidatedSesion('');
+            }
+        };
+        fetchSessions();
+    }, [consolidatedClient, consolidatedDateRange, toast]);
 
     const filteredDetailedClients = useMemo(() => {
         if (!detailedClientSearch) return clients;
@@ -3741,12 +3769,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Sesión</Label>
-                                            <Select value={consolidatedSesion} onValueChange={setConsolidatedSesion}>
-                                                <SelectTrigger><SelectValue placeholder="Seleccione una sesión" /></SelectTrigger>
+                                            <Select 
+                                                value={consolidatedSesion} 
+                                                onValueChange={setConsolidatedSesion}
+                                                disabled={!consolidatedClient || !consolidatedDateRange?.from || isLoadingConsolidatedSessions}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={isLoadingConsolidatedSessions ? "Cargando..." : "Seleccione una sesión"} />
+                                                </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="CO">CO - Congelados</SelectItem>
-                                                    <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                                    <SelectItem value="SE">SE - Seco</SelectItem>
+                                                    {isLoadingConsolidatedSessions ? (
+                                                        <div className="flex items-center justify-center p-2">
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        </div>
+                                                    ) : availableConsolidatedSessions.length > 0 ? (
+                                                        availableConsolidatedSessions.map(s => (
+                                                            <SelectItem key={s} value={s}>{s} - {getSessionName(s)}</SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <SelectItem value="none" disabled>
+                                                            No hay inventario
+                                                        </SelectItem>
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -4345,6 +4389,8 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
+
 
 
 
