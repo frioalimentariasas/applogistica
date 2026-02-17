@@ -265,6 +265,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [consolidatedClientSearch, setConsolidatedClientSearch] = useState("");
     const [availableConsolidatedSessions, setAvailableConsolidatedSessions] = useState<string[]>([]);
     const [isLoadingConsolidatedSessions, setIsLoadingConsolidatedSessions] = useState(false);
+    const [availableConsolidatedClients, setAvailableConsolidatedClients] = useState<string[]>([]);
+    const [isLoadingConsolidatedClients, setIsLoadingConsolidatedClients] = useState(false);
 
     // State for detailed inventory export
     const [exportClients, setExportClients] = useState<string[]>([]);
@@ -272,8 +274,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isExporting, setIsExporting] = useState(false);
     const [isExportClientDialogOpen, setIsExportClientDialogOpen] = useState(false);
     const [exportClientSearch, setExportClientSearch] = useState("");
-
-
+    
     // State for deleting inventory
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -466,7 +467,32 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         getAvailableInventoryYears().then(setAvailableInventoryYears);
     }, []);
-
+    
+    useEffect(() => {
+        const fetchConsolidatedClients = async () => {
+            if (consolidatedDateRange?.from && consolidatedDateRange?.to) {
+                setIsLoadingConsolidatedClients(true);
+                setConsolidatedClient(undefined);
+                setAvailableConsolidatedClients([]);
+                try {
+                    const results = await getClientsWithInventory(
+                        format(consolidatedDateRange.from, 'yyyy-MM-dd'),
+                        format(consolidatedDateRange.to, 'yyyy-MM-dd')
+                    );
+                    setAvailableConsolidatedClients(results);
+                } catch(error) {
+                     toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los clientes disponibles para este rango.' });
+                } finally {
+                    setIsLoadingConsolidatedClients(false);
+                }
+            } else {
+                setAvailableConsolidatedClients([]);
+                setConsolidatedClient(undefined);
+            }
+        };
+        fetchConsolidatedClients();
+    }, [consolidatedDateRange, toast]);
+    
     useEffect(() => {
         const fetchSessions = async () => {
             if (consolidatedClient && consolidatedDateRange?.from && consolidatedDateRange?.to) {
@@ -497,11 +523,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!detailedClientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(detailedClientSearch.toLowerCase()));
     }, [detailedClientSearch, clients]);
-
+    
     const filteredConsolidatedClients = useMemo(() => {
-        if (!consolidatedClientSearch) return clients;
-        return clients.filter(c => c.razonSocial.toLowerCase().includes(consolidatedClientSearch.toLowerCase()));
-    }, [consolidatedClientSearch, clients]);
+        if (!consolidatedClientSearch) return availableConsolidatedClients;
+        return availableConsolidatedClients.filter(c => c.toLowerCase().includes(consolidatedClientSearch.toLowerCase()));
+    }, [consolidatedClientSearch, availableConsolidatedClients]);
     
     const filteredSettlementClients = useMemo(() => {
         if (!settlementClientSearch) return clients;
@@ -2397,35 +2423,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
 
 
-        const addInfoBox = (docInstance: jsPDF) => {
-            const tableWidth = 55;
-            const startX = pageWidth - margin - tableWidth;
-        
-            autoTable(docInstance, {
-                startY: 10,
-                margin: { left: startX },
-                tableWidth: tableWidth,
-                body: [
-                    [{ content: 'CÓDIGO:', styles: { fontStyle: 'bold' } }, 'FA-GFC-F13'],
-                    [{ content: 'VERSIÓN:', styles: { fontStyle: 'bold' } }, '01'],
-                    [{ content: 'FECHA:', styles: { fontStyle: 'bold' } }, '15/10/2025'],
-                ],
-                theme: 'grid',
-                styles: {
-                    fontSize: 7,
-                    cellPadding: 1.5,
-                    fillColor: [232, 232, 232],
-                    textColor: '#000000',
-                    lineColor: '#cccccc',
-                    lineWidth: 0.1,
-                },
-                columnStyles: {
-                    0: { cellWidth: 25, fontStyle: 'bold' },
-                    1: { cellWidth: 'auto' },
-                },
-            });
-        };
-
         const addHeader = (docInstance: jsPDF, pageTitle: string) => {
             addInfoBox(docInstance);
             const logoWidth = 21;
@@ -3726,28 +3723,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
                                         <div className="space-y-2">
-                                            <Label>Cliente</Label>
-                                            <Dialog open={isConsolidatedClientDialogOpen} onOpenChange={setIsConsolidatedClientDialogOpen}>
-                                                <DialogTrigger asChild>
-                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                        {consolidatedClient || "Seleccione un cliente"}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <DialogContent className="sm:max-w-[425px]">
-                                                    <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
-                                                    <div className="p-4">
-                                                        <Input placeholder="Buscar cliente..." value={consolidatedClientSearch} onChange={(e) => setConsolidatedClientSearch(e.target.value)} className="mb-4" />
-                                                        <ScrollArea className="h-72"><div className="space-y-1">
-                                                            {filteredConsolidatedClients.map((client) => (
-                                                                <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setConsolidatedClient(client.razonSocial); setIsConsolidatedClientDialogOpen(false); setConsolidatedClientSearch(''); }}>{client.razonSocial}</Button>
-                                                            ))}
-                                                        </div></ScrollArea>
-                                                    </div>
-                                                </DialogContent>
-                                            </Dialog>
-                                        </div>
-                                        <div className="space-y-2">
                                             <Label>Rango de Fechas</Label>
                                             <Popover>
                                                 <PopoverTrigger asChild>
@@ -3766,6 +3741,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             }} numberOfMonths={2} locale={es} disabled={{ after: today, before: threeYearsAgo }} />
                                                 </PopoverContent>
                                             </Popover>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Cliente</Label>
+                                            <Dialog open={isConsolidatedClientDialogOpen} onOpenChange={setIsConsolidatedClientDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                     <Button variant="outline" className="w-full justify-between text-left font-normal" disabled={!consolidatedDateRange?.from || isLoadingConsolidatedClients}>
+                                                        {isLoadingConsolidatedClients ? "Cargando..." : (consolidatedClient || "Seleccione un cliente")}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="sm:max-w-[425px]">
+                                                    <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                    <div className="p-4">
+                                                        <Input placeholder="Buscar cliente..." value={consolidatedClientSearch} onChange={(e) => setConsolidatedClientSearch(e.target.value)} className="mb-4" />
+                                                        <ScrollArea className="h-72"><div className="space-y-1">
+                                                            {filteredConsolidatedClients.map((clientName) => (
+                                                                <Button key={clientName} variant="ghost" className="w-full justify-start" onClick={() => { setConsolidatedClient(clientName); setIsConsolidatedClientDialogOpen(false); setConsolidatedClientSearch(''); }}>{clientName}</Button>
+                                                            ))}
+                                                        </div></ScrollArea>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Sesión</Label>
@@ -4389,6 +4386,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 
