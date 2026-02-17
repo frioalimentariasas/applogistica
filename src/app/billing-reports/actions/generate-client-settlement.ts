@@ -220,7 +220,7 @@ const calculateWeightForOperation = (
     op: any,
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
     articleSessionMap: Map<string, string>,
-    forceNetWeight: boolean = false // Nuevo parámetro
+    forceNetWeight: boolean = false
 ): number => {
     const { formType, formData } = op;
     const items = getFilteredItems(op, sessionFilter, articleSessionMap);
@@ -234,6 +234,7 @@ const calculateWeightForOperation = (
             const grossWeight = Number(formData.totalPesoBrutoKg);
             if (grossWeight > 0) return grossWeight;
         }
+        // Fallback for older forms or session-filtered fixed weight
         return items.reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
@@ -763,6 +764,7 @@ export async function generateClientSettlement(criteria: {
   const { clientName, startDate, endDate, conceptIds, lotIds, containerNumber } = criteria;
   const processedCrossDockLots = new Set<string>();
   const allConcepts = await getClientBillingConcepts();
+  const processedSubmissionIds = new Set<string>();
 
   if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotIds && lotIds.length > 0) {
       if (conceptIds.length > 0) {
@@ -912,13 +914,14 @@ export async function generateClientSettlement(criteria: {
     }
     
     // --- START: NEW CRESTLINE LOGIC ---
-    const crestlinePalletConcept = selectedConcepts.find(c => c.conceptName === 'MOVIMIENTO ENTRADA PRODUCTOS - PALLET' && c.calculationType === 'LÓGICA ESPECIAL');
-    const crestlineDescargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN DESCARGUE' && c.calculationType === 'LÓGICA ESPECIAL');
+    const palletConcept = selectedConcepts.find(c => c.conceptName === 'MOVIMIENTO ENTRADA PRODUCTOS - PALLET' && c.calculationType === 'LÓGICA ESPECIAL');
+    const weightConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN DESCARGUE' && c.calculationType === 'LÓGICA ESPECIAL');
 
-    if (clientName === 'CRESTLINE GLOBAL VENTURES SAS' && (crestlinePalletConcept || crestlineDescargueConcept)) {
+    if (clientName === 'CRESTLINE GLOBAL VENTURES SAS' && (palletConcept || weightConcept)) {
         const crestlineReceptionOps = operationsInDateRange.filter(op => 
             op.type === 'form' && 
-            (op.data.formType.includes('recepcion') || op.data.formType.includes('reception'))
+            (op.data.formType.includes('recepcion') || op.data.formType.includes('reception')) &&
+            (op.data.formData?.tipoPedido === 'GENERICO' || op.data.formData?.tipoPedido === 'TUNEL A CÁMARA CONGELADOS')
         );
         
         for (const op of crestlineReceptionOps) {
@@ -929,52 +932,54 @@ export async function generateClientSettlement(criteria: {
             const firstProductCode = getFilteredItems(submission, 'AMBOS', articleSessionMap)[0]?.codigo;
             const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
 
-            if (hasContainer && crestlinePalletConcept) {
-                const totalPallets = calculatePalletsForOperation(submission, 'AMBOS', articleSessionMap, crestlinePalletConcept);
+            if (hasContainer && palletConcept) {
+                const totalPallets = calculatePalletsForOperation(submission, 'AMBOS', articleSessionMap, palletConcept);
                 if (totalPallets > 0) {
                     settlementRows.push({
                         date: submission.formData.fecha,
-                        uniqueId: `${submission.id}-${crestlinePalletConcept.id}`,
+                        uniqueId: `${submission.id}-${palletConcept.id}`,
                         placa: submission.formData.placa || 'N/A',
                         container: submission.formData.contenedor || 'N/A',
                         camara,
                         totalPaletas: totalPallets,
                         operacionLogistica: 'Recepción',
                         pedidoSislog: submission.formData.pedidoSislog,
-                        conceptName: crestlinePalletConcept.conceptName,
+                        conceptName: palletConcept.conceptName,
                         tipoVehiculo: 'N/A',
                         quantity: totalPallets,
-                        unitOfMeasure: crestlinePalletConcept.unitOfMeasure,
-                        unitValue: crestlinePalletConcept.value || 0,
-                        totalValue: totalPallets * (crestlinePalletConcept.value || 0),
+                        unitOfMeasure: palletConcept.unitOfMeasure,
+                        unitValue: palletConcept.value || 0,
+                        totalValue: totalPallets * (palletConcept.value || 0),
                         horaInicio: submission.formData.horaInicio,
                         horaFin: submission.formData.horaFin,
                         justification: 'Liquidado por Contenedor',
                     });
+                    processedSubmissionIds.add(submission.id);
                 }
-            } else if (!hasContainer && crestlineDescargueConcept) {
+            } else if (!hasContainer && weightConcept) {
                 // Use `true` to force net weight calculation in KG
                 const weightInKg = calculateWeightForOperation(submission, 'AMBOS', articleSessionMap, true);
                 if (weightInKg > 0) {
                     settlementRows.push({
                         date: submission.formData.fecha,
-                        uniqueId: `${submission.id}-${crestlineDescargueConcept.id}`,
+                        uniqueId: `${submission.id}-${weightConcept.id}`,
                         placa: submission.formData.placa || 'N/A',
                         container: submission.formData.contenedor || 'N/A',
                         camara,
-                        totalPaletas: calculatePalletsForOperation(submission, 'AMBOS', articleSessionMap, crestlineDescargueConcept),
+                        totalPaletas: calculatePalletsForOperation(submission, 'AMBOS', articleSessionMap, weightConcept),
                         operacionLogistica: 'Recepción',
                         pedidoSislog: submission.formData.pedidoSislog,
-                        conceptName: crestlineDescargueConcept.conceptName,
+                        conceptName: weightConcept.conceptName,
                         tipoVehiculo: 'N/A',
                         quantity: weightInKg,
-                        unitOfMeasure: crestlineDescargueConcept.unitOfMeasure,
-                        unitValue: crestlineDescargueConcept.value || 0,
-                        totalValue: weightInKg * (crestlineDescargueConcept.value || 0),
+                        unitOfMeasure: weightConcept.unitOfMeasure,
+                        unitValue: weightConcept.value || 0,
+                        totalValue: weightInKg * (weightConcept.value || 0),
                         horaInicio: submission.formData.horaInicio,
                         horaFin: submission.formData.horaFin,
                         justification: 'Liquidado por Peso (Sin Contenedor)',
                     });
+                    processedSubmissionIds.add(submission.id);
                 }
             }
         }
@@ -1039,6 +1044,10 @@ export async function generateClientSettlement(criteria: {
             
         for (const op of allOperations.filter(o => o.type === 'form')) {
             const submission = op.data;
+
+            if (processedSubmissionIds.has(submission.id)) {
+                continue;
+            }
             
             const submissionClientName = submission.formData?.cliente || submission.formData?.nombreCliente;
             const allItems = [
@@ -1865,13 +1874,11 @@ export async function generateClientSettlement(criteria: {
 'HORA EXTRA DIURNA (OPERARIO)',
 'HORA EXTRA DIURNA (ASISTENTE)',
 'HORA EXTRA DIURNA DOMINGO Y FESTIVO (SUPERVISOR)',
-'HORA EXTRA DIURNA (MONTACARGUISTA TRILATERAL)',
 'HORA EXTRA DIURNA DOMINGO Y FESTIVO (ASISTENTE)',
 'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA TRILATERAL)',
 'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
 'HORA EXTRA DIURNA DOMINGO Y FESTIVO (OPERARIO)',
 'HORA EXTRA NOCTURNA (SUPERVISOR)',
-'HORA EXTRA NOCTURNA (MONTACARGUISTA TRILATERAL)',
 'HORA EXTRA NOCTURNA (MONTACARGUISTA NORMAL)',
 'HORA EXTRA NOCTURNA (OPERARIO)',
 'HORA EXTRA NOCTURNA (ASISTENTE)',
@@ -1957,3 +1964,5 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
+      
