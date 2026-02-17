@@ -910,6 +910,77 @@ export async function generateClientSettlement(criteria: {
     if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylCargueAlmacenamientoVehiculoLivianoConcept) {
         await processCargueAlmacenamiento(smylCargueAlmacenamientoVehiculoLivianoConcept, peso => peso > 0 && peso < 20000, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows, processedCrossDockLots, allConcepts, containerNumber);
     }
+    
+    // --- START: NEW CRESTLINE LOGIC ---
+    const crestlinePalletConcept = selectedConcepts.find(c => c.conceptName === 'MOVIMIENTO ENTRADA PRODUCTOS - PALLET' && c.calculationType === 'LÓGICA ESPECIAL');
+    const crestlineDescargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN DESCARGUE' && c.calculationType === 'LÓGICA ESPECIAL');
+
+    if (clientName === 'CRESTLINE GLOBAL VENTURES SAS' && (crestlinePalletConcept || crestlineDescargueConcept)) {
+        const crestlineReceptionOps = operationsInDateRange.filter(op => 
+            op.type === 'form' && 
+            (op.data.formType.includes('recepcion') || op.data.formType.includes('reception'))
+        );
+        
+        for (const op of crestlineReceptionOps) {
+            const submission = op.data;
+            const containerValue = submission.formData?.contenedor?.trim().toUpperCase();
+            const hasContainer = containerValue && containerValue !== 'N/A' && containerValue !== 'NO APLICA';
+            
+            const firstProductCode = getFilteredItems(submission, 'AMBOS', articleSessionMap)[0]?.codigo;
+            const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
+
+            if (hasContainer && crestlinePalletConcept) {
+                const totalPallets = calculatePalletsForOperation(submission, 'AMBOS', articleSessionMap, crestlinePalletConcept);
+                if (totalPallets > 0) {
+                    settlementRows.push({
+                        date: submission.formData.fecha,
+                        uniqueId: `${submission.id}-${crestlinePalletConcept.id}`,
+                        placa: submission.formData.placa || 'N/A',
+                        container: submission.formData.contenedor || 'N/A',
+                        camara,
+                        totalPaletas: totalPallets,
+                        operacionLogistica: 'Recepción',
+                        pedidoSislog: submission.formData.pedidoSislog,
+                        conceptName: crestlinePalletConcept.conceptName,
+                        tipoVehiculo: 'N/A',
+                        quantity: totalPallets,
+                        unitOfMeasure: crestlinePalletConcept.unitOfMeasure,
+                        unitValue: crestlinePalletConcept.value || 0,
+                        totalValue: totalPallets * (crestlinePalletConcept.value || 0),
+                        horaInicio: submission.formData.horaInicio,
+                        horaFin: submission.formData.horaFin,
+                        justification: 'Liquidado por Contenedor',
+                    });
+                }
+            } else if (!hasContainer && crestlineDescargueConcept) {
+                // Use `true` to force net weight calculation in KG
+                const weightInKg = calculateWeightForOperation(submission, 'AMBOS', articleSessionMap, true);
+                if (weightInKg > 0) {
+                    settlementRows.push({
+                        date: submission.formData.fecha,
+                        uniqueId: `${submission.id}-${crestlineDescargueConcept.id}`,
+                        placa: submission.formData.placa || 'N/A',
+                        container: submission.formData.contenedor || 'N/A',
+                        camara,
+                        totalPaletas: calculatePalletsForOperation(submission, 'AMBOS', articleSessionMap, crestlineDescargueConcept),
+                        operacionLogistica: 'Recepción',
+                        pedidoSislog: submission.formData.pedidoSislog,
+                        conceptName: crestlineDescargueConcept.conceptName,
+                        tipoVehiculo: 'N/A',
+                        quantity: weightInKg,
+                        unitOfMeasure: crestlineDescargueConcept.unitOfMeasure,
+                        unitValue: crestlineDescargueConcept.value || 0,
+                        totalValue: weightInKg * (crestlineDescargueConcept.value || 0),
+                        horaInicio: submission.formData.horaInicio,
+                        horaFin: submission.formData.horaFin,
+                        justification: 'Liquidado por Peso (Sin Contenedor)',
+                    });
+                }
+            }
+        }
+    }
+    // --- END: NEW CRESTLINE LOGIC ---
+
 
     const avicolaAlquilerConcept = selectedConcepts.find(c => c.conceptName.toUpperCase().replace('AREA', 'ÁREA') === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA');
     const avicolaApoyoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO APOYO JORNAL');
@@ -1790,7 +1861,6 @@ export async function generateClientSettlement(criteria: {
 'TIEMPO EXTRA FRIOAL (FIJO)',
 'TIEMPO EXTRA FRIOAL',
 'HORA EXTRA DIURNA (SUPERVISOR)',
-'HORA EXTRA DIURNA (MONTACARGUISTA TRILATERAL)',
 'HORA EXTRA DIURNA (MONTACARGUISTA NORMAL)',
 'HORA EXTRA DIURNA (OPERARIO)',
 'HORA EXTRA DIURNA (ASISTENTE)',
@@ -1800,7 +1870,6 @@ export async function generateClientSettlement(criteria: {
 'HORA EXTRA DIURNA DOMINGO Y FESTIVO (MONTACARGUISTA NORMAL)',
 'HORA EXTRA DIURNA DOMINGO Y FESTIVO (OPERARIO)',
 'HORA EXTRA NOCTURNA (SUPERVISOR)',
-'HORA EXTRA NOCTURNA (MONTACARGUISTA TRILATERAL)',
 'HORA EXTRA NOCTURNA (MONTACARGUISTA NORMAL)',
 'HORA EXTRA NOCTURNA (OPERARIO)',
 'HORA EXTRA NOCTURNA (ASISTENTE)',
@@ -1883,3 +1952,6 @@ const minutesToTime = (minutes: number): string => {
     
 
 
+
+
+    

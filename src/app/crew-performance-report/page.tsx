@@ -1118,7 +1118,7 @@ export default function CrewPerformanceReportPage() {
                         <CardTitle>Resultados del Informe</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Tabs defaultValue="productivity" className="w-full">
+                        <Tabs defaultValue="settlement" className="w-full">
                             <TabsList className="grid w-full grid-cols-2">
                                 <TabsTrigger value="productivity"><Activity className="mr-2 h-4 w-4" />Análisis de Productividad</TabsTrigger>
                                 <TabsTrigger value="settlement"><DollarSign className="mr-2 h-4 w-4" />Liquidación de Cuadrilla</TabsTrigger>
