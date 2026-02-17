@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff, TemperatureTariffRange } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, isEqual, startOfMonth, endOfMonth } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays, eachDayOfInterval, isWithinInterval, isBefore, isEqual } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
@@ -919,13 +919,11 @@ export async function generateClientSettlement(criteria: {
 
     if (clientName === 'CRESTLINE GLOBAL VENTURES SAS' && (palletConcept || weightConcept)) {
         const crestlineReceptionOps = operationsInDateRange.filter(op => 
-            op.type === 'form' && 
-            (op.data.formType.includes('recepcion') || op.data.formType.includes('reception')) &&
-            (op.data.formData?.tipoPedido === 'GENERICO' || op.data.formData?.tipoPedido === 'TUNEL A CÁMARA CONGELADOS')
+            (op.formType.includes('recepcion') || op.formType.includes('reception')) &&
+            (op.formData?.tipoPedido === 'GENERICO' || op.formData?.tipoPedido === 'TUNEL A CÁMARA CONGELADOS')
         );
         
-        for (const op of crestlineReceptionOps) {
-            const submission = op.data;
+        for (const submission of crestlineReceptionOps) {
             const containerValue = submission.formData?.contenedor?.trim().toUpperCase();
             const hasContainer = containerValue && containerValue !== 'N/A' && containerValue !== 'NO APLICA';
             
@@ -957,7 +955,6 @@ export async function generateClientSettlement(criteria: {
                     processedSubmissionIds.add(submission.id);
                 }
             } else if (!hasContainer && weightConcept) {
-                // Use `true` to force net weight calculation in KG
                 const weightInKg = calculateWeightForOperation(submission, 'AMBOS', articleSessionMap, true);
                 if (weightInKg > 0) {
                     settlementRows.push({
