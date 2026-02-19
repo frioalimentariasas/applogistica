@@ -17,7 +17,7 @@ import jsPDF from 'jspdf';
 
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
-import { addNoveltyToOperation, deleteNovelty } from '@/app/crew-performance-report/actions';
+import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
 import { legalizeWeights } from '@/app/actions/legalize-weights';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
@@ -1455,5 +1455,3 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
-
-    
