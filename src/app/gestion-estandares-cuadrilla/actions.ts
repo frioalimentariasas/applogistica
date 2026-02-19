@@ -47,7 +47,7 @@ interface StandardData {
     clientNames: string[];
     provider: string;
     operationType: 'recepcion' | 'despacho' | 'TODAS';
-    productType: 'fijo' | 'variable' | 'TODAS';
+    productType: 'fijo' | 'variable' | 'TODOS';
     description: string;
     ranges: {
         minTons: number;
@@ -137,7 +137,7 @@ export interface BulkUpdateData {
     clientName?: string;
     provider?: string;
     operationType?: 'recepcion' | 'despacho' | 'TODAS';
-    productType?: 'fijo' | 'variable' | 'TODAS';
+    productType?: 'fijo' | 'variable' | 'TODOS';
     description?: string;
     baseMinutes?: number;
 }

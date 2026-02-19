@@ -35,6 +35,7 @@ import type { ClientInfo } from '@/app/actions/clients';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import type { CrewProvider } from '../gestion-proveedores-cuadrilla/actions';
 
 
 const tonnageRangeSchema = z.object({
@@ -48,8 +49,9 @@ const tonnageRangeSchema = z.object({
 
 const standardSchema = z.object({
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
+  provider: z.string().min(1, 'Debe seleccionar un proveedor.'),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
-  productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
+  productType: z.enum(['fijo', 'variable', 'TODAS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   description: z.string().min(3, { message: "La descripción es requerida (mín. 3 caracteres)."}),
   ranges: z.array(tonnageRangeSchema).min(1, 'Debe agregar al menos un rango.'),
 });
@@ -58,6 +60,7 @@ type StandardFormValues = z.infer<typeof standardSchema>;
 
 const editStandardSchema = z.object({
   clientName: z.string().min(1, { message: 'Debe seleccionar un cliente o "TODOS".' }),
+  provider: z.string().min(1, 'Debe seleccionar un proveedor.'),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   description: z.string().min(3, { message: "La descripción es requerida (mín. 3 caracteres)."}),
@@ -73,6 +76,7 @@ type EditStandardFormValues = z.infer<typeof editStandardSchema>;
 
 const bulkEditSchema = z.object({
     clientName: z.string().optional(),
+    provider: z.string().optional(),
     operationType: z.enum(['recepcion', 'despacho', 'TODAS']).optional(),
     productType: z.enum(['fijo', 'variable', 'TODOS']).optional(),
     description: z.string().optional(),
@@ -93,7 +97,7 @@ const AccessDenied = () => (
     </div>
 );
 
-export default function StandardManagementComponent({ initialClients, initialStandards }: { initialClients: ClientInfo[], initialStandards: PerformanceStandard[] }) {
+export default function StandardManagementComponent({ initialClients, initialStandards, crewProviders }: { initialClients: ClientInfo[], initialStandards: PerformanceStandard[], crewProviders: CrewProvider[] }) {
   const router = useRouter();
   const { toast } = useToast();
   const { permissions, loading: authLoading } = useAuth();
@@ -124,8 +128,9 @@ export default function StandardManagementComponent({ initialClients, initialSta
     resolver: zodResolver(standardSchema),
     defaultValues: {
       clientNames: [],
+      provider: 'GRUPO ROSALES LOGISTICA 24/7 SAS',
       operationType: 'TODAS',
-      productType: 'TODOS',
+      productType: 'TODAS',
       description: '',
       ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
     },
@@ -144,13 +149,14 @@ export default function StandardManagementComponent({ initialClients, initialSta
       resolver: zodResolver(bulkEditSchema),
       defaultValues: {
           clientName: undefined,
+          provider: undefined,
           operationType: undefined,
           productType: undefined,
           description: undefined,
           baseMinutes: undefined
       }
   });
-
+  
   const clientsWithStandards = useMemo(() => {
     return new Set(standards.map(s => s.clientName));
   }, [standards]);
@@ -183,8 +189,9 @@ export default function StandardManagementComponent({ initialClients, initialSta
       setStandards(prev => [...prev, ...result.newStandards!].sort((a,b) => a.clientName.localeCompare(b.clientName)));
       form.reset({
         clientNames: [],
+        provider: 'GRUPO ROSALES LOGISTICA 24/7 SAS',
         operationType: 'TODAS',
-        productType: 'TODOS',
+        productType: 'TODAS',
         description: '',
         ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
       });
@@ -215,6 +222,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
 
         const updateData: BulkUpdateData = {};
         if (data.clientName) updateData.clientName = data.clientName;
+        if (data.provider) updateData.provider = data.provider;
         if (data.operationType) updateData.operationType = data.operationType;
         if (data.productType) updateData.productType = data.productType;
         if (data.description) updateData.description = data.description;
@@ -264,6 +272,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
   const handleClone = (standard: PerformanceStandard) => {
     form.reset({
       clientNames: [],
+      provider: '',
       operationType: standard.operationType,
       productType: standard.productType,
       description: standard.description,
@@ -273,7 +282,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
     });
     toast({
       title: 'Registro Clonado',
-      description: 'Datos cargados en el formulario. Seleccione un nuevo cliente.',
+      description: 'Datos cargados en el formulario. Seleccione un nuevo cliente y proveedor.',
     });
     formCardRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -347,12 +356,12 @@ export default function StandardManagementComponent({ initialClients, initialSta
                 <CardContent>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="clientNames"
                                     render={({ field }) => (
-                                        <FormItem className="flex flex-col">
+                                        <FormItem className="flex flex-col lg:col-span-2">
                                         <FormLabel>Cliente(s)</FormLabel>
                                             <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
                                                 <DialogTrigger asChild>
@@ -414,6 +423,24 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                         </FormItem>
                                     )}
                                 />
+                                 <FormField
+                                    control={form.control}
+                                    name="provider"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Proveedor</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value} defaultValue="GRUPO ROSALES LOGISTICA 24/7 SAS">
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione proveedor" /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {crewProviders.map(p => (
+                                                        <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                                 <FormField
                                     control={form.control}
                                     name="operationType"
@@ -425,17 +452,17 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                     control={form.control}
                                     name="productType"
                                     render={({ field }) => (
-                                        <FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS (Cualquier Producto)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="description"
-                                    render={({ field }) => (
-                                        <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue de pollo entero" {...field} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODOS (Cualquier Producto)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                                     )}
                                 />
                             </div>
+                            <FormField
+                                control={form.control}
+                                name="description"
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue de pollo entero" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}
+                            />
 
                             <div className="space-y-4">
                                 <FormLabel>Rangos de Toneladas y Tiempos</FormLabel>
@@ -496,6 +523,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                     <TableRow>
                                         <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
                                         <TableHead>Cliente</TableHead>
+                                        <TableHead>Proveedor</TableHead>
                                         <TableHead>Descripción</TableHead>
                                         <TableHead>Tipo Op.</TableHead>
                                         <TableHead>Tipo Prod.</TableHead>
@@ -510,6 +538,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                         <TableRow key={s.id} data-state={selectedIds.has(s.id) && "selected"}>
                                             <TableCell><Checkbox checked={selectedIds.has(s.id)} onCheckedChange={(checked) => handleRowSelect(s.id, checked === true)} /></TableCell>
                                             <TableCell>{s.clientName}</TableCell>
+                                            <TableCell>{s.provider}</TableCell>
                                             <TableCell className='max-w-[200px] truncate' title={s.description}>{s.description}</TableCell>
                                             <TableCell className='capitalize'>{s.operationType}</TableCell>
                                             <TableCell className='capitalize'>{s.productType}</TableCell>
@@ -524,7 +553,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                         </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={8} className="h-24 text-center">No hay estándares que coincidan con los filtros.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={9} className="h-24 text-center">No hay estándares que coincidan con los filtros.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -557,6 +586,24 @@ export default function StandardManagementComponent({ initialClients, initialSta
                 />
                 <FormField
                     control={editForm.control}
+                    name="provider"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Proveedor</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione proveedor" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    {crewProviders.map(p => (
+                                        <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={editForm.control}
                     name="description"
                     render={({ field }) => (
                         <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue de pollo entero" {...field} /></FormControl><FormMessage /></FormItem>
@@ -573,7 +620,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                     control={editForm.control}
                     name="productType"
                     render={({ field }) => (
-                        <FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                     )}
                 />
                 <div className="grid grid-cols-2 gap-4">
@@ -608,6 +655,24 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                 </Select>
                             <FormMessage /></FormItem>
                         )}/>
+                        <FormField
+                            control={bulkEditForm.control}
+                            name="provider"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Proveedor</FormLabel>
+                                    <Select onValueChange={field.onChange}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {crewProviders.map(p => (
+                                                <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                         <FormField control={bulkEditForm.control} name="description" render={({ field }) => (
                             <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="No cambiar" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
@@ -657,4 +722,3 @@ export default function StandardManagementComponent({ initialClients, initialSta
     </div>
   );
 }
-
