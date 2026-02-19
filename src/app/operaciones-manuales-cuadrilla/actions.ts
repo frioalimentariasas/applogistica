@@ -23,6 +23,30 @@ export interface ManualOperationData {
     provider?: string;
 }
 
+export async function getAllManualOperations(): Promise<any[]> {
+    if (!firestore) {
+        return [];
+    }
+    try {
+        const snapshot = await firestore.collection('manual_operations')
+            .orderBy('operationDate', 'desc')
+            .get();
+        
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                operationDate: (data.operationDate as admin.firestore.Timestamp).toDate().toISOString(),
+                createdAt: data.createdAt,
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching all manual crew operations:", error);
+        return [];
+    }
+}
+
 
 export async function addManualOperation(data: ManualOperationData): Promise<{ success: boolean; message: string }> {
     if (!firestore) {

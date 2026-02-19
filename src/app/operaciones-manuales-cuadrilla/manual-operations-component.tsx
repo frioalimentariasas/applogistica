@@ -11,13 +11,12 @@ import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from 'date-f
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
-import { addManualOperation, updateManualOperation, deleteManualOperation } from './actions';
-import { getAllManualOperations } from '@/app/crew-performance-report/actions';
-import type { ManualOperationData } from '@/app/crew-performance-report/actions';
+import { addManualOperation, updateManualOperation, deleteManualOperation, getAllManualOperations } from './actions';
+import type { ManualOperationData } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
-import type { BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
+import type { BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
 import { getCrewProviders, type CrewProvider } from '@/app/gestion-proveedores-cuadrilla/actions';
 
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -223,7 +222,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             toast({ title: 'Éxito', description: result.message });
             setIsDialogOpen(false);
             form.reset();
-            const updatedOps = await fetchAllOperations();
+            const updatedOps = await fetchAllData();
             if (searched && dateRange) {
                 handleSearch();
             }
