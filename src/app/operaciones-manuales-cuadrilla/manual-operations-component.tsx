@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -17,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
 import type { BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
+import { getCrewProviders, type CrewProvider } from '@/app/gestion-proveedores-cuadrilla/actions';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -45,6 +47,7 @@ const manualOperationSchema = z.object({
     concept: z.string().min(1, 'El concepto es obligatorio.'),
     quantity: z.coerce.number().min(0.001, 'La cantidad debe ser mayor a 0.'),
     comentarios: z.string().max(200, "Máximo 200 caracteres.").optional(),
+    provider: z.string().optional(),
 }).refine(data => {
     if (data.concept !== 'APOYO DE MONTACARGAS' && !data.clientName) {
         return false;
@@ -80,7 +83,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [selectedClient, setSelectedClient] = useState<string>('all');
     const [selectedConcept, setSelectedConcept] = useState<string>('all');
-
+    
+    const [crewProviders, setCrewProviders] = useState<CrewProvider[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<DialogMode>('add');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,23 +97,26 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     });
     
     const watchedConcept = form.watch('concept');
-    const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
 
-    const fetchAllOperations = useCallback(async () => {
+    const fetchAllData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const data = await getAllManualOperations();
-            setAllOperations(data);
+            const [ops, providers] = await Promise.all([
+                getAllManualOperations(),
+                getCrewProviders()
+            ]);
+            setAllOperations(ops);
+            setCrewProviders(providers);
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos iniciales.' });
         } finally {
             setIsLoading(false);
         }
     }, [toast]);
     
     useEffect(() => {
-        fetchAllOperations();
-    }, [fetchAllOperations]);
+        fetchAllData();
+    }, [fetchAllData]);
     
     const handleSearch = () => {
         if (!dateRange || !dateRange.from || !dateRange.to) {
@@ -173,6 +180,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                 concept: op.concept,
                 quantity: op.quantity,
                 comentarios: op.comentarios || '',
+                provider: op.provider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
             });
         } else {
             form.reset({
@@ -184,6 +192,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                 clientName: "",
                 concept: "",
                 comentarios: "",
+                provider: 'GRUPO ROSALES LOGISTICA 24/7 SAS',
             });
         }
         setIsDialogOpen(true);
@@ -214,8 +223,10 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             toast({ title: 'Éxito', description: result.message });
             setIsDialogOpen(false);
             form.reset();
-            await fetchAllOperations();
-            handleSearch();
+            const updatedOps = await fetchAllOperations();
+            if (searched && dateRange) {
+                handleSearch();
+            }
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -228,14 +239,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         const result = await deleteManualOperation(opToDelete.id);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            // --- INICIO DE LAS LÍNEAS A AGREGAR ---
             setAllOperations(prev => prev.filter(op => op.id !== opToDelete.id));
             setFilteredOperations(prev => prev.filter(op => op.id !== opToDelete.id));
-            // --- FIN DE LAS LÍNEAS A AGREGAR ---
-            //const updatedOps = await fetchAllOperations();
-            /*if (searched && dateRange) {
-                handleSearch();
-            }*/
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
@@ -392,6 +397,26 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                         )}
                                         <FormField
                                             control={form.control}
+                                            name="provider"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Proveedor</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={dialogMode === 'view'}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Seleccione proveedor" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {crewProviders.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
                                             name="operationDate"
                                             render={({ field }) => (
                                                 <FormItem className="flex flex-col">
@@ -473,5 +498,3 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         </div>
     );
 }
-
-    
