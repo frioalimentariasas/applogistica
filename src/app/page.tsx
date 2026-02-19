@@ -121,7 +121,7 @@ export default function Home() {
     { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients', group: 'Gestión de Maestros' },
     { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageObservations', group: 'Gestión de Maestros' },
     { label: 'Gestión de Días Festivos', href: '/gestion-festivos', icon: CalendarIcon, permission: 'canManageHolidays', group: 'Gestión de Maestros' },
-
+    { label: 'Gestión de Proveedores de Cuadrilla', href: '/gestion-proveedores-cuadrilla', icon: HardHat, permission: 'canManageClients', group: 'Gestión de Maestros' },
 
     // Parámetros y Seguridad
     { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions', group: 'Parámetros y Seguridad' },
