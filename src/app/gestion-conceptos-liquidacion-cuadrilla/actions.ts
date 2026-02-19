@@ -20,6 +20,7 @@ export interface BillingConcept {
   dayTariff?: number;
   nightTariff?: number;
   dayShiftEnd?: string;
+  provider?: string;
 }
 
 // Fetches all concepts
@@ -44,6 +45,7 @@ export async function getBillingConcepts(): Promise<BillingConcept[]> {
         dayTariff: data.dayTariff,
         nightTariff: data.nightTariff,
         dayShiftEnd: data.dayShiftEnd,
+        provider: data.provider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
       } as BillingConcept;
     });
   } catch (error) {
@@ -64,6 +66,7 @@ export async function addBillingConcept(data: Omit<BillingConcept, 'id'>): Promi
       productType: data.productType,
       unitOfMeasure: data.unitOfMeasure,
       status: 'activo',
+      provider: data.provider,
     };
 
     const upperConceptName = data.conceptName.toUpperCase();
@@ -100,6 +103,7 @@ export async function updateBillingConcept(id: string, data: Omit<BillingConcept
     productType: data.productType,
     unitOfMeasure: data.unitOfMeasure,
     status: data.status,
+    provider: data.provider,
   };
   
   const upperConceptName = data.conceptName.toUpperCase();

@@ -7,8 +7,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { Loader2, ArrowLeft, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
-import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
+import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
 import ManualOperationsComponent from './manual-operations-component';
+import { getCrewProviders, type CrewProvider } from '@/app/gestion-proveedores-cuadrilla/actions';
 
 
 const AccessDenied = () => (
@@ -29,6 +30,7 @@ export default function OperacionesManualesPage() {
     const router = useRouter();
     const [clients, setClients] = useState<ClientInfo[]>([]);
     const [billingConcepts, setBillingConcepts] = useState<BillingConcept[]>([]);
+    const [crewProviders, setCrewProviders] = useState<CrewProvider[]>([]);
     const [dataLoading, setDataLoading] = useState(true);
 
     useEffect(() => {
@@ -42,10 +44,12 @@ export default function OperacionesManualesPage() {
             setDataLoading(true);
             Promise.all([
                 getClients(),
-                getBillingConcepts()
-            ]).then(([clientData, conceptData]) => {
+                getBillingConcepts(),
+                getCrewProviders(),
+            ]).then(([clientData, conceptData, providerData]) => {
                 setClients(clientData);
                 setBillingConcepts(conceptData);
+                setCrewProviders(providerData);
                 setDataLoading(false);
             }).catch(error => {
                 console.error("Failed to load initial data for manual operations:", error);
@@ -78,6 +82,6 @@ export default function OperacionesManualesPage() {
     }
     
     return (
-        <ManualOperationsComponent clients={clients} billingConcepts={billingConcepts} />
+        <ManualOperationsComponent clients={clients} billingConcepts={billingConcepts} crewProviders={crewProviders} />
     );
 }

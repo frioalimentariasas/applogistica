@@ -6,6 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
 
+
 export interface ManualOperationData {
     clientName?: string;
     operationDate: string; // ISO string like '2024-07-23T15:49:01.859Z'
@@ -39,6 +40,7 @@ export async function getAllManualOperations(): Promise<any[]> {
                 id: doc.id,
                 operationDate: (data.operationDate as admin.firestore.Timestamp).toDate().toISOString(),
                 createdAt: data.createdAt,
+                provider: data.provider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
             }
         });
     } catch (error) {
@@ -58,6 +60,7 @@ export async function addManualOperation(data: ManualOperationData): Promise<{ s
             ...data,
             operationDate: admin.firestore.Timestamp.fromDate(new Date(data.operationDate)),
             createdAt: new Date().toISOString(),
+            provider: data.provider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
         };
 
         await firestore.collection('manual_operations').add(operationWithTimestamp);
@@ -86,6 +89,7 @@ export async function updateManualOperation(id: string, data: Omit<ManualOperati
         const operationWithTimestamp = {
             ...updateData,
             operationDate: admin.firestore.Timestamp.fromDate(new Date(data.operationDate)),
+            provider: data.provider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
         };
 
         await docRef.update(operationWithTimestamp);

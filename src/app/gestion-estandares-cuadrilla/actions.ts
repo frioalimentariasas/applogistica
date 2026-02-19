@@ -14,6 +14,7 @@ export interface PerformanceStandard {
   minTons: number;
   maxTons: number;
   baseMinutes: number;
+  provider: string;
 }
 
 // Fetches all standards and ensures numeric types
@@ -33,6 +34,7 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
         minTons: Number(data.minTons),
         maxTons: Number(data.maxTons),
         baseMinutes: Number(data.baseMinutes),
+        provider: data.provider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
       } as PerformanceStandard;
     });
   } catch (error) {
@@ -42,7 +44,8 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
 }
 
 interface StandardData {
-    clientNames: string[];
+    clientName: string;
+    provider: string;
     operationType: 'recepcion' | 'despacho' | 'TODAS';
     productType: 'fijo' | 'variable' | 'TODAS';
     description: string;
@@ -57,51 +60,46 @@ interface StandardData {
 export async function addPerformanceStandard(data: StandardData): Promise<{ success: boolean; message: string; newStandards?: PerformanceStandard[] }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
-  const { clientNames, operationType, productType, description, ranges } = data;
+  const { clientName, provider, operationType, productType, description, ranges } = data;
   
   try {
     const batch = firestore.batch();
     const newStandards: PerformanceStandard[] = [];
     
-    // --- START: Duplicate check logic ---
     const standardsRef = firestore.collection('performance_standards');
-    for (const clientName of clientNames) {
-        for (const range of ranges) {
-             const query = standardsRef
-                .where('clientName', '==', clientName)
-                .where('operationType', '==', operationType)
-                .where('productType', '==', productType)
-                .where('minTons', '==', Number(range.minTons))
-                .where('maxTons', '==', Number(range.maxTons));
+    for (const range of ranges) {
+            const query = standardsRef
+            .where('clientName', '==', clientName)
+            .where('provider', '==', provider)
+            .where('operationType', '==', operationType)
+            .where('productType', '==', productType)
+            .where('minTons', '==', Number(range.minTons))
+            .where('maxTons', '==', Number(range.maxTons));
 
-            const existingSnapshot = await query.get();
-            if (!existingSnapshot.empty) {
-                // An exact duplicate was found for this combination
-                return { 
-                    success: false, 
-                    message: `Ya existe un estándar para "${clientName}" con el rango de ${range.minTons}-${range.maxTons} Toneladas y los mismos tipos de operación/producto. No se crearon nuevos estándares.`
-                };
-            }
+        const existingSnapshot = await query.get();
+        if (!existingSnapshot.empty) {
+            return { 
+                success: false, 
+                message: `Ya existe un estándar para "${clientName}" con el proveedor "${provider}" y el rango de ${range.minTons}-${range.maxTons} Toneladas.`
+            };
         }
     }
-    // --- END: Duplicate check logic ---
 
 
-    for (const clientName of clientNames) {
-        for (const range of ranges) {
-            const docRef = firestore.collection('performance_standards').doc();
-            const standardData = {
-                clientName,
-                operationType,
-                productType,
-                description,
-                minTons: Number(range.minTons),
-                maxTons: Number(range.maxTons),
-                baseMinutes: Number(range.baseMinutes),
-            };
-            batch.set(docRef, standardData);
-            newStandards.push({ id: docRef.id, ...standardData });
-        }
+    for (const range of ranges) {
+        const docRef = firestore.collection('performance_standards').doc();
+        const standardData = {
+            clientName,
+            provider,
+            operationType,
+            productType,
+            description,
+            minTons: Number(range.minTons),
+            maxTons: Number(range.maxTons),
+            baseMinutes: Number(range.baseMinutes),
+        };
+        batch.set(docRef, standardData);
+        newStandards.push({ id: docRef.id, ...standardData });
     }
 
     await batch.commit();
@@ -137,6 +135,7 @@ export async function updatePerformanceStandard(id: string, data: Omit<Performan
 
 export interface BulkUpdateData {
     clientName?: string;
+    provider?: string;
     operationType?: 'recepcion' | 'despacho' | 'TODAS';
     productType?: 'fijo' | 'variable' | 'TODAS';
     description?: string;
@@ -150,6 +149,7 @@ export async function updateMultipleStandards(ids: string[], data: BulkUpdateDat
     // Construct the update object, only including fields that are actually being changed.
     const updateData: { [key: string]: any } = {};
     if (data.clientName) updateData.clientName = data.clientName;
+    if (data.provider) updateData.provider = data.provider;
     if (data.operationType) updateData.operationType = data.operationType;
     if (data.productType) updateData.productType = data.productType;
     if (data.description) updateData.description = data.description;
@@ -202,13 +202,14 @@ export async function deleteMultipleStandards(ids: string[]): Promise<{ success:
 
 export interface FindStandardCriteria {
     clientName?: string;
+    provider?: string;
     operationType?: 'recepcion' | 'despacho';
     productType?: 'fijo' | 'variable' | null;
     tons: number;
 }
 
 export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
-    const { clientName, operationType, productType } = criteria;
+    const { clientName, provider, operationType, productType } = criteria;
     // Round tons to handle floating point inaccuracies before comparison
     const tons = Number(criteria.tons.toFixed(2));
     
@@ -230,22 +231,20 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
 
     // Define the order of specificity for matching
     const searchPriorities = [
-        // 1. Most specific: Exact match for client, operation, and product type
-        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === operationType && std.productType === productType,
-        // 2. Match client and operation, any product type
-        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === operationType && std.productType === 'TODAS',
-        // 3. Match client and product type, any operation
-        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === 'TODAS' && std.productType === productType,
-        // 4. Match client, any operation or product type
-        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === 'TODAS' && std.productType === 'TODOS',
-        // 5. Match operation and product type, any client
-        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === operationType && std.productType === productType,
-        // 6. Match operation, any client or product type
-        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === operationType && std.productType === 'TODOS',
-        // 7. Match product type, any client or operation
-        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === 'TODAS' && std.productType === productType,
-        // 8. Least specific: Universal fallback
-        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === 'TODAS' && std.productType === 'TODOS',
+        // 1. Most specific: Exact match for client, provider, operation, and product type
+        (std: PerformanceStandard) => std.clientName === clientName && std.provider === provider && std.operationType === operationType && std.productType === productType,
+        // 2. Match client, provider, and operation, any product type
+        (std: PerformanceStandard) => std.clientName === clientName && std.provider === provider && std.operationType === operationType && std.productType === 'TODAS',
+        // 3. Match client, provider, and product type, any operation
+        (std: PerformanceStandard) => std.clientName === clientName && std.provider === provider && std.operationType === 'TODAS' && std.productType === productType,
+        // 4. Match client and provider, any operation or product type
+        (std: PerformanceStandard) => std.clientName === clientName && std.provider === provider && std.operationType === 'TODAS' && std.productType === 'TODOS',
+        
+        // Fallback to "TODOS (Cualquier Cliente)"
+        (std: PerformanceStandard) => std.clientName === 'TODOS (Cualquier Cliente)' && std.provider === provider && std.operationType === operationType && std.productType === productType,
+        (std: PerformanceStandard) => std.clientName === 'TODOS (Cualquier Cliente)' && std.provider === provider && std.operationType === operationType && std.productType === 'TODAS',
+        (std: PerformanceStandard) => std.clientName === 'TODOS (Cualquier Cliente)' && std.provider === provider && std.operationType === 'TODAS' && std.productType === productType,
+        (std: PerformanceStandard) => std.clientName === 'TODOS (Cualquier Cliente)' && std.provider === provider && std.operationType === 'TODAS' && std.productType === 'TODOS',
     ];
 
     for (const check of searchPriorities) {
@@ -257,4 +256,3 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     
     return null; // No matching standard found
 }
-
