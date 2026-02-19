@@ -950,7 +950,7 @@ export async function generateClientSettlement(criteria: {
                         totalValue: totalPallets * (palletConcept.value || 0),
                         horaInicio: submission.formData.horaInicio,
                         horaFin: submission.formData.horaFin,
-                        justification: 'Liquidado por Contenedor',
+                        justification: '',
                     });
                     processedSubmissionIds.add(submission.id);
                 }
@@ -974,7 +974,7 @@ export async function generateClientSettlement(criteria: {
                         totalValue: weightInKg * (weightConcept.value || 0),
                         horaInicio: submission.formData.horaInicio,
                         horaFin: submission.formData.horaFin,
-                        justification: 'Liquidado por Peso (Sin Contenedor)',
+                        justification: '',
                     });
                     processedSubmissionIds.add(submission.id);
                 }

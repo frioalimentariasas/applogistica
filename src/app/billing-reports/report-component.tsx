@@ -2421,8 +2421,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'TRANSPORTE EXTRAORDINARIO',
             'TRANSPORTE DOMINICAL Y FESTIVO',
         ];
-
-
+        const addInfoBox = (docInstance: jsPDF) => {
+            const tableWidth = 55;
+            const startX = pageWidth - margin - tableWidth;
+        
+            autoTable(docInstance, {
+                startY: 10,
+                margin: { left: startX },
+                tableWidth: tableWidth,
+                body: [
+                    [{ content: 'CÓDIGO:', styles: { fontStyle: 'bold' } }, 'FA-GFC-F13'],
+                    [{ content: 'VERSIÓN:', styles: { fontStyle: 'bold' } }, '01'],
+                    [{ content: 'FECHA:', styles: { fontStyle: 'bold' } }, '15/10/2025'],
+                ],
+                theme: 'grid',
+                styles: {
+                    fontSize: 7,
+                    cellPadding: 1.5,
+                    fillColor: [232, 232, 232],
+                    textColor: '#000000',
+                    lineColor: '#cccccc',
+                    lineWidth: 0.1,
+                },
+                columnStyles: {
+                    0: { cellWidth: 25, fontStyle: 'bold' },
+                    1: { cellWidth: 'auto' },
+                },
+            });
+        };
         const addHeader = (docInstance: jsPDF, pageTitle: string) => {
             addInfoBox(docInstance);
             const logoWidth = 21;
