@@ -20,7 +20,7 @@ export interface BillingConcept {
   dayTariff?: number;
   nightTariff?: number;
   dayShiftEnd?: string;
-  provider?: string;
+  provider: string;
 }
 
 // Fetches all concepts

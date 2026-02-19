@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -16,7 +17,7 @@ import { addBillingConcept, updateBillingConcept, deleteMultipleBillingConcepts,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Download, Clock, Calculator, ListChecks, Eye, Warehouse, Sparkles } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Download, Clock } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -40,10 +41,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import type { CrewProvider } from '../gestion-proveedores-cuadrilla/actions';
+
 
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
+  provider: z.string().min(1, 'El proveedor es obligatorio.'),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   productType: z.enum(['fijo', 'variable', 'TODAS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   unitOfMeasure: z.enum(['TONELADA', 'KILOGRAMOS', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
@@ -88,6 +92,7 @@ type ConceptFormValues = z.infer<typeof conceptSchema>;
 const addFormDefaultValues: ConceptFormValues = {
   conceptName: '',
   clientNames: ['TODOS (Cualquier Cliente)'],
+  provider: 'GRUPO ROSALES LOGISTICA 24/7 SAS',
   operationType: 'TODAS',
   productType: 'TODAS',
   unitOfMeasure: 'TONELADA',
@@ -113,7 +118,7 @@ const AccessDenied = () => (
     </div>
 );
 
-export default function ConceptManagementComponent({ initialClients, initialConcepts }: { initialClients: ClientInfo[], initialConcepts: BillingConcept[] }) {
+export default function ConceptManagementComponent({ initialClients, initialConcepts, crewProviders }: { initialClients: ClientInfo[], initialConcepts: BillingConcept[], crewProviders: CrewProvider[] }) {
   const router = useRouter();
   const { toast } = useToast();
   const { permissions, loading: authLoading } = useAuth();
@@ -131,7 +136,9 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   // New states for filtering
   const [searchTerm, setSearchTerm] = useState('');
   const [clientFilter, setClientFilter] = useState<string[]>([]);
-  
+  const [providerFilter, setProviderFilter] = useState('all');
+
+
   const addForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
     defaultValues: addFormDefaultValues,
@@ -146,14 +153,15 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
     ...initialClients
   ], [initialClients]);
-
+  
   const filteredConcepts = useMemo(() => {
     return concepts.filter(c => {
         const searchTermMatch = searchTerm === '' || c.conceptName.toLowerCase().includes(searchTerm.toLowerCase());
         const clientMatch = clientFilter.length === 0 || c.clientNames.some(name => clientFilter.includes(name));
-        return searchTermMatch && clientMatch;
+        const providerMatch = providerFilter === 'all' || c.provider === providerFilter;
+        return searchTermMatch && clientMatch && providerMatch;
     }).sort((a, b) => a.conceptName.localeCompare(b.conceptName));
-  }, [concepts, searchTerm, clientFilter]);
+  }, [concepts, searchTerm, clientFilter, providerFilter]);
   
   const onAddSubmit: SubmitHandler<ConceptFormValues> = async (data) => {
     setIsSubmitting(true);
@@ -375,7 +383,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                 </DialogHeader>
                                 <div className="flex-grow overflow-y-auto pr-4 -mr-4">
                                     <div className="space-y-4 pt-4">
-                                        <ConceptFormFields form={addForm} clientOptions={clientOptions} />
+                                        <ConceptFormFields form={addForm} clientOptions={clientOptions} crewProviders={crewProviders} />
                                     </div>
                                 </div>
                                 <DialogFooter className="flex-shrink-0 pt-4">
@@ -393,7 +401,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <Input
                         placeholder="Buscar por nombre de concepto..."
                         value={searchTerm}
@@ -405,6 +413,13 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                         onChange={setClientFilter}
                         placeholder="Filtrar por cliente..."
                     />
+                     <Select value={providerFilter} onValueChange={setProviderFilter}>
+                        <SelectTrigger><SelectValue placeholder="Filtrar por proveedor..." /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los Proveedores</SelectItem>
+                            {crewProviders.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                 </div>
                  <div className="rounded-md border">
                     <ScrollArea className="h-[500px]">
@@ -413,6 +428,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                 <TableRow>
                                     <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} disabled={filteredConcepts.length === 0} /></TableHead>
                                     <TableHead>Concepto</TableHead>
+                                    <TableHead>Proveedor</TableHead>
                                     <TableHead>Valor</TableHead>
                                     <TableHead>Estado</TableHead>
                                     <TableHead className="text-right">Acciones</TableHead>
@@ -429,10 +445,11 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                                     <div className="font-medium flex items-center gap-2">
                                                         {c.conceptName}
                                                     </div>
-                                                    <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
-                                                        {(c.clientNames || []).join(', ')} / {c.operationType} / {c.productType}
+                                                    <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={(c.clientNames || []).join(', ')}>
+                                                        {(c.clientNames || []).join(', ')} / {c.unitOfMeasure}
                                                     </div>
                                                 </TableCell>
+                                                <TableCell>{c.provider}</TableCell>
                                                 <TableCell>
                                                     {c.conceptName === 'JORNAL ORDINARIO' ? (
                                                         <div className="text-xs">
@@ -463,7 +480,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                         )
                                     })
                                 ) : (
-                                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos que coincidan con la búsqueda.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={6} className="h-24 text-center">No hay conceptos que coincidan con la búsqueda.</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -483,7 +500,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                 </DialogHeader>
                 <div className="flex-grow overflow-y-auto pr-4 -mr-4">
                     <div className="space-y-4 pt-4">
-                      <ConceptFormFields form={editForm} clientOptions={clientOptions} />
+                      <ConceptFormFields form={editForm} clientOptions={clientOptions} crewProviders={crewProviders} />
                     </div>
                 </div>
                 <DialogFooter className="flex-shrink-0 pt-4">
@@ -514,7 +531,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   );
 }
 
-function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: ClientInfo[] }) {
+function ConceptFormFields({ form, clientOptions, crewProviders }: { form: any, clientOptions: ClientInfo[], crewProviders: CrewProvider[] }) {
     const watchedConceptName = useWatch({ control: form.control, name: 'conceptName' });
     const upperConceptName = watchedConceptName?.toUpperCase();
     const isJornal = upperConceptName === 'JORNAL ORDINARIO';
@@ -524,6 +541,24 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
     return (
         <div className="space-y-4">
             <FormField control={form.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input placeholder="Ej: REESTIBADO" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField
+              control={form.control}
+              name="provider"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Proveedor</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} defaultValue="GRUPO ROSALES LOGISTICA 24/7 SAS">
+                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccione proveedor" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {crewProviders.map(p => (
+                        <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
                 control={form.control}
                 name="clientNames"
@@ -541,7 +576,7 @@ function ConceptFormFields({ form, clientOptions }: { form: any, clientOptions: 
                 )}
             />
             <FormField control={form.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
              {isJornal ? (
                 <>
