@@ -44,7 +44,7 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
 }
 
 interface StandardData {
-    clientName: string;
+    clientNames: string[];
     provider: string;
     operationType: 'recepcion' | 'despacho' | 'TODAS';
     productType: 'fijo' | 'variable' | 'TODAS';
@@ -60,47 +60,47 @@ interface StandardData {
 export async function addPerformanceStandard(data: StandardData): Promise<{ success: boolean; message: string; newStandards?: PerformanceStandard[] }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
-  const { clientName, provider, operationType, productType, description, ranges } = data;
+  const { clientNames, provider, operationType, productType, description, ranges } = data;
   
   try {
     const batch = firestore.batch();
     const newStandards: PerformanceStandard[] = [];
-    
     const standardsRef = firestore.collection('performance_standards');
-    for (const range of ranges) {
-            const query = standardsRef
-            .where('clientName', '==', clientName)
-            .where('provider', '==', provider)
-            .where('operationType', '==', operationType)
-            .where('productType', '==', productType)
-            .where('minTons', '==', Number(range.minTons))
-            .where('maxTons', '==', Number(range.maxTons));
 
-        const existingSnapshot = await query.get();
-        if (!existingSnapshot.empty) {
-            return { 
-                success: false, 
-                message: `Ya existe un estándar para "${clientName}" con el proveedor "${provider}" y el rango de ${range.minTons}-${range.maxTons} Toneladas.`
+    for (const clientName of clientNames) {
+        for (const range of ranges) {
+            const query = standardsRef
+                .where('clientName', '==', clientName)
+                .where('provider', '==', provider)
+                .where('operationType', '==', operationType)
+                .where('productType', '==', productType)
+                .where('minTons', '==', Number(range.minTons))
+                .where('maxTons', '==', Number(range.maxTons));
+
+            const existingSnapshot = await query.get();
+            if (!existingSnapshot.empty) {
+                return { 
+                    success: false, 
+                    message: `Ya existe un estándar para "${clientName}" con el proveedor "${provider}", tipo de op "${operationType}", tipo prod "${productType}" y el rango de ${range.minTons}-${range.maxTons} Toneladas.`
+                };
+            }
+
+            const docRef = standardsRef.doc();
+            const standardData = {
+                clientName,
+                provider,
+                operationType,
+                productType,
+                description,
+                minTons: Number(range.minTons),
+                maxTons: Number(range.maxTons),
+                baseMinutes: Number(range.baseMinutes),
             };
+            batch.set(docRef, standardData);
+            newStandards.push({ id: docRef.id, ...standardData });
         }
     }
 
-
-    for (const range of ranges) {
-        const docRef = firestore.collection('performance_standards').doc();
-        const standardData = {
-            clientName,
-            provider,
-            operationType,
-            productType,
-            description,
-            minTons: Number(range.minTons),
-            maxTons: Number(range.maxTons),
-            baseMinutes: Number(range.baseMinutes),
-        };
-        batch.set(docRef, standardData);
-        newStandards.push({ id: docRef.id, ...standardData });
-    }
 
     await batch.commit();
     revalidatePath('/gestion-estandares-cuadrilla');

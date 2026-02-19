@@ -59,6 +59,22 @@ export async function addBillingConcept(data: Omit<BillingConcept, 'id'>): Promi
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
   try {
+    const conceptsRef = firestore.collection('billing_concepts');
+    const existingSnapshot = await conceptsRef
+        .where('conceptName', '==', data.conceptName)
+        .where('provider', '==', data.provider)
+        .get();
+
+    if (!existingSnapshot.empty) {
+        const hasClientOverlap = existingSnapshot.docs.some(doc => {
+            const docClients = doc.data().clientNames as string[];
+            return data.clientNames.some(newClient => docClients.includes(newClient));
+        });
+        if (hasClientOverlap) {
+            return { success: false, message: `El concepto "${data.conceptName}" ya existe para el proveedor "${data.provider}" y al menos uno de los clientes seleccionados.` };
+        }
+    }
+
     const dataToSave: any = {
       conceptName: data.conceptName,
       clientNames: data.clientNames,
@@ -83,7 +99,7 @@ export async function addBillingConcept(data: Omit<BillingConcept, 'id'>): Promi
       dataToSave.value = Number(data.value);
     }
 
-    const docRef = await firestore.collection('billing_concepts').add(dataToSave);
+    const docRef = await conceptsRef.add(dataToSave);
     revalidatePath('/gestion-conceptos-liquidacion-cuadrilla');
     return { success: true, message: 'Concepto agregado con éxito.', newConcept: { id: docRef.id, ...data } };
   } catch (error) {
