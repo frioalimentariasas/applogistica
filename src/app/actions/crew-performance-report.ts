@@ -1,6 +1,7 @@
 
 
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -145,6 +146,7 @@ export interface CrewPerformanceReportCriteria {
     filterPending?: boolean;
     cuadrillaFilter?: 'con' | 'sin' | 'todas';
     conceptos?: string[];
+    crewProvider?: string;
 }
 
 export interface CrewPerformanceReportRow {
@@ -176,6 +178,7 @@ export interface CrewPerformanceReportRow {
     unidadMedidaConcepto: string;
     valorTotalConcepto: number;
     aplicaCuadrilla: string | undefined;
+    crewProvider?: string;
     formData: any; // Include full formData for legalization modal
 }
 
@@ -396,7 +399,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         const billingConcepts = allBillingConcepts.filter(c => c.status === 'activo');
 
         const allSubmissionDocs = submissionsSnapshot.docs
-            .map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }))
+            .map(doc => ({ 
+                id: doc.id, 
+                type: 'submission',
+                crewProvider: doc.data().crewProvider,
+                ...serializeTimestamps(doc.data()) 
+            }))
             .filter(submission => {
                 const clientName = submission.formData?.nombreCliente || submission.formData?.cliente;
                 const isFrutelliRecepcionVariable = 
@@ -406,7 +414,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 return !isFrutelliRecepcionVariable;
             });
 
-        const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
+        const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ 
+            id: doc.id, 
+            type: 'manual', 
+            crewProvider: doc.data().provider,
+            ...serializeTimestamps(doc.data()) 
+        }));
 
         let allResults: any[] = [...allSubmissionDocs, ...manualOpsData];
 
@@ -414,9 +427,17 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
         for (const doc of allResults) {
             if (doc.type === 'submission') {
-                const { id, formType, formData, userDisplayName, createdAt } = doc;
+                const { id, formType, formData, userDisplayName, createdAt, crewProvider } = doc;
                 const clientName = formData?.nombreCliente || formData?.cliente;
                 
+                const finalCrewProvider = formData.aplicaCuadrilla === 'si' 
+                    ? crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS'
+                    : undefined;
+
+                if (criteria.crewProvider && (!finalCrewProvider || finalCrewProvider !== criteria.crewProvider)) {
+                    continue;
+                }
+
                 if (
                     clientName === 'GRUPO FRUTELLI SAS' &&
                     (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')
@@ -485,6 +506,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                         unidadMedidaConcepto: settlement?.unitOfMeasure || (indicatorOnlyOperation ? 'TONELADA' : 'N/A'),
                         valorTotalConcepto: settlement?.totalValue || 0,
                         aplicaCuadrilla: formData.aplicaCuadrilla,
+                        crewProvider: finalCrewProvider,
                         formData: formData,
                     };
                 };
@@ -497,8 +519,13 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                      finalReportRows.push(buildRow());
                 }
             } else if (doc.type === 'manual') {
-                const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity, createdAt, createdBy } = doc;
+                const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity, createdAt, createdBy, crewProvider } = doc;
                 
+                const finalCrewProvider = crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS';
+                if (criteria.crewProvider && finalCrewProvider !== criteria.crewProvider) {
+                    continue;
+                }
+
                 const matchingConcept = billingConcepts.find(c => c.conceptName.toUpperCase() === concept.toUpperCase());
                 
                 if (!matchingConcept) continue;
@@ -580,6 +607,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     unidadMedidaConcepto: matchingConcept?.unitOfMeasure || 'N/A',
                     valorTotalConcepto: valorTotalConcepto,
                     aplicaCuadrilla: 'si',
+                    crewProvider: finalCrewProvider,
                     formData: doc,
                 });
             }
@@ -648,6 +676,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
+
 
 
 

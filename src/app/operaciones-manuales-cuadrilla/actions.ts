@@ -5,9 +5,21 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import type { ManualOperationData as BaseManualOperationData } from '@/app/crew-performance-report/actions';
 
-export interface ManualOperationData extends BaseManualOperationData {
+export interface ManualOperationData {
+    clientName?: string;
+    operationDate: string; // ISO string like '2024-07-23T15:49:01.859Z'
+    startTime: string; // HH:mm
+    endTime: string; // HH:mm
+    plate?: string;
+    concept: string;
+    quantity: number;
+    comentarios?: string; // New optional field
+    createdAt?: string; // ISO string for timestamping
+    createdBy?: {
+        uid: string;
+        displayName: string;
+    },
     provider?: string;
 }
 
