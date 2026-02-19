@@ -2,6 +2,7 @@
 
 
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -185,14 +186,16 @@ export interface CrewPerformanceReportRow {
 
 const calculateSettlements = (submission: any, billingConcepts: BillingConcept[], holidays: Holiday[]): { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] => {
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
-    const { formData, formType } = submission;
+    const { formData, formType, crewProvider } = submission;
     const clientName = formData.nombreCliente || formData.cliente;
+    const mainProvider = crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS';
 
-    const addSettlement = (conceptType: string, quantity: number, quantityType: string) => {
+    const addSettlement = (conceptType: string, quantity: number, quantityType: string, provider: string) => {
         const matchingConcepts = billingConcepts.filter(c => 
             c.conceptName.toUpperCase() === conceptType.toUpperCase() &&
             c.unitOfMeasure.toUpperCase() === quantityType.toUpperCase() &&
-            (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'))
+            (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)')) &&
+            c.provider === provider
         );
         if (matchingConcepts.length === 0) return;
         
@@ -227,7 +230,8 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const specialHandledConcepts = ['REESTIBADO', 'SALIDA PALETAS TUNEL', 'TRANSBORDO CANASTILLA'];
 
     observaciones.forEach((obs: any) => {
-        if (obs.executedByGrupoRosales === true) {
+        const obsProvider = obs.provider || (obs.executedByGrupoRosales ? 'GRUPO ROSALES LOGISTICA 24/7 SAS' : undefined);
+        if (obsProvider) {
             const conceptType = obs.type.toUpperCase();
             let quantity = Number(obs.quantity) || 0;
             let quantityType = obs.quantityType;
@@ -243,7 +247,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             }
             
             if (quantity > 0 && quantityType) {
-                addSettlement(conceptType, quantity, quantityType);
+                addSettlement(conceptType, quantity, quantityType, obsProvider);
             }
         }
     });
@@ -275,7 +279,8 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     const relevantConcepts = billingConcepts.filter(c => 
                         c.conceptName.toUpperCase() === conceptName.toUpperCase() &&
                         (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)')) &&
-                        (c.unitOfMeasure === 'TONELADA' || c.unitOfMeasure === 'KILOGRAMOS')
+                        (c.unitOfMeasure === 'TONELADA' || c.unitOfMeasure === 'KILOGRAMOS') &&
+                        c.provider === mainProvider
                     );
             
                     const concept = relevantConcepts.find(c => c.clientNames.includes(clientName)) || relevantConcepts[0];
@@ -312,7 +317,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     } else {
                         // Fallback
                         const toneladas = kilos / 1000;
-                        addSettlement(conceptName, toneladas, 'TONELADA');
+                        addSettlement(conceptName, toneladas, 'TONELADA', mainProvider);
                     }
                 }
             }
@@ -328,14 +333,14 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     quantity = (formData.items || []).reduce((sum: number, p: any) => sum + (Number(p.cantidadPorPaleta) || 0), 0);
                 }
                 if (quantity > 0) {
-                    addSettlement(conceptName, quantity, unitOfMeasure);
+                    addSettlement(conceptName, quantity, unitOfMeasure, mainProvider);
                 }
             }
             // Handle JORNAL ORDINARIO
             if (formData.numeroOperariosCuadrilla > 0) {
                 const quantity = Number(formData.numeroOperariosCuadrilla);
                 
-                const jornalConcept = billingConcepts.find(c => c.conceptName === 'JORNAL ORDINARIO');
+                const jornalConcept = billingConcepts.find(c => c.conceptName === 'JORNAL ORDINARIO' && c.provider === mainProvider);
                 
                 if (jornalConcept) {
                     const operationDate = new Date(formData.fecha);
@@ -351,7 +356,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
 
                     addSettlementWithDirectValue('JORNAL ORDINARIO', quantity, 'UNIDAD', tarifaAplicar);
                 } else {
-                    addSettlement('JORNAL ORDINARIO', quantity, 'UNIDAD');
+                    addSettlement('JORNAL ORDINARIO', quantity, 'UNIDAD', mainProvider);
                 }
             }
         }
@@ -519,14 +524,14 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                      finalReportRows.push(buildRow());
                 }
             } else if (doc.type === 'manual') {
-                const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity, createdAt, createdBy, crewProvider } = doc;
+                const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity, createdAt, createdBy, provider } = doc;
                 
-                const finalCrewProvider = crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS';
+                const finalCrewProvider = provider || 'GRUPO ROSALES LOGISTICA 24/7 SAS';
                 if (criteria.crewProvider && finalCrewProvider !== criteria.crewProvider) {
                     continue;
                 }
 
-                const matchingConcept = billingConcepts.find(c => c.conceptName.toUpperCase() === concept.toUpperCase());
+                const matchingConcept = billingConcepts.find(c => c.conceptName.toUpperCase() === concept.toUpperCase() && c.provider === finalCrewProvider);
                 
                 if (!matchingConcept) continue;
 
@@ -676,6 +681,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
+
+
 
 
 

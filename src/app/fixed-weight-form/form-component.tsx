@@ -110,7 +110,7 @@ const observationSchema = z.object({
   customType: z.string().optional(),
   quantity: z.coerce.number({invalid_type_error: "La cantidad debe ser un número."}).min(0, "La cantidad no puede ser negativa.").optional(),
   quantityType: z.string().optional(),
-  executedByGrupoRosales: z.boolean().default(false),
+  provider: z.string().optional(),
 }).refine(data => {
     if (data.type === 'OTRAS OBSERVACIONES' && !data.customType?.trim()) {
         return false;
@@ -482,7 +482,13 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
               contenedor: formData.contenedor ?? '',
               setPoint: formData.setPoint ?? null,
               totalPesoBrutoKg: formData.totalPesoBrutoKg ?? 0,
-              observaciones: formData.observaciones ?? [],
+              observaciones: (formData.observaciones || []).map((obs: any) => ({
+                type: obs.type,
+                customType: obs.customType,
+                quantity: obs.quantity,
+                quantityType: obs.quantityType,
+                provider: obs.executedByGrupoRosales ? 'GRUPO ROSALES LOGISTICA 24/7 SAS' : obs.provider,
+              })),
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               crewProvider: submission.crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
               tipoPedido: formData.tipoPedido ?? undefined,
@@ -907,6 +913,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
           open={isObservationDialogOpen}
           onOpenChange={setObservationDialogOpen}
           standardObservations={standardObservations}
+          crewProviders={crewProviders}
           onSelect={(obs) => {
               if (observationDialogIndex !== null) {
                   form.setValue(`observaciones.${observationDialogIndex}.type`, obs.name);
@@ -1412,7 +1419,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                          const selectedObservation = watchedObservations?.[index];
                          const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                          const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
-                         const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA' || selectedObservation?.type === 'SALIDA PALETAS TUNEL';
+                         const showProviderSelector = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA' || selectedObservation?.type === 'SALIDA PALETAS TUNEL';
                          
                          return (
                           <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
@@ -1478,26 +1485,30 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                               </FormItem>
                                           )}
                                       />
-                                      {showCrewCheckbox && (
-                                          <FormField
-                                              control={form.control}
-                                              name={`observaciones.${index}.executedByGrupoRosales`}
-                                              render={({ field }) => (
-                                                  <FormItem className="flex flex-row items-end space-x-2 pb-2">
-                                                      <FormControl>
-                                                          <Checkbox
-                                                              checked={field.value}
-                                                              onCheckedChange={field.onChange}
-                                                          />
-                                                      </FormControl>
-                                                      <div className="space-y-1 leading-none">
-                                                          <Label htmlFor={`obs-check-${index}`} className="font-normal cursor-pointer uppercase">
-                                                              REALIZADO POR CUADRILLA
-                                                          </Label>
-                                                      </div>
-                                                  </FormItem>
-                                              )}
-                                          />
+                                      {showProviderSelector && (
+                                            <FormField
+                                            control={form.control}
+                                            name={`observaciones.${index}.provider`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                <FormLabel>Proveedor Cuadrilla</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="No Aplica" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="">No Aplica</SelectItem>
+                                                        {crewProviders.map(p => (
+                                                            <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                                </FormItem>
+                                            )}
+                                            />
                                       )}
                                   </>
                                   )}
@@ -1508,7 +1519,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                       <Button
                           type="button"
                           variant="outline"
-                          onClick={() => appendObservation({ type: '', quantity: 0, executedByGrupoRosales: false, customType: '', quantityType: '' })}
+                          onClick={() => appendObservation({ type: '', quantity: 0, provider: undefined, customType: '', quantityType: '' })}
                       >
                           <PlusCircle className="mr-2 h-4 w-4" />
                           Agregar Observación
@@ -1745,11 +1756,13 @@ function ObservationSelectorDialog({
     open,
     onOpenChange,
     standardObservations,
+    crewProviders,
     onSelect,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     standardObservations: StandardObservation[];
+    crewProviders: CrewProvider[];
     onSelect: (observation: { name: string, quantityType?: string }) => void;
 }) {
     const [search, setSearch] = useState("");
@@ -1902,7 +1915,7 @@ function PedidoTypeSelectorDialog({
     onSelect: (pedidoType: PedidoType) => void;
 }) {
     const [search, setSearch] = useState("");
-
+  
     const filteredTypes = useMemo(() => {
         if (!search) return pedidoTypes;
         return pedidoTypes.filter(pt => pt.name.toLowerCase().includes(search.toLowerCase()));
@@ -1944,6 +1957,8 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+    
+
     
 
     
