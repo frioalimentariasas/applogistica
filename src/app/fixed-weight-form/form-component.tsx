@@ -24,6 +24,7 @@ import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
 import { PedidoType } from "@/app/gestion-tipos-pedido/actions";
+import { getCrewProviders, type CrewProvider } from "@/app/gestion-proveedores-cuadrilla/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -150,6 +151,7 @@ const createFormSchema = (isReception: boolean) => z.object({
     observaciones: z.array(observationSchema).optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"]).optional(),
+    crewProvider: z.string().optional(),
     operarioResponsable: z.string().optional(),
     tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
@@ -259,6 +261,7 @@ const originalDefaultValues: Omit<FormValues, 'operation'> = {
   observaciones: [],
   coordinador: "",
   aplicaCuadrilla: undefined,
+  crewProvider: undefined,
   operarioResponsable: undefined,
   tipoPedido: undefined,
   tipoEmpaqueMaquila: undefined,
@@ -293,6 +296,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
   const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
+  const [crewProviders, setCrewProviders] = useState<CrewProvider[]>([]);
   
   const [articulos, setArticulos] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
@@ -363,6 +367,11 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   const watchedNombreCliente = form.watch('nombreCliente');
   const isGrupoFrutelliDespacho = !isReception && watchedNombreCliente === 'GRUPO FRUTELLI SAS';
 
+  useEffect(() => {
+    if (watchedAplicaCuadrilla === 'si' && !form.getValues('crewProvider')) {
+        form.setValue('crewProvider', 'GRUPO ROSALES LOGISTICA 24/7 SAS');
+    }
+  }, [watchedAplicaCuadrilla, form]);
 
   useEffect(() => {
     if (watchedTipoPedido === 'INGRESO DE SALDOS') {
@@ -426,13 +435,15 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      const [clientList, obsList, userList] = await Promise.all([
+      const [clientList, obsList, userList, providerList] = await Promise.all([
         getClients(),
         getStandardObservations(),
         isAdmin ? getUsersList() : Promise.resolve([]),
+        getCrewProviders(),
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
+      setCrewProviders(providerList);
       if (isAdmin) {
           setAllUsers(userList);
       }
@@ -473,6 +484,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
               totalPesoBrutoKg: formData.totalPesoBrutoKg ?? 0,
               observaciones: formData.observaciones ?? [],
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
+              crewProvider: submission.crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
               tipoPedido: formData.tipoPedido ?? undefined,
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
@@ -785,8 +797,11 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
             responsibleUser = { id: originalSubmission.userId, displayName: originalSubmission.userDisplayName };
         }
         
+        const { crewProvider, ...formData } = dataToSave;
+
         const result = await saveForm({
-            formData: dataToSave,
+            formData: formData,
+            crewProvider,
             formType: `fixed-weight-${operation}`,
             attachmentUrls: finalAttachmentUrls,
             responsibleUser: responsibleUser,
@@ -1056,50 +1071,46 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                       <FormField
                         control={form.control}
                         name="fecha"
-                        render={({ field }) => {
-                          const isDatePickerEnabled = isAuthorizedEditor || isGrupoFrutelliDespacho;
-                          const yesterday = subDays(new Date(), 1);
-                          return (
-                            <FormItem>
-                              <FormLabel>Fecha <span className="text-destructive">*</span></FormLabel>
-                              {isDatePickerEnabled ? (
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <FormControl>
-                                      <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                                        {field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                      </Button>
-                                    </FormControl>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                      mode="single"
-                                      selected={field.value}
-                                      onSelect={field.onChange}
-                                      disabled={(date) => {
-                                        if (isAuthorizedEditor) return false; // Admin can select any date
-                                        if (isGrupoFrutelliDespacho) {
-                                          const today = new Date();
-                                          today.setHours(0, 0, 0, 0);
-                                          const yesterday = subDays(today, 1);
-                                          return date.getTime() !== today.getTime() && date.getTime() !== yesterday.getTime();
-                                        }
-                                        return date.toDateString() !== new Date().toDateString(); // Default case
-                                      }}
-                                      initialFocus
-                                    />
-                                  </PopoverContent>
-                                </Popover>
-                              ) : (
-                                <FormControl>
-                                  <Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} />
-                                </FormControl>
-                              )}
-                              <FormMessage />
-                            </FormItem>
-                          );
-                        }}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Fecha <span className="text-destructive">*</span></FormLabel>
+                            {isAuthorizedEditor ? (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                      {field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    disabled={(date) => {
+                                      if (isAuthorizedEditor) return false; // Admin can select any date
+                                      if (isGrupoFrutelliDespacho) {
+                                        const today = new Date();
+                                        today.setHours(0, 0, 0, 0);
+                                        const yesterday = subDays(today, 1);
+                                        return date.getTime() !== today.getTime() && date.getTime() !== yesterday.getTime();
+                                      }
+                                      return date.toDateString() !== new Date().toDateString(); // Default case
+                                    }}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            ) : (
+                              <FormControl>
+                                <Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} />
+                              </FormControl>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
                       <FormField control={form.control} name="horaInicio" render={({ field }) => (
                           <FormItem>
@@ -1539,11 +1550,31 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                   control={form.control}
                                   name="aplicaCuadrilla"
                                   render={({ field }) => (
-                                      <FormItem className="space-y-1 lg:col-span-4">
-                                          <FormLabel>Operación Realizada por Cuadrilla <span className="text-destructive">*</span></FormLabel>
+                                      <FormItem className="space-y-1 lg:col-span-2">
+                                          <FormLabel>Operación por Cuadrilla <span className="text-destructive">*</span></FormLabel>
                                           <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                                   )}
                               />
+                            {watchedAplicaCuadrilla === 'si' && (
+                                <FormField
+                                    control={form.control}
+                                    name="crewProvider"
+                                    render={({ field }) => (
+                                    <FormItem className="lg:col-span-2">
+                                        <FormLabel>Proveedor Cuadrilla</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value} defaultValue="GRUPO ROSALES LOGISTICA 24/7 SAS">
+                                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccione proveedor" /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                {crewProviders.map(p => (
+                                                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                            )}
                               {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' &&  (
                                   <FormField
                                       control={form.control}
@@ -1792,16 +1823,15 @@ function ProductSelectorDialog({
     onSelect: (articulo: ArticuloInfo) => void;
 }) {
     const [search, setSearch] = useState("");
-    
+  
     const getSessionName = (sesionCode: string | undefined) => {
-        switch (sesionCode) {
-            case 'CO': return 'Congelado';
-            case 'RE': return 'Refrigerado';
-            case 'SE': return 'Seco';
-            default: return 'N/A';
-        }
-    }
-
+      switch (sesionCode) {
+          case 'CO': return 'Congelado';
+          case 'RE': return 'Refrigerado';
+          case 'SE': return 'Seco';
+          default: return 'N/A';
+      }
+  }
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
         return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
@@ -1836,20 +1866,20 @@ function ProductSelectorDialog({
                                 {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
                                 {filteredArticulos.map((p, i) => (
                                     <Button
-                                        key={`${p.id}-${i}`}
-                                        variant="ghost"
-                                        className="w-full justify-between h-auto text-wrap"
-                                        onClick={() => {
-                                            onSelect(p);
-                                            onOpenChange(false);
-                                        }}
-                                    >
-                                        <div className="flex flex-col items-start text-left">
-                                            <span>{p.denominacionArticulo}</span>
-                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
-                                        </div>
-                                        <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
-                                    </Button>
+                                    key={`${p.id}-${i}`}
+                                    variant="ghost"
+                                    className="w-full justify-between h-auto text-wrap"
+                                    onClick={() => {
+                                        onSelect(p);
+                                        onOpenChange(false);
+                                    }}
+                                >
+                                    <div className="flex flex-col items-start text-left">
+                                        <span>{p.denominacionArticulo}</span>
+                                        <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
+                                    </div>
+                                    <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
+                                </Button>                                  
                                 ))}
                             </div>
                         </ScrollArea>
@@ -1914,5 +1944,6 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+    
 
     

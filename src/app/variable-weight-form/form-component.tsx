@@ -1,4 +1,5 @@
 
+      
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -26,7 +27,8 @@ import { getStandardObservations, type StandardObservation } from "@/app/gestion
 import { PedidoType } from "@/app/gestion-tipos-pedido/actions";
 import { Html5Qrcode } from "html5-qrcode";
 import { getPalletInfoByCode, type PalletInfo } from "@/app/actions/pallet-lookup";
-import { Badge } from "@/components/ui/badge";
+import { getCrewProviders, type CrewProvider } from "@/app/gestion-proveedores-cuadrilla/actions";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -78,7 +80,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
+import { Badge } from "@/components/ui/badge";
 
 const itemSchema = z.object({
     paleta: z.coerce.number({ invalid_type_error: "La paleta debe ser un número."}).int().nullable(),
@@ -99,6 +101,7 @@ const itemSchema = z.object({
     totalTaraCaja: z.number().nullable().optional(),
     pesoNeto: z.number().nullable().optional(),
     esPicking: z.boolean().default(false),
+    sesion: z.string().optional(),
 }).superRefine((data, ctx) => {
     if (data.paleta === null || data.paleta === undefined) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El campo Paleta es obligatorio.", path: ["paleta"] });
@@ -204,6 +207,7 @@ const formSchema = z.object({
     observaciones: z.array(observationSchema).optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
+    crewProvider: z.string().optional(),
     operarioResponsable: z.string().optional(),
     tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     unidadDeMedidaPrincipal: z.string().optional(),
@@ -216,58 +220,54 @@ const formSchema = z.object({
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
-    const allItemsWithPath: ({ item: z.infer<typeof itemSchema>, path: (string|number)[] })[] = [];
+    const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
     
-    if (data.despachoPorDestino) {
-        (data.destinos || []).forEach((destino, destinoIndex) => {
-            (destino.items || []).forEach((item, itemIndex) => {
-                allItemsWithPath.push({ item, path: ['destinos', destinoIndex, 'items', itemIndex, 'paleta'] });
-            });
-        });
-    } else {
-        (data.items || []).forEach((item, itemIndex) => {
-            allItemsWithPath.push({ item, path: ['items', itemIndex, 'paleta'] });
-        });
-    }
-
     if (data.despachoPorDestino && data.destinos.length === 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe agregar al menos un destino.", path: ["destinos"] });
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Debe agregar al menos un destino.",
+            path: ["destinos"],
+        });
     }
 
     if (!data.despachoPorDestino && data.items.length === 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe agregar al menos un ítem.", path: ["items"] });
+         ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Debe agregar al menos un ítem.",
+            path: ["items"],
+        });
     }
     
-    const hasSummaryRow = allItemsWithPath.some(({ item }) => Number(item.paleta) === 0);
+    const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
     if (data.despachoPorDestino && hasSummaryRow && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de paletas del despacho es requerido.", path: ["totalPaletasDespacho"] });
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "El total de paletas del despacho es requerido.",
+            path: ["totalPaletasDespacho"],
+        });
     }
 
-    const palletsGrouped = allItemsWithPath.reduce((acc, { item, path }) => {
-        const paletaNum = Number(item.paleta);
-        if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
-            const key = String(paletaNum);
-            if (!acc[key]) acc[key] = [];
-            acc[key].push({ item, path });
-        }
-        return acc;
-    }, {} as Record<string, { item: z.infer<typeof itemSchema>, path: (string|number)[] }[]>);
-
-    for (const paletaNum in palletsGrouped) {
-        const itemsForPallet = palletsGrouped[paletaNum];
-        const completePallets = itemsForPallet.filter(({ item }) => !item.esPicking);
-        
-        if (completePallets.length > 1) {
-            for (let i = 1; i < completePallets.length; i++) {
-                const itemWithError = completePallets[i];
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: "Ya existe una paleta completa con este número. Marque este ítem como 'Picking'.",
-                    path: itemWithError.path,
-                });
-            }
-        }
+    // START: Pallet duplication validation
+    if (data.despachoPorDestino) {
+        data.destinos.forEach((destino, destinoIndex) => {
+            const seenPallets = new Set<number>();
+            destino.items.forEach((item, itemIndex) => {
+                const paletaNum = Number(item.paleta);
+                // Ignore summary (0) and special (999) pallets
+                if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
+                    if (seenPallets.has(paletaNum)) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            message: "La paleta ya existe en este destino.",
+                            path: [`destinos`, destinoIndex, 'items', itemIndex, 'paleta'],
+                        });
+                    }
+                    seenPallets.add(paletaNum);
+                }
+            });
+        });
     }
+    // END: Pallet duplication validation
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -292,6 +292,7 @@ const originalDefaultValues: FormValues = {
   observaciones: [],
   coordinador: "",
   aplicaCuadrilla: undefined,
+  crewProvider: undefined,
   operarioResponsable: undefined,
   tipoPedido: undefined,
   unidadDeMedidaPrincipal: "PALETA",
@@ -321,6 +322,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
   const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
+  const [crewProviders, setCrewProviders] = useState<CrewProvider[]>([]);
   
   const [articulos, setArticulos] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
@@ -388,6 +390,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   const despachoPorDestino = useWatch({ control: form.control, name: 'despachoPorDestino' });
   const allDestinos = useWatch({ control: form.control, name: 'destinos' });
   const allItems = useWatch({ control: form.control, name: 'items' });
+  const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItemsForSummary = useMemo(() => despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []), [despachoPorDestino, allDestinos, allItems]);
   const isSummaryMode = useMemo(() => watchedItemsForSummary.some(item => Number(item?.paleta) === 0), [watchedItemsForSummary]);
 
@@ -413,6 +416,12 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         form.setValue('despachoPorDestino', false);
     }
   }, [watchedCliente, despachoPorDestino, form]);
+
+  useEffect(() => {
+    if (watchedAplicaCuadrilla === 'si' && !form.getValues('crewProvider')) {
+        form.setValue('crewProvider', 'GRUPO ROSALES LOGISTICA 24/7 SAS');
+    }
+  }, [watchedAplicaCuadrilla, form]);
 
   const calculatedSummary = useMemo(() => {
       const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items.map(i => ({...i, destino: d.nombreDestino}))) : (allItems || []);
@@ -516,13 +525,15 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      const [clientList, obsList, userList] = await Promise.all([
+      const [clientList, obsList, userList, providerList] = await Promise.all([
         getClients(),
         getStandardObservations(),
         isAdmin ? getUsersList() : Promise.resolve([]),
+        getCrewProviders(),
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
+      setCrewProviders(providerList);
       if (isAdmin) {
           setAllUsers(userList);
       }
@@ -554,6 +565,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
               observaciones: formData.observaciones ?? [],
               setPoint: formData.setPoint ?? null,
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
+              crewProvider: submission.crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
               tipoPedido: formData.tipoPedido ?? undefined,
               operarioResponsable: submission.userId,
               unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
@@ -847,9 +859,12 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         } else if (isUpdating && originalSubmission) {
             responsibleUser = { id: originalSubmission.userId, displayName: originalSubmission.userDisplayName };
         }
+        
+        const { crewProvider, ...formData } = dataToSave;
 
         const result = await saveForm({
-            formData: dataToSave,
+            formData: formData,
+            crewProvider,
             formType: `variable-weight-despacho`,
             attachmentUrls: finalAttachmentUrls,
             responsibleUser: responsibleUser,
@@ -1579,10 +1594,30 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                           name="aplicaCuadrilla"
                           render={({ field }) => (
                               <FormItem className="space-y-1">
-                                  <FormLabel>Operación Realizada por Cuadrilla <span className="text-destructive">*</span></FormLabel>
+                                  <FormLabel>Operación por Cuadrilla <span className="text-destructive">*</span></FormLabel>
                                   <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                           )}
                         />
+                        {watchedAplicaCuadrilla === 'si' && (
+                            <FormField
+                                control={form.control}
+                                name="crewProvider"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Proveedor Cuadrilla</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value} defaultValue="GRUPO ROSALES LOGISTICA 24/7 SAS">
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione proveedor" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {crewProviders.map(p => (
+                                                <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        )}
                     </div>
                   </CardContent>
                 </Card>
@@ -2240,3 +2275,5 @@ function ItemFields({ control, itemIndex, handleProductDialogOpening, remove, is
       </div>
     );
 };
+
+    

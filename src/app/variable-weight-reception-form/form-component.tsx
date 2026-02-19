@@ -1,4 +1,5 @@
 
+      
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -75,6 +76,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
+import { getCrewProviders, type CrewProvider } from "@/app/gestion-proveedores-cuadrilla/actions";
 
 const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
@@ -172,6 +174,7 @@ const formSchema = z.object({
     observaciones: z.array(observationSchema).optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"]).optional(),
+    crewProvider: z.string().optional(),
     operarioResponsable: z.string().optional(),
     tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
@@ -472,6 +475,7 @@ const originalDefaultValues: FormValues = {
   observaciones: [],
   coordinador: "",
   aplicaCuadrilla: undefined,
+  crewProvider: undefined,
   operarioResponsable: undefined,
   tipoPedido: undefined,
   tipoEmpaqueMaquila: undefined,
@@ -506,6 +510,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   
     const [clientes, setClientes] = useState<ClientInfo[]>([]);
     const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
+    const [crewProviders, setCrewProviders] = useState<CrewProvider[]>([]);
     
     const [articulos, setArticulos] = useState<ArticuloInfo[]>([]);
     const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
@@ -809,13 +814,15 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   
     useEffect(() => {
       const fetchClientsAndObs = async () => {
-        const [clientList, obsList, userList] = await Promise.all([
+        const [clientList, obsList, userList, providerList] = await Promise.all([
           getClients(),
           getStandardObservations(),
           isAdmin ? getUsersList() : Promise.resolve([]),
+          getCrewProviders(),
         ]);
         setClientes(clientList);
         setStandardObservations(obsList);
+        setCrewProviders(providerList);
         if (isAdmin) {
             setAllUsers(userList);
         }
@@ -847,6 +854,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 observaciones: formData.observaciones ?? [],
                 setPoint: formData.setPoint ?? null,
                 aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
+                crewProvider: submission.crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
                 tipoPedido: formData.tipoPedido ?? undefined,
                 tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
                 salidaPaletasMaquilaCO: formData.salidaPaletasMaquilaCO ?? 0,
@@ -1190,8 +1198,11 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               responsibleUser = { id: originalSubmission.userId, displayName: originalSubmission.userDisplayName };
           }
   
+           const { crewProvider, ...formData } = dataToSave;
+
           const result = await saveForm({
-              formData: dataToSave,
+              formData: formData,
+              crewProvider,
               formType: `variable-weight-reception`,
               attachmentUrls: finalAttachmentUrls,
               responsibleUser: responsibleUser,
@@ -2134,13 +2145,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                   <Card>
                     <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
                           <FormField control={form.control} name="coordinador" render={({ field }) => (
-                              <FormItem><FormLabel>Coordinador Responsable <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                              <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                           )}/>
                           {submissionId && isAdmin ? (
                                <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="lg:col-span-2">
                                       <FormLabel>Operario Responsable</FormLabel>
                                       <Select onValueChange={field.onChange} value={field.value} defaultValue={originalSubmission?.userId}>
                                           <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
@@ -2152,7 +2163,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                   </FormItem>
                               )}/>
                           ) : (
-                              <FormItem>
+                              <FormItem className="lg:col-span-2">
                                   <FormLabel>Operario Responsable</FormLabel>
                                   <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                               </FormItem>
@@ -2163,17 +2174,37 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                       control={form.control}
                                       name="aplicaCuadrilla"
                                       render={({ field }) => (
-                                          <FormItem className="space-y-1">
-                                              <FormLabel>Operación Realizada por Cuadrilla <span className="text-destructive">*</span></FormLabel>
+                                          <FormItem className="space-y-1 lg:col-span-2">
+                                              <FormLabel>Operación por Cuadrilla <span className="text-destructive">*</span></FormLabel>
                                               <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                                       )}
                                   />
+                                   {watchedAplicaCuadrilla === 'si' && (
+                                        <FormField
+                                            control={form.control}
+                                            name="crewProvider"
+                                            render={({ field }) => (
+                                            <FormItem className="lg:col-span-2">
+                                                <FormLabel>Proveedor Cuadrilla</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value} defaultValue="GRUPO ROSALES LOGISTICA 24/7 SAS">
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccione proveedor" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {crewProviders.map(p => (
+                                                            <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                            )}
+                                        />
+                                    )}
                                   {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (
                                       <FormField
                                           control={form.control}
                                           name="numeroOperariosCuadrilla"
                                           render={({ field }) => (
-                                              <FormItem>
+                                              <FormItem className="lg:col-span-2">
                                               <FormLabel>No. de Operarios <span className="text-destructive">*</span></FormLabel>
                                               <FormControl>
                                                   <Input 
@@ -2534,4 +2565,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           </Dialog>
       );
   }
+    
+
     
