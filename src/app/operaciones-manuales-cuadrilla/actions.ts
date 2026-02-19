@@ -5,7 +5,11 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import type { ManualOperationData } from '@/app/crew-performance-report/actions';
+import type { ManualOperationData as BaseManualOperationData } from '@/app/crew-performance-report/actions';
+
+export interface ManualOperationData extends BaseManualOperationData {
+    provider?: string;
+}
 
 
 export async function addManualOperation(data: ManualOperationData): Promise<{ success: boolean; message: string }> {

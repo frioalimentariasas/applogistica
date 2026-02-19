@@ -16,12 +16,14 @@ export interface FormSubmissionData {
     editorId: string;
     editorDisplayName: string;
   };
+  crewProvider?: string;
 }
 
 export interface SaveFormPayload {
     formData: any;
     formType: string;
     attachmentUrls: string[];
+    crewProvider?: string;
     // For new forms, this is the creator.
     // For updates, this is the NEWLY ASSIGNED responsible user.
     responsibleUser: {
@@ -52,7 +54,7 @@ export async function saveForm(
   try {
     if (formIdToUpdate) {
         // This is an update.
-        const updateData = {
+        const updateData: Partial<FormSubmissionData> = {
             userId: payload.responsibleUser.id,
             userDisplayName: payload.responsibleUser.displayName,
             formData: payload.formData,
@@ -64,6 +66,10 @@ export async function saveForm(
                 editorDisplayName: payload.editor.displayName
             }
         };
+
+        if (payload.crewProvider) {
+            updateData.crewProvider = payload.crewProvider;
+        }
         
         const docRef = firestore.collection('submissions').doc(formIdToUpdate);
         await docRef.update(updateData);
@@ -78,6 +84,7 @@ export async function saveForm(
             formType: payload.formType,
             attachmentUrls: payload.attachmentUrls,
             createdAt: new Date().toISOString(),
+            crewProvider: payload.crewProvider,
         };
         const docRef = await firestore.collection('submissions').add(submissionData);
         return { success: true, message: 'Formulario guardado con éxito.', formId: docRef.id };
