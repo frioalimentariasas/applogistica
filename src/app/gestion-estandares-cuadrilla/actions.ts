@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -47,7 +46,7 @@ interface StandardData {
     clientNames: string[];
     provider: string;
     operationType: 'recepcion' | 'despacho' | 'TODAS';
-    productType: 'fijo' | 'variable' | 'TODOS';
+    productType: 'fijo' | 'variable' | 'TODAS';
     description: string;
     ranges: {
         minTons: number;
@@ -210,18 +209,15 @@ export interface FindStandardCriteria {
 
 export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
     const { clientName, provider, operationType, productType } = criteria;
-    // Round tons to handle floating point inaccuracies before comparison
     const tons = Number(criteria.tons.toFixed(2));
     
-    // Always fetch the fresh list of standards from the database.
     const allStandards = await getPerformanceStandards();
 
-    if (!clientName || !operationType || !productType || allStandards.length === 0) {
+    if (!clientName || !operationType || !productType || !provider || allStandards.length === 0) {
         return null;
     }
 
     const potentialMatches = allStandards.filter(std => {
-        // The comparison is inclusive for both min and max
         const minTons = Number(std.minTons.toFixed(2));
         const maxTons = Number(std.maxTons.toFixed(2));
         return tons >= minTons && tons <= maxTons;
@@ -229,7 +225,6 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     
     if (potentialMatches.length === 0) return null;
 
-    // Define the order of specificity for matching
     const searchPriorities = [
         // 1. Most specific: Exact match for client, provider, operation, and product type
         (std: PerformanceStandard) => std.clientName === clientName && std.provider === provider && std.operationType === operationType && std.productType === productType,
@@ -240,7 +235,7 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
         // 4. Match client and provider, any operation or product type
         (std: PerformanceStandard) => std.clientName === clientName && std.provider === provider && std.operationType === 'TODAS' && std.productType === 'TODOS',
         
-        // Fallback to "TODOS (Cualquier Cliente)"
+        // 5. Fallback to "TODOS (Cualquier Cliente)" with specific provider
         (std: PerformanceStandard) => std.clientName === 'TODOS (Cualquier Cliente)' && std.provider === provider && std.operationType === operationType && std.productType === productType,
         (std: PerformanceStandard) => std.clientName === 'TODOS (Cualquier Cliente)' && std.provider === provider && std.operationType === operationType && std.productType === 'TODAS',
         (std: PerformanceStandard) => std.clientName === 'TODOS (Cualquier Cliente)' && std.provider === provider && std.operationType === 'TODAS' && std.productType === productType,
@@ -256,3 +251,5 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     
     return null; // No matching standard found
 }
+
+    

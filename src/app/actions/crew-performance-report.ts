@@ -1,16 +1,12 @@
 
-
-
-
-
 'use server';
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, parseISO, format, startOfDay, endOfDay, addDays, subDays, getDay, isSameDay } from 'date-fns';
-import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
+import { findBestMatchingStandard, type PerformanceStandard } from '@/app/gestion-estandares-cuadrilla/actions';
 import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
-import { getNoveltiesForOperation, type NoveltyData } from './novelty-actions';
+import { getNoveltiesForOperation, type NoveltyData } from '../crew-performance-report/actions';
 import { getHolidaysInRange, type Holiday } from '@/app/gestion-festivos/actions';
 
 
@@ -649,6 +645,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             if (row.tipoOperacion === 'Recepción' || row.tipoOperacion === 'Despacho') {
                  row.standard = await findBestMatchingStandard({
                     clientName: row.cliente,
+                    provider: row.crewProvider,
                     operationType: row.tipoOperacion === 'Recepción' ? 'recepcion' : 'despacho',
                     productType: row.tipoProducto === 'Fijo' ? 'fijo' : 'variable',
                     tons: row.kilos / 1000
@@ -682,9 +679,4 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     }
 }
 
-
-
-
-
-
-
+    

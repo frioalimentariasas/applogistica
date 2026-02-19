@@ -17,16 +17,17 @@ import jsPDF from 'jspdf';
 
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
-import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
+import { addNoveltyToOperation, deleteNovelty } from '@/app/crew-performance-report/actions';
 import { legalizeWeights } from '@/app/actions/legalize-weights';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import type { PerformanceStandard } from '@/app/actions/standard-actions';
+import type { PerformanceStandard } from '@/app/gestion-estandares-cuadrilla/actions';
 import { getStandardNoveltyTypes, type StandardNoveltyType } from '@/app/gestion-novedades/actions';
 import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
 import { addManualOperation, updateManualOperation } from '../operaciones-manuales-cuadrilla/actions';
+import { getCrewProviders, type CrewProvider } from '../gestion-proveedores-cuadrilla/actions';
 
 
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -175,6 +176,8 @@ export default function CrewPerformanceReportPage() {
     const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
     const [isConceptDialogOpen, setIsConceptDialogOpen] = useState(false);
     const [conceptSearch, setConceptSearch] = useState('');
+    const [crewProviders, setCrewProviders] = useState<CrewProvider[]>([]);
+    const [selectedProvider, setSelectedProvider] = useState('all');
 
     const [reportData, setReportData] = useState<CrewPerformanceReportRow[]>([]);
     const [filteredReportData, setFilteredReportData] = useState<CrewPerformanceReportRow[]>([]);
@@ -250,14 +253,16 @@ export default function CrewPerformanceReportPage() {
 
     useEffect(() => {
         const fetchInitialData = async () => {
-             const [clientList, noveltyTypes, billingConcepts] = await Promise.all([
+             const [clientList, noveltyTypes, billingConcepts, providerList] = await Promise.all([
                  getClients(),
                  getStandardNoveltyTypes(),
                  getBillingConcepts(),
+                 getCrewProviders(),
              ]);
              setClients(clientList);
              setStandardNoveltyTypes(noveltyTypes);
              setAllBillingConcepts(billingConcepts);
+             setCrewProviders(providerList);
         };
         fetchInitialData();
     }, []);
@@ -359,7 +364,8 @@ export default function CrewPerformanceReportPage() {
                 clientNames: selectedClients.length > 0 ? selectedClients : undefined,
                 cuadrillaFilter: cuadrillaFilter,
                 conceptos: selectedConcepts.length > 0 ? selectedConcepts : undefined,
-                filterPending: filterPending
+                filterPending: filterPending,
+                crewProvider: selectedProvider === 'all' ? undefined : selectedProvider,
             };
 
             const results = await getCrewPerformanceReport(criteria);
@@ -385,7 +391,7 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [dateRange, selectedOperario, operationType, productType, selectedClients, cuadrillaFilter, selectedConcepts, toast, filterPending, searched]);
+    }, [dateRange, selectedOperario, operationType, productType, selectedClients, cuadrillaFilter, selectedConcepts, toast, filterPending, searched, selectedProvider]);
     
     
     const handleClear = () => {
@@ -402,6 +408,7 @@ export default function CrewPerformanceReportPage() {
         setFilteredReportData([]);
         setSearched(false);
         setCurrentPage(1);
+        setSelectedProvider('all');
     };
 
     const totalLiquidacion = useMemo(() => liquidationData.reduce((acc, row) => acc + (row.valorTotalConcepto || 0), 0), [liquidationData]);
@@ -575,178 +582,95 @@ export default function CrewPerformanceReportPage() {
             });
         };
 
-        if (type === 'productivity') {
-            const ws = workbook.addWorksheet('Productividad');
-            const columns = [
-                { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
-                { header: 'Fecha Creación', key: 'fechaCreacion', width: 18 },
-                { header: 'Operario', key: 'operario', width: 25 },
-                { header: 'Cliente', key: 'cliente', width: 35 },
-                { header: 'Tipo Op.', key: 'tipoOp', width: 12 },
-                { header: 'Tipo Prod.', key: 'tipoProd', width: 12 },
-                { header: 'Pedido', key: 'pedido', width: 15 },
-                { header: 'No. Contenedor', key: 'contenedor', width: 18 },
-                { header: 'Placa', key: 'placa', width: 12 },
-                { header: 'Concepto', key: 'concepto', width: 25 },
-                { header: 'Hora Inicio', key: 'horaInicio', width: 12 },
-                { header: 'Hora Fin', key: 'horaFin', width: 12 },
-                { header: 'Cant.', key: 'cantidad', width: 12 },
-                { header: 'Dur. Total', key: 'durTotal', width: 12 },
-                { header: 'T. Operativo', key: 'tOperativo', width: 12 },
-                { header: 'Novedades', key: 'novedades', width: 40 },
-                { header: 'Productividad', key: 'productividad', width: 15 },
+        const providersInReport = [...new Set(filteredReportData.map(r => r.crewProvider).filter(Boolean))];
+        const isMultiProvider = selectedProvider === 'all' && providersInReport.length > 1;
+
+        const processSheet = (ws: ExcelJS.Worksheet, data: CrewPerformanceReportRow[], sheetType: 'productivity' | 'settlement') => {
+            const columnsProd = [
+                { header: 'Fecha Op.', key: 'fechaOp', width: 12 }, { header: 'Fecha Creación', key: 'fechaCreacion', width: 18 },
+                { header: 'Proveedor', key: 'proveedor', width: 30 }, { header: 'Operario', key: 'operario', width: 25 },
+                { header: 'Cliente', key: 'cliente', width: 35 }, { header: 'Tipo Op.', key: 'tipoOp', width: 12 },
+                { header: 'Tipo Prod.', key: 'tipoProd', width: 12 }, { header: 'Pedido', key: 'pedido', width: 15 },
+                { header: 'No. Contenedor', key: 'contenedor', width: 18 }, { header: 'Placa', key: 'placa', width: 12 },
+                { header: 'Concepto', key: 'concepto', width: 25 }, { header: 'Hora Inicio', key: 'horaInicio', width: 12 },
+                { header: 'Hora Fin', key: 'horaFin', width: 12 }, { header: 'Cant.', key: 'cantidad', width: 12 },
+                { header: 'Dur. Total', key: 'durTotal', width: 12 }, { header: 'T. Operativo', key: 'tOperativo', width: 12 },
+                { header: 'Novedades', key: 'novedades', width: 40 }, { header: 'Productividad', key: 'productividad', width: 15 },
             ];
-
-            addMainHeader(ws, 'Informe de Productividad', columns);
-            applyHeaderStylesAndWidth(ws, columns, 5);
-            
-            filteredReportData.forEach(row => {
-                ws.addRow({
-                    fechaOp: format(new Date(row.fecha), 'dd/MM/yy'),
-                    fechaCreacion: format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
-                    operario: row.operario,
-                    cliente: row.cliente,
-                    tipoOp: row.tipoOperacion,
-                    tipoProd: row.tipoProducto,
-                    pedido: row.pedidoSislog,
-                    contenedor: row.contenedor,
-                    placa: row.placa,
-                    concepto: row.conceptoLiquidado,
-                    horaInicio: row.horaInicio,
-                    horaFin: row.horaFin,
-                    cantidad: row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
-                    durTotal: formatDuration(row.totalDurationMinutes),
-                    tOperativo: formatDuration(row.operationalDurationMinutes),
-                    novedades: row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
-                    productividad: getPerformanceIndicator(row).text,
-                });
-                const addedRow = ws.lastRow!;
-                addedRow.getCell('cantidad').numFmt = '#,##0.00';
-            });
-            
-            if (performanceSummary) {
-                ws.addRow([]);
-                const summaryHeaderRow = ws.addRow(['Resumen de Productividad']);
-                summaryHeaderRow.font = { bold: true, size: 14 };
-                ws.mergeCells(ws.rowCount, 1, ws.rowCount, 3);
-
-                const indicatorHeader = ws.addRow(['Indicador', 'Cantidad', 'Porcentaje']);
-                indicatorHeader.font = { bold: true };
-                indicatorHeader.eachCell(cell => cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } });
-
-                Object.entries(performanceSummary.summary).forEach(([key, value]) => {
-                    if (key !== 'No Aplica' && key !== 'Sin Tiempo' && key !== 'Pendiente' && key !== 'Sin Estándar') {
-                        const percent = performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable) : 0;
-                        const row = ws.addRow([key, value.count, percent]);
-                        row.getCell(3).numFmt = '0.00%';
-                    }
-                });
-
-                ws.addRow([]);
-                const totalRow = ws.addRow(['Total Operaciones Evaluables:', performanceSummary.totalEvaluable]);
-                totalRow.font = { bold: true };
-                const qualificationRow = ws.addRow(['Calificación General:', performanceSummary.qualification]);
-                qualificationRow.font = { bold: true };
-            }
-        } else if (type === 'settlement') {
-            if (liquidationData.length === 0) {
-                toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
-                return;
-            }
-            const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
-            const columnsLiq = [
-                { header: 'Mes', key: 'mes', width: 15 },
-                { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
-                { header: 'Pedido', key: 'pedido', width: 15 },
-                { header: 'Contenedor', key: 'contenedor', width: 18 },
-                { header: 'Placa', key: 'placa', width: 12 },
-                { header: 'Cliente', key: 'cliente', width: 35 },
-                { header: 'Concepto', key: 'concepto', width: 25 },
-                { header: 'Cantidad', key: 'cantidad', width: 15 },
-                { header: 'Unidad', key: 'unidad', width: 15 },
-                { header: 'H. Inicio', key: 'hInicio', width: 12 },
-                { header: 'H. Fin', key: 'hFin', width: 12 },
-                { header: 'Duración', key: 'duracion', width: 12 },
-                { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 18 },
+             const columnsLiq = [
+                { header: 'Mes', key: 'mes', width: 15 }, { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
+                { header: 'Proveedor', key: 'proveedor', width: 30 }, { header: 'Pedido', key: 'pedido', width: 15 },
+                { header: 'Contenedor', key: 'contenedor', width: 18 }, { header: 'Placa', key: 'placa', width: 12 },
+                { header: 'Cliente', key: 'cliente', width: 35 }, { header: 'Concepto', key: 'concepto', width: 25 },
+                { header: 'Cantidad', key: 'cantidad', width: 15 }, { header: 'Unidad', key: 'unidad', width: 15 },
+                { header: 'H. Inicio', key: 'hInicio', width: 12 }, { header: 'H. Fin', key: 'hFin', width: 12 },
+                { header: 'Duración', key: 'duracion', width: 12 }, { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 18 },
                 { header: 'Vlr. Total', key: 'vlrTotal', width: 18 }
             ];
+            const columns = sheetType === 'productivity' ? columnsProd : columnsLiq;
+            const title = sheetType === 'productivity' ? 'Informe de Productividad' : 'Informe de Liquidación de Cuadrilla';
 
-            addMainHeader(wsLiq, 'Informe de Liquidación de Cuadrilla', columnsLiq);
-            applyHeaderStylesAndWidth(wsLiq, columnsLiq, 5);
-             
-            liquidationData.forEach(row => {
-                const isPending = row.cantidadConcepto === -1;
-                wsLiq.addRow({
-                    mes: format(new Date(row.fecha), 'MMMM', { locale: es }),
-                    fechaOp: format(new Date(row.fecha), 'dd/MM/yy'),
-                    pedido: row.pedidoSislog,
-                    contenedor: row.contenedor,
-                    placa: row.placa,
-                    cliente: row.cliente,
-                    concepto: row.conceptoLiquidado,
-                    cantidad: isPending ? 'Pendiente' : row.cantidadConcepto,
-                    unidad: isPending ? 'No Aplica' : row.unidadMedidaConcepto,
-                    hInicio: row.horaInicio,
-                    hFin: row.horaFin,
-                    duracion: formatDuration(row.totalDurationMinutes),
-                    vlrUnitario: isPending ? 'No Aplica' : row.valorUnitario,
-                    vlrTotal: isPending ? 'No Aplica' : row.valorTotalConcepto
-                });
-                const addedRow = wsLiq.lastRow!;
-                addedRow.getCell('cantidad').numFmt = '#,##0.00';
-                addedRow.getCell('vlrUnitario').numFmt = '$ #,##0.00';
-                addedRow.getCell('vlrTotal').numFmt = '$ #,##0.00';
-            });
+            addMainHeader(ws, title, columns);
+            applyHeaderStylesAndWidth(ws, columns, 5);
 
-            wsLiq.addRow([]); // Spacer
-            const totalRow = wsLiq.addRow([]);
-            const cell = totalRow.getCell('M');
-            cell.value = 'TOTAL GENERAL LIQUIDACIÓN:';
-            cell.font = { bold: true };
-            cell.alignment = { horizontal: 'right' };
-            const valueCell = totalRow.getCell('N');
-            valueCell.value = totalLiquidacion;
-            valueCell.numFmt = '$ #,##0.00';
-            valueCell.font = { bold: true };
-
-            if (conceptSummary) {
-                const wsSum = workbook.addWorksheet('Resumen_Conceptos');
-                const columnsSum = [
-                    { header: 'Item', key: 'item', width: 10 },
-                    { header: 'Concepto', key: 'concepto', width: 40 },
-                    { header: 'Total Cantidad', key: 'totalCantidad', width: 18 },
-                    { header: 'Unidad Medida', key: 'unidad', width: 18 },
-                    { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 20 },
-                    { header: 'Vlr. Total', key: 'vlrTotal', width: 20 }
-                ];
-                addMainHeader(wsSum, 'Resumen de Conceptos Liquidados', columnsSum);
-                applyHeaderStylesAndWidth(wsSum, columnsSum, 5);
-
-                conceptSummary.forEach(item => {
-                    const row = wsSum.addRow({
-                        item: item.item,
-                        concepto: item.name,
-                        totalCantidad: item.totalCantidad,
-                        unidad: item.unidadMedida,
-                        vlrUnitario: item.valorUnitario,
-                        vlrTotal: item.totalValor
+            data.forEach(row => {
+                if (sheetType === 'productivity') {
+                    ws.addRow({
+                        fechaOp: format(new Date(row.fecha), 'dd/MM/yy'), fechaCreacion: format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
+                        proveedor: row.crewProvider, operario: row.operario, cliente: row.cliente,
+                        tipoOp: row.tipoOperacion, tipoProd: row.tipoProducto, pedido: row.pedidoSislog,
+                        contenedor: row.contenedor, placa: row.placa, concepto: row.conceptoLiquidado,
+                        horaInicio: row.horaInicio, horaFin: row.horaFin,
+                        cantidad: row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
+                        durTotal: formatDuration(row.totalDurationMinutes), tOperativo: formatDuration(row.operationalDurationMinutes),
+                        novedades: row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
+                        productividad: getPerformanceIndicator(row).text,
                     });
-                    row.getCell('totalCantidad').numFmt = '#,##0.00';
-                    row.getCell('vlrUnitario').numFmt = '$ #,##0.00';
-                    row.getCell('vlrTotal').numFmt = '$ #,##0.00';
-                });
-
-                wsSum.addRow([]);
-                const totalSumRow = wsSum.addRow([]);
-                const totalLabelCell = totalSumRow.getCell('E');
-                totalLabelCell.value = 'TOTAL GENERAL:';
-                totalLabelCell.font = { bold: true };
-                totalLabelCell.alignment = { horizontal: 'right' };
-                const totalValueCell = totalSumRow.getCell('F');
-                totalValueCell.value = totalLiquidacion;
-                totalValueCell.numFmt = '$ #,##0.00';
-                totalValueCell.font = { bold: true };
+                } else {
+                     const isPending = row.cantidadConcepto === -1;
+                    ws.addRow({
+                        mes: format(new Date(row.fecha), 'MMMM', { locale: es }), fechaOp: format(new Date(row.fecha), 'dd/MM/yy'),
+                        proveedor: row.crewProvider, pedido: row.pedidoSislog, contenedor: row.contenedor,
+                        placa: row.placa, cliente: row.cliente, concepto: row.conceptoLiquidado,
+                        cantidad: isPending ? 'Pendiente' : row.cantidadConcepto, unidad: isPending ? 'No Aplica' : row.unidadMedidaConcepto,
+                        hInicio: row.horaInicio, hFin: row.horaFin, duracion: formatDuration(row.totalDurationMinutes),
+                        vlrUnitario: isPending ? 'No Aplica' : row.valorUnitario, vlrTotal: isPending ? 'No Aplica' : row.valorTotalConcepto
+                    });
+                }
+                 const addedRow = ws.lastRow!;
+                 addedRow.getCell('cantidad').numFmt = '#,##0.00';
+                 if (sheetType === 'settlement') {
+                     addedRow.getCell('vlrUnitario').numFmt = '$ #,##0.00';
+                     addedRow.getCell('vlrTotal').numFmt = '$ #,##0.00';
+                 }
+            });
+            if(sheetType === 'settlement') {
+                ws.addRow([]); // Spacer
+                const totalRow = ws.addRow([]);
+                const cell = totalRow.getCell('N');
+                cell.value = 'TOTAL GENERAL LIQUIDACIÓN:';
+                cell.font = { bold: true };
+                cell.alignment = { horizontal: 'right' };
+                const valueCell = totalRow.getCell('O');
+                valueCell.value = data.reduce((acc, row) => acc + (row.valorTotalConcepto || 0), 0);
+                valueCell.numFmt = '$ #,##0.00';
+                valueCell.font = { bold: true };
             }
+        };
+
+        if (isMultiProvider) {
+            providersInReport.forEach(provider => {
+                const dataForProvider = (type === 'productivity' ? filteredReportData : liquidationData).filter(r => r.crewProvider === provider);
+                if(dataForProvider.length > 0) {
+                    const safeSheetName = `${type === 'productivity' ? 'Prod' : 'Liq'} - ${provider.replace(/[\/\?\*\[\]]/g, "").substring(0, 25)}`;
+                    const ws = workbook.addWorksheet(safeSheetName);
+                    processSheet(ws, dataForProvider, type);
+                }
+            });
+        } else {
+            const ws = workbook.addWorksheet(type === 'productivity' ? 'Productividad' : 'Liquidacion_Cuadrilla');
+            const dataToExport = type === 'productivity' ? filteredReportData : liquidationData;
+            processSheet(ws, dataToExport, type);
         }
     
         const buffer = await workbook.xlsx.writeBuffer();
@@ -835,10 +759,11 @@ export default function CrewPerformanceReportPage() {
             doc.setFont('helvetica', 'normal');
             doc.text(periodText, pageWidth / 2, margin + 5, { align: 'center' });
             
-            const detailHead = [['Mes', 'Fecha Op.', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total']];
+            const detailHead = [['Mes', 'Fecha Op.', 'Proveedor', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total']];
             const detailBody = liquidationData.map(row => [
                 format(new Date(row.fecha), 'MMMM', { locale: es }),
                 format(new Date(row.fecha), 'dd/MM/yy'),
+                row.crewProvider,
                 row.pedidoSislog,
                 row.contenedor,
                 row.placa,
@@ -1079,6 +1004,7 @@ export default function CrewPerformanceReportPage() {
                                 </Dialog>
                             </div>
                              <div className="space-y-2"><Label>Operario</Label><Select value={selectedOperario} onValueChange={setSelectedOperario} disabled={isLoadingOperarios}><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Operarios</SelectItem>{availableOperarios.map(op => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent></Select></div>
+                              <div className="space-y-2"><Label>Proveedor Cuadrilla</Label><Select value={selectedProvider} onValueChange={setSelectedProvider}><SelectTrigger><SelectValue placeholder="Todos los Proveedores" /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Proveedores</SelectItem>{crewProviders.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
                              <div className="space-y-2"><Label>Tipo de Operación</Label><Select value={operationType} onValueChange={setOperationType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select></div>
                             <div className="space-y-2"><Label>Tipo de Producto</Label><Select value={productType} onValueChange={setProductType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select></div>
                              <div className="space-y-2"><Label>Concepto Liquidación</Label>
@@ -1138,6 +1064,7 @@ export default function CrewPerformanceReportPage() {
                                             <Table><TableHeader><TableRow>
                                                 <TableHead>Fecha Op.</TableHead>
                                                 <TableHead>Fecha Creación</TableHead>
+                                                <TableHead>Proveedor</TableHead>
                                                 <TableHead>Operario</TableHead>
                                                 <TableHead>Cliente</TableHead>
                                                 <TableHead>Tipo Op.</TableHead>
@@ -1156,7 +1083,7 @@ export default function CrewPerformanceReportPage() {
                                                 <TableHead className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">Acciones</TableHead>
                                             </TableRow></TableHeader>
                                                 <TableBody>
-                                                    {isLoading ? (<TableRow><TableCell colSpan={18}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
+                                                    {isLoading ? (<TableRow><TableCell colSpan={19}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
                                                         displayedData.map((row) => {
                                                             const indicator = getPerformanceIndicator(row);
                                                             const isPending = row.cantidadConcepto === -1;
@@ -1168,6 +1095,7 @@ export default function CrewPerformanceReportPage() {
                                                                 <TableRow key={row.id}>
                                                                     <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell>
                                                                     <TableCell className="text-xs">{format(parseISO(row.createdAt), 'dd/MM/yy HH:mm')}</TableCell>
+                                                                    <TableCell className="text-xs">{row.crewProvider || 'N/A'}</TableCell>
                                                                     <TableCell className="text-xs">{row.operario}</TableCell>
                                                                     <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                                     <TableCell className="text-xs">{row.tipoOperacion}</TableCell>
@@ -1270,6 +1198,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableHeader><TableRow>
                                             <TableHead>Mes</TableHead>
                                             <TableHead>Fecha Op.</TableHead>
+                                            <TableHead>Proveedor</TableHead>
                                             <TableHead>Pedido</TableHead>
                                             <TableHead>Contenedor</TableHead>
                                             <TableHead>Placa</TableHead>
@@ -1284,13 +1213,14 @@ export default function CrewPerformanceReportPage() {
                                             <TableHead>Vlr. Total</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {isLoading ? (<TableRow><TableCell colSpan={14}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
+                                            {isLoading ? (<TableRow><TableCell colSpan={15}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
                                                 displayedLiquidationData.map((row) => {
                                                     const isPending = row.cantidadConcepto === -1;
                                                     return (
                                                         <TableRow key={row.id}>
                                                             <TableCell className="text-xs capitalize">{format(new Date(row.fecha), 'MMMM', { locale: es })}</TableCell>
                                                             <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell>
+                                                            <TableCell className="text-xs">{row.crewProvider || 'N/A'}</TableCell>
                                                             <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
                                                             <TableCell className="text-xs">{row.contenedor}</TableCell>
                                                             <TableCell className="text-xs">{row.placa}</TableCell>
@@ -1307,7 +1237,7 @@ export default function CrewPerformanceReportPage() {
                                                     )
                                                 })
                                             ) : (<EmptyState searched={searched} title="No se encontraron liquidaciones" description="No hay operaciones de cuadrilla con conceptos liquidables para los filtros seleccionados." />)}
-                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={13} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
+                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={14} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
                                         </TableBody>
                                     </Table>
                                  </div>
@@ -1525,3 +1455,5 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
+
+    
