@@ -1486,29 +1486,29 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                           )}
                                       />
                                       {showProviderSelector && (
-                                            <FormField
-                                            control={form.control}
-                                            name={`observaciones.${index}.provider`}
-                                            render={({ field }) => (
-                                                <FormItem>
+                                        <FormField
+                                          control={form.control}
+                                          name={`observaciones.${index}.provider`}
+                                          render={({ field }) => (
+                                              <FormItem>
                                                 <FormLabel>Proveedor Cuadrilla</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                                                <Select onValueChange={(value) => field.onChange(value === "NO_APLICA" ? undefined : value)} value={field.value}>
                                                     <FormControl>
                                                         <SelectTrigger>
                                                             <SelectValue placeholder="No Aplica" />
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="">No Aplica</SelectItem>
+                                                        <SelectItem value="NO_APLICA">No Aplica</SelectItem>
                                                         {crewProviders.map(p => (
                                                             <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />
-                                                </FormItem>
-                                            )}
-                                            />
+                                              </FormItem>
+                                          )}
+                                        />
                                       )}
                                   </>
                                   )}
@@ -1756,13 +1756,11 @@ function ObservationSelectorDialog({
     open,
     onOpenChange,
     standardObservations,
-    crewProviders,
     onSelect,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     standardObservations: StandardObservation[];
-    crewProviders: CrewProvider[];
     onSelect: (observation: { name: string, quantityType?: string }) => void;
 }) {
     const [search, setSearch] = useState("");
@@ -1915,7 +1913,7 @@ function PedidoTypeSelectorDialog({
     onSelect: (pedidoType: PedidoType) => void;
 }) {
     const [search, setSearch] = useState("");
-  
+
     const filteredTypes = useMemo(() => {
         if (!search) return pedidoTypes;
         return pedidoTypes.filter(pt => pt.name.toLowerCase().includes(search.toLowerCase()));
@@ -1957,8 +1955,6 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-    
-
     
 
     

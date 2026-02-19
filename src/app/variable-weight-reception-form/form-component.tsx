@@ -130,7 +130,7 @@ const observationSchema = z.object({
   customType: z.string().optional(),
   quantity: z.coerce.number({invalid_type_error: "La cantidad debe ser un número."}).min(0, "La cantidad no puede ser negativa.").optional(),
   quantityType: z.string().optional(),
-  executedByGrupoRosales: z.boolean().default(false),
+  provider: z.string().optional(),
 }).refine(data => {
     if (data.type === 'OTRAS OBSERVACIONES' && !data.customType?.trim()) {
         return false;
@@ -634,6 +634,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         }
       }
     }, [watchedTipoPedido, form]);
+
+    useEffect(() => {
+        if (watchedAplicaCuadrilla === 'si' && !form.getValues('crewProvider')) {
+            form.setValue('crewProvider', 'GRUPO ROSALES LOGISTICA 24/7 SAS');
+        }
+    }, [watchedAplicaCuadrilla, form]);
     
     const handleDiscard = () => {
       handleDiscardHook();
@@ -851,7 +857,10 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             const sanitizedFormData = {
                 ...originalDefaultValues,
                 ...formData,
-                observaciones: formData.observaciones ?? [],
+                observaciones: (formData.observaciones || []).map((obs: any) => ({
+                    ...obs,
+                    provider: obs.provider || (obs.executedByGrupoRosales ? 'GRUPO ROSALES LOGISTICA 24/7 SAS' : undefined),
+                })),
                 setPoint: formData.setPoint ?? null,
                 aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
                 crewProvider: submission.crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
@@ -1360,6 +1369,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               open={isObservationDialogOpen}
               onOpenChange={setObservationDialogOpen}
               standardObservations={standardObservations}
+              crewProviders={crewProviders}
               onSelect={(obs) => {
                   if (observationDialogIndex !== null) {
                       form.setValue(`observaciones.${observationDialogIndex}.type`, obs.name);
@@ -2102,27 +2112,31 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                       </FormItem>
                                                   )}
                                               />
-                                              {showCrewCheckbox && (
-                                                  <FormField
-                                                      control={form.control}
-                                                      name={`observaciones.${index}.executedByGrupoRosales`}
-                                                      render={({ field }) => (
-                                                          <FormItem className="flex flex-row items-end space-x-2 pb-2">
-                                                              <FormControl>
-                                                                  <Checkbox
-                                                                      checked={field.value}
-                                                                      onCheckedChange={field.onChange}
-                                                                  />
-                                                              </FormControl>
-                                                              <div className="space-y-1 leading-none">
-                                                                  <Label htmlFor={`obs-check-${index}`} className="font-normal cursor-pointer uppercase">
-                                                                      REALIZADO POR CUADRILLA
-                                                                  </Label>
-                                                              </div>
-                                                          </FormItem>
-                                                      )}
-                                                  />
-                                              )}
+                                               {showCrewCheckbox && (
+                                                    <FormField
+                                                    control={form.control}
+                                                    name={`observaciones.${index}.provider`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Proveedor Cuadrilla</FormLabel>
+                                                            <Select onValueChange={(value) => field.onChange(value === "NO_APLICA" ? undefined : value)} value={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="No Aplica" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    <SelectItem value="NO_APLICA">No Aplica</SelectItem>
+                                                                    {crewProviders.map(p => (
+                                                                        <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                    />
+                                                )}
                                           </>
                                           )}
                                       </div>
@@ -2366,11 +2380,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
       open,
       onOpenChange,
       standardObservations,
+      crewProviders,
       onSelect,
   }: {
       open: boolean;
       onOpenChange: (open: boolean) => void;
       standardObservations: StandardObservation[];
+      crewProviders: CrewProvider[];
       onSelect: (observation: { name: string, quantityType?: string }) => void;
   }) {
       const [search, setSearch] = useState("");
