@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -9,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { DateRange } from 'react-day-picker';
 
 import { addManualOperation, updateManualOperation, deleteManualOperation, getAllManualOperations } from './actions';
 import type { ManualOperationData } from './actions';
@@ -96,6 +94,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     });
     
     const watchedConcept = form.watch('concept');
+    const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
 
     const fetchAllData = useCallback(async () => {
         setIsLoading(true);
@@ -107,7 +106,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             setAllOperations(ops);
             setCrewProviders(providers);
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos iniciales.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
         } finally {
             setIsLoading(false);
         }
@@ -222,10 +221,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             toast({ title: 'Éxito', description: result.message });
             setIsDialogOpen(false);
             form.reset();
-            const updatedOps = await fetchAllData();
-            if (searched && dateRange) {
-                handleSearch();
-            }
+            await fetchAllData();
+            handleSearch();
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -497,3 +494,5 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         </div>
     );
 }
+
+    
