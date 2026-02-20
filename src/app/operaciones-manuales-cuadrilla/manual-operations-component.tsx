@@ -1,5 +1,4 @@
 
-      
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -64,11 +63,12 @@ type ManualOperationValues = z.infer<typeof manualOperationSchema>;
 interface ManualOperationsComponentProps {
     clients: ClientInfo[];
     billingConcepts: BillingConcept[];
+    crewProviders: CrewProvider[];
 }
 
 type DialogMode = 'add' | 'edit' | 'view';
 
-export default function ManualOperationsComponent({ clients, billingConcepts }: ManualOperationsComponentProps) {
+export default function ManualOperationsComponent({ clients, billingConcepts, crewProviders }: ManualOperationsComponentProps) {
     const router = useRouter();
     const { toast } = useToast();
     const { user, displayName } = useAuth();
@@ -81,8 +81,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [selectedClient, setSelectedClient] = useState<string>('all');
     const [selectedConcept, setSelectedConcept] = useState<string>('all');
-    
-    const [crewProviders, setCrewProviders] = useState<CrewProvider[]>([]);
+
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<DialogMode>('add');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,6 +115,39 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     useEffect(() => {
         fetchAllData();
     }, [fetchAllData]);
+
+    useEffect(() => {
+        if (!searched) return;
+    
+        let results = allOperations;
+    
+        if (dateRange?.from && dateRange?.to) {
+            const start = startOfDay(dateRange.from);
+            const end = endOfDay(dateRange.to);
+            results = results.filter(op => {
+                const opDate = new Date(op.operationDate);
+                return isWithinInterval(opDate, { start, end });
+            });
+        }
+    
+        if (selectedClient !== 'all') {
+            results = results.filter(op => op.clientName === selectedClient);
+        }
+        if (selectedConcept !== 'all') {
+            results = results.filter(op => op.concept === selectedConcept);
+        }
+        
+        results.sort((a, b) => new Date(a.operationDate).getTime() - new Date(b.operationDate).getTime());
+    
+        setFilteredOperations(results);
+        
+        if (results.length === 0) {
+            toast({
+                title: "Sin resultados",
+                description: "No se encontraron operaciones con los filtros seleccionados."
+            });
+        }
+    }, [searched, allOperations, dateRange, selectedClient, selectedConcept, toast]);
     
     const handleSearch = () => {
         if (!dateRange || !dateRange.from || !dateRange.to) {
@@ -126,35 +158,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             });
             return;
         }
-
-        let results = allOperations;
-
-        const start = startOfDay(dateRange.from);
-        const end = endOfDay(dateRange.to);
-
-        results = results.filter(op => {
-            const opDate = new Date(op.operationDate);
-            return isWithinInterval(opDate, { start, end });
-        });
-
-        if (selectedClient !== 'all') {
-            results = results.filter(op => op.clientName === selectedClient);
-        }
-        if (selectedConcept !== 'all') {
-            results = results.filter(op => op.concept === selectedConcept);
-        }
-        
-        results.sort((a, b) => new Date(a.operationDate).getTime() - new Date(b.operationDate).getTime());
-
         setSearched(true);
-        setFilteredOperations(results);
-        
-        if (results.length === 0) {
-            toast({
-                title: "Sin resultados",
-                description: "No se encontraron operaciones con los filtros seleccionados."
-            });
-        }
     };
     
     const handleClearFilters = () => {
@@ -223,7 +227,6 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             setIsDialogOpen(false);
             form.reset();
             await fetchAllData();
-            handleSearch();
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -237,7 +240,6 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             setAllOperations(prev => prev.filter(op => op.id !== opToDelete.id));
-            setFilteredOperations(prev => prev.filter(op => op.id !== opToDelete.id));
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
@@ -360,7 +362,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                                     <p className="text-muted-foreground">
                                                         {searched
                                                             ? "No hay operaciones manuales para los filtros seleccionados."
-                                                            : "Seleccione una fecha y haga clic en 'Consultar' para ver los registros."}
+                                                            : "Seleccione un rango de fechas y haga clic en 'Consultar' para ver los registros."}
                                                     </p>
                                                 </div>
                                             </TableCell>
@@ -495,5 +497,3 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         </div>
     );
 }
-
-    

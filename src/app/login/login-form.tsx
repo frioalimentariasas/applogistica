@@ -103,7 +103,7 @@ export default function LoginForm() {
                 />
             </div>
             <CardTitle className="text-2xl font-bold">
-              <span className="text-4xl font-extrabold tracking-tight text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              <span className="text-2xl font-extrabold tracking-tight text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 Control de Operaciones Logísticas
                 </span>
             </CardTitle>

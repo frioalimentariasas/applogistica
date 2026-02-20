@@ -174,10 +174,11 @@ export default function Home() {
             <div className="text-center">
                 <p className="text-lg text-gray-800">Bienvenido, <span className="font-semibold">{displayName}</span></p>
                         <CardHeader>
-                            <CardTitle className="text-lg md:text-xl text-center font-bold">
-                              <span className="text-secondary-foreground">Control de </span>
-                              <span className="text-primary">Operaciones Logísticas</span>
-                            </CardTitle>
+                            <CardTitle className="text-2xl font-bold">
+                                          <span className="text-2xl font-extrabold tracking-tight text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                                            Control de Operaciones Logísticas
+                                            </span>
+                                        </CardTitle>
                         </CardHeader>
             </div>
         )}
@@ -233,9 +234,13 @@ export default function Home() {
             {availableMenuGroups.length > 0 && (
                 <div>
                     <Card className="w-full">
-                        <CardHeader>
-                            <CardTitle className="text-lg md:text-xl text-center text-primary">Menú de Consultas y Herramientas</CardTitle>
-                        </CardHeader>
+                    <div className="text-center">
+                        <CardTitle className="text-2xl font-bold">
+                                          <span className="text-2xl font-extrabold tracking-tight text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                                          Menú de Consultas y Herramientas
+                                            </span>
+                                        </CardTitle>
+                        </div>
                         <CardContent>
                             <Accordion type="multiple" className="w-full space-y-2">
                                 {availableMenuGroups.map(([groupName, groupData]) => (
