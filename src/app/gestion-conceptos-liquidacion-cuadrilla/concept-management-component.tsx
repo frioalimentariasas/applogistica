@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -364,181 +363,182 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
-          <div className="relative flex items-center justify-center text-center">
-            <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/crew-performance-report')}>
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <div>
-              <div className="flex items-center justify-center gap-2">
-                <DollarSign className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-bold text-primary">Gestión de Conceptos de Liquidación Cuadrilla</h1>
+    <>
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto">
+          <header className="mb-8">
+            <div className="relative flex items-center justify-center text-center">
+              <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/crew-performance-report')}>
+                <ArrowLeft className="h-6 w-6" />
+              </Button>
+              <div>
+                <div className="flex items-center justify-center gap-2">
+                  <DollarSign className="h-8 w-8 text-primary" />
+                  <h1 className="text-2xl font-bold text-primary">Gestión de Conceptos de Liquidación Cuadrilla</h1>
+                </div>
+                <p className="text-sm text-gray-500">Defina los conceptos y valores para la liquidación de las operaciones de cuadrilla.</p>
               </div>
-              <p className="text-sm text-gray-500">Defina los conceptos y valores para la liquidación de las operaciones de cuadrilla.</p>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center flex-wrap gap-4">
-                    <CardTitle>Conceptos Existentes</CardTitle>
-                    <div className="flex gap-2">
-                        {selectedIds.size > 0 && (
-                            <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar ({selectedIds.size})
-                            </Button>
+          <Card>
+              <CardHeader>
+                  <div className="flex justify-between items-center flex-wrap gap-4">
+                      <CardTitle>Conceptos Existentes</CardTitle>
+                      <div className="flex gap-2">
+                          {selectedIds.size > 0 && (
+                              <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Eliminar ({selectedIds.size})
+                              </Button>
+                          )}
+                          <Button onClick={handleExportExcel} variant="outline" size="sm" disabled={concepts.length === 0}>
+                              <Download className="mr-2 h-4 w-4" />
+                              Exportar a Excel
+                          </Button>
+                          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                              <DialogTrigger asChild>
+                                  <Button><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Concepto</Button>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
+                                  <Form {...addForm}>
+                                  <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="flex flex-col h-full overflow-hidden">
+                                  <DialogHeader>
+                                      <DialogTitle>Nuevo Concepto de Liquidación</DialogTitle>
+                                      <DialogDescription>Cree una regla de cobro para una operación.</DialogDescription>
+                                  </DialogHeader>
+                                  <div className="flex-grow overflow-y-auto pr-4 -mr-4">
+                                      <div className="space-y-4 pt-4">
+                                          <ConceptFormFields form={addForm} clientOptions={clientOptions} crewProviders={crewProviders} />
+                                      </div>
+                                  </div>
+                                  <DialogFooter className="flex-shrink-0 pt-4">
+                                      <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
+                                      <Button type="submit" disabled={isSubmitting}>
+                                          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                                          Guardar Concepto
+                                      </Button>
+                                  </DialogFooter>
+                                  </form>
+                                  </Form>
+                              </DialogContent>
+                          </Dialog>
+                      </div>
+                  </div>
+              </CardHeader>
+              <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <Input
+                          placeholder="Buscar por nombre de concepto..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      <ClientMultiSelectDialog
+                          options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                          selected={clientFilter}
+                          onChange={setClientFilter}
+                          placeholder="Filtrar por cliente..."
+                      />
+                       <Select value={providerFilter} onValueChange={setProviderFilter}>
+                          <SelectTrigger><SelectValue placeholder="Filtrar por proveedor..." /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="all">Todos los Proveedores</SelectItem>
+                              {crewProviders.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+                   <div className="rounded-md border">
+                      <ScrollArea className="h-[500px]">
+                        <Accordion type="multiple" className="w-full">
+                          {Object.entries(groupedConcepts).map(([provider, conceptsInGroup]) => (
+                              <AccordionItem value={provider} key={provider}>
+                                  <AccordionTrigger className="px-4 py-2 bg-muted/50 hover:bg-muted/80">
+                                      <div className="flex items-center gap-2">
+                                          <HardHat className="h-5 w-5 text-primary" />
+                                          <span>{provider}</span>
+                                          <Badge variant="secondary">{conceptsInGroup.length}</Badge>
+                                      </div>
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                      <Table>
+                                          <TableHeader>
+                                              <TableRow>
+                                                  <TableHead className="w-12"><Checkbox checked={conceptsInGroup.every(c => selectedIds.has(c.id))} onCheckedChange={(checked) => {
+                                                      const newSet = new Set(selectedIds);
+                                                      if(checked) {
+                                                          conceptsInGroup.forEach(c => newSet.add(c.id));
+                                                      } else {
+                                                          conceptsInGroup.forEach(c => newSet.delete(c.id));
+                                                      }
+                                                      setSelectedIds(newSet);
+                                                  }} /></TableHead>
+                                                  <TableHead>Concepto</TableHead>
+                                                  <TableHead>Valor</TableHead>
+                                                  <TableHead>Estado</TableHead>
+                                                  <TableHead className="text-right">Acciones</TableHead>
+                                              </TableRow>
+                                          </TableHeader>
+                                          <TableBody>
+                                              {conceptsInGroup.map((c) => {
+                                                  const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
+                                                  return (
+                                                      <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
+                                                          <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
+                                                          <TableCell>
+                                                              <div className="font-medium flex items-center gap-2">
+                                                                  {c.conceptName}
+                                                              </div>
+                                                              <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={(c.clientNames || []).join(', ')}>
+                                                                  {(c.clientNames || []).join(', ')} / {c.unitOfMeasure}
+                                                              </div>
+                                                          </TableCell>
+                                                          <TableCell>
+                                                              {c.conceptName === 'JORNAL ORDINARIO' ? (
+                                                                  <div className="text-xs">
+                                                                      <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                      <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                  </div>
+                                                              ) : cargueDescargueConcepts.includes(c.conceptName.toUpperCase()) ? (
+                                                                  <div className="text-xs">
+                                                                      <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                      <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                      <p className="text-muted-foreground">Fin turno: {c.dayShiftEnd}</p>
+                                                                  </div>
+                                                              ) : (
+                                                                  c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
+                                                              )}
+                                                          </TableCell>
+                                                          <TableCell>
+                                                              <Switch
+                                                                  checked={c.status === 'activo'}
+                                                                  onCheckedChange={() => handleToggleStatus(c.id, c.status)}
+                                                                  disabled={togglingStatusId === c.id}
+                                                              />
+                                                          </TableCell>
+                                                          <TableCell className="text-right">
+                                                              <div className="flex justify-end gap-1">
+                                                                  <Button variant="ghost" size="icon" title="Clonar" onClick={() => handleClone(c)}><Copy className="h-4 w-4 text-gray-600" /></Button>
+                                                                  <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
+                                                              </div>
+                                                          </TableCell>
+                                                      </TableRow>
+                                                  )
+                                              })}
+                                          </TableBody>
+                                      </Table>
+                                  </AccordionContent>
+                              </AccordionItem>
+                          ))}
+                        </Accordion>
+                        {Object.keys(groupedConcepts).length === 0 && (
+                          <div className="text-center p-12 text-muted-foreground">
+                              {searchTerm || clientFilter.length > 0 || providerFilter !== 'all' ? 'No se encontraron conceptos con los filtros aplicados.' : 'No hay conceptos definidos.'}
+                          </div>
                         )}
-                        <Button onClick={handleExportExcel} variant="outline" size="sm" disabled={concepts.length === 0}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Exportar a Excel
-                        </Button>
-                        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Concepto</Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
-                                <Form {...addForm}>
-                                <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="flex flex-col h-full overflow-hidden">
-                                <DialogHeader>
-                                    <DialogTitle>Nuevo Concepto de Liquidación</DialogTitle>
-                                    <DialogDescription>Cree una regla de cobro para una operación.</DialogDescription>
-                                </DialogHeader>
-                                <div className="flex-grow overflow-y-auto pr-4 -mr-4">
-                                    <div className="space-y-4 pt-4">
-                                        <ConceptFormFields form={addForm} clientOptions={clientOptions} crewProviders={crewProviders} />
-                                    </div>
-                                </div>
-                                <DialogFooter className="flex-shrink-0 pt-4">
-                                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
-                                    <Button type="submit" disabled={isSubmitting}>
-                                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                        Guardar Concepto
-                                    </Button>
-                                </DialogFooter>
-                                </form>
-                                </Form>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <Input
-                        placeholder="Buscar por nombre de concepto..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    <ClientMultiSelectDialog
-                        options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
-                        selected={clientFilter}
-                        onChange={setClientFilter}
-                        placeholder="Filtrar por cliente..."
-                    />
-                     <Select value={providerFilter} onValueChange={setProviderFilter}>
-                        <SelectTrigger><SelectValue placeholder="Filtrar por proveedor..." /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos los Proveedores</SelectItem>
-                            {crewProviders.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="rounded-md border">
-                    <ScrollArea className="h-[500px]">
-                      <Accordion type="multiple" className="w-full">
-                        {Object.entries(groupedConcepts).map(([provider, conceptsInGroup]) => (
-                            <AccordionItem value={provider} key={provider}>
-                                <AccordionTrigger className="px-4 py-2 bg-muted/50 hover:bg-muted/80">
-                                    <div className="flex items-center gap-2">
-                                        <HardHat className="h-5 w-5 text-primary" />
-                                        <span>{provider}</span>
-                                        <Badge variant="secondary">{conceptsInGroup.length}</Badge>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-12"><Checkbox checked={conceptsInGroup.every(c => selectedIds.has(c.id))} onCheckedChange={(checked) => {
-                                                    const newSet = new Set(selectedIds);
-                                                    if(checked) {
-                                                        conceptsInGroup.forEach(c => newSet.add(c.id));
-                                                    } else {
-                                                        conceptsInGroup.forEach(c => newSet.delete(c.id));
-                                                    }
-                                                    setSelectedIds(newSet);
-                                                }} /></TableHead>
-                                                <TableHead>Concepto</TableHead>
-                                                <TableHead>Valor</TableHead>
-                                                <TableHead>Estado</TableHead>
-                                                <TableHead className="text-right">Acciones</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {conceptsInGroup.map((c) => {
-                                                const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
-                                                return (
-                                                    <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
-                                                        <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
-                                                        <TableCell>
-                                                            <div className="font-medium flex items-center gap-2">
-                                                                {c.conceptName}
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={(c.clientNames || []).join(', ')}>
-                                                                {(c.clientNames || []).join(', ')} / {c.unitOfMeasure}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {c.conceptName === 'JORNAL ORDINARIO' ? (
-                                                                <div className="text-xs">
-                                                                    <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                                    <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                                </div>
-                                                            ) : cargueDescargueConcepts.includes(c.conceptName.toUpperCase()) ? (
-                                                                <div className="text-xs">
-                                                                    <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                                    <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                                    <p className="text-muted-foreground">Fin turno: {c.dayShiftEnd}</p>
-                                                                </div>
-                                                            ) : (
-                                                                c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Switch
-                                                                checked={c.status === 'activo'}
-                                                                onCheckedChange={() => handleToggleStatus(c.id, c.status)}
-                                                                disabled={togglingStatusId === c.id}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <div className="flex justify-end gap-1">
-                                                                <Button variant="ghost" size="icon" title="Clonar" onClick={() => handleClone(c)}><Copy className="h-4 w-4 text-green-600" /></Button>
-                                                                <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )
-                                            })}
-                                        </TableBody>
-                                    </Table>
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                      </Accordion>
-                      {Object.keys(groupedConcepts).length === 0 && (
-                        <div className="text-center p-12 text-muted-foreground">
-                            {searchTerm || clientFilter.length > 0 || providerFilter !== 'all' ? 'No se encontraron conceptos con los filtros aplicados.' : 'No hay conceptos definidos.'}
-                        </div>
-                      )}
-                    </ScrollArea>
-                </div>
-            </CardContent>
-          </Card>
+                      </ScrollArea>
+                  </div>
+              </CardContent>
+            </Card>
         </div>
       </div>
       
@@ -579,7 +579,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }
 
