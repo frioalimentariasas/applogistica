@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -104,8 +103,9 @@ export default function LoginForm() {
                 />
             </div>
             <CardTitle className="text-2xl font-bold">
-              <span className="text-secondary-foreground">Control de </span>
-              <span className="text-primary">Operaciones Logísticas</span>
+              <span className="text-4xl font-extrabold tracking-tight text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Control de Operaciones Logísticas
+                </span>
             </CardTitle>
           <CardTitle className="text-2xl text-primary">Iniciar Sesión</CardTitle>
           <CardDescription>
