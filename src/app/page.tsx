@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -175,7 +174,10 @@ export default function Home() {
             <div className="text-center">
                 <p className="text-lg text-gray-800">Bienvenido, <span className="font-semibold">{displayName}</span></p>
                         <CardHeader>
-                            <CardTitle className="text-lg md:text-xl text-center text-primary">Control de Operaciones Logísticas</CardTitle>
+                            <CardTitle className="text-lg md:text-xl text-center font-bold">
+                              <span className="text-secondary-foreground">Control de </span>
+                              <span className="text-primary">Operaciones Logísticas</span>
+                            </CardTitle>
                         </CardHeader>
             </div>
         )}

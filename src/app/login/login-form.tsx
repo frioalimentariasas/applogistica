@@ -103,7 +103,10 @@ export default function LoginForm() {
                     priority
                 />
             </div>
-            <CardTitle className="text-2xl text-primary">Control de Operaciones Logísticas</CardTitle>
+            <CardTitle className="text-2xl font-bold">
+              <span className="text-secondary-foreground">Control de </span>
+              <span className="text-primary">Operaciones Logísticas</span>
+            </CardTitle>
           <CardTitle className="text-2xl text-primary">Iniciar Sesión</CardTitle>
           <CardDescription>
             Ingrese su correo electrónico y contraseña para acceder al sistema.
