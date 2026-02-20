@@ -75,7 +75,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts, cr
     
     const [allOperations, setAllOperations] = useState<any[]>([]);
     const [filteredOperations, setFilteredOperations] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [searched, setSearched] = useState(false);
     
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -97,57 +97,19 @@ export default function ManualOperationsComponent({ clients, billingConcepts, cr
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
 
     const fetchAllData = useCallback(async () => {
-        setIsLoading(true);
         try {
-            const [ops, providers] = await Promise.all([
-                getAllManualOperations(),
-                getCrewProviders()
-            ]);
-            setAllOperations(ops);
-            setCrewProviders(providers);
+            const data = await getAllManualOperations();
+            setAllOperations(data);
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
-        } finally {
-            setIsLoading(false);
+            // No toast here to avoid showing an error on initial load if there's a problem.
+            // The error will be caught and shown during the manual search.
+            console.error("Failed to pre-fetch manual operations:", error);
         }
-    }, [toast]);
+    }, []);
     
     useEffect(() => {
         fetchAllData();
     }, [fetchAllData]);
-
-    useEffect(() => {
-        if (!searched) return;
-    
-        let results = allOperations;
-    
-        if (dateRange?.from && dateRange?.to) {
-            const start = startOfDay(dateRange.from);
-            const end = endOfDay(dateRange.to);
-            results = results.filter(op => {
-                const opDate = new Date(op.operationDate);
-                return isWithinInterval(opDate, { start, end });
-            });
-        }
-    
-        if (selectedClient !== 'all') {
-            results = results.filter(op => op.clientName === selectedClient);
-        }
-        if (selectedConcept !== 'all') {
-            results = results.filter(op => op.concept === selectedConcept);
-        }
-        
-        results.sort((a, b) => new Date(a.operationDate).getTime() - new Date(b.operationDate).getTime());
-    
-        setFilteredOperations(results);
-        
-        if (results.length === 0) {
-            toast({
-                title: "Sin resultados",
-                description: "No se encontraron operaciones con los filtros seleccionados."
-            });
-        }
-    }, [searched, allOperations, dateRange, selectedClient, selectedConcept, toast]);
     
     const handleSearch = () => {
         if (!dateRange || !dateRange.from || !dateRange.to) {
@@ -158,7 +120,40 @@ export default function ManualOperationsComponent({ clients, billingConcepts, cr
             });
             return;
         }
+
+        setIsLoading(true);
         setSearched(true);
+        
+        try {
+            const start = startOfDay(dateRange.from);
+            const end = endOfDay(dateRange.to);
+
+            let results = allOperations.filter(op => {
+                const opDate = new Date(op.operationDate);
+                return isWithinInterval(opDate, { start, end });
+            });
+    
+            if (selectedClient !== 'all') {
+                results = results.filter(op => op.clientName === selectedClient);
+            }
+            if (selectedConcept !== 'all') {
+                results = results.filter(op => op.concept === selectedConcept);
+            }
+            
+            results.sort((a, b) => new Date(a.operationDate).getTime() - new Date(b.operationDate).getTime());
+            setFilteredOperations(results);
+            
+            if (results.length === 0) {
+                toast({
+                    title: "Sin resultados",
+                    description: "No se encontraron operaciones con los filtros seleccionados."
+                });
+            }
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron filtrar las operaciones.' });
+        } finally {
+            setIsLoading(false);
+        }
     };
     
     const handleClearFilters = () => {
@@ -226,7 +221,9 @@ export default function ManualOperationsComponent({ clients, billingConcepts, cr
             toast({ title: 'Éxito', description: result.message });
             setIsDialogOpen(false);
             form.reset();
-            await fetchAllData();
+            const freshData = await getAllManualOperations();
+            setAllOperations(freshData);
+            setSearched(false); // Force a new search to see updated data
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -329,7 +326,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts, cr
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {isLoading && !searched ? (
+                                    {isLoading && searched ? (
                                         <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
                                     ) : filteredOperations.length > 0 ? (
                                         filteredOperations.map((op) => (
