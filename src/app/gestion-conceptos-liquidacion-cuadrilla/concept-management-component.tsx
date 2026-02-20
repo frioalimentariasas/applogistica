@@ -17,7 +17,7 @@ import { addBillingConcept, updateBillingConcept, deleteMultipleBillingConcepts,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Download, Clock } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Download, Clock, HardHat, Copy } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -162,6 +162,17 @@ export default function ConceptManagementComponent({ initialClients, initialConc
         return searchTermMatch && clientMatch && providerMatch;
     }).sort((a, b) => a.conceptName.localeCompare(b.conceptName));
   }, [concepts, searchTerm, clientFilter, providerFilter]);
+
+  const groupedConcepts = useMemo(() => {
+    return filteredConcepts.reduce((acc, concept) => {
+        const provider = concept.provider || 'Sin Proveedor';
+        if (!acc[provider]) {
+            acc[provider] = [];
+        }
+        acc[provider].push(concept);
+        return acc;
+    }, {} as Record<string, BillingConcept[]>);
+  }, [filteredConcepts]);
   
   const onAddSubmit: SubmitHandler<ConceptFormValues> = async (data) => {
     setIsSubmitting(true);
@@ -221,6 +232,19 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     });
   };
 
+  const handleClone = (concept: BillingConcept) => {
+    addForm.reset({
+        ...concept,
+        provider: '', // Forzar selección de nuevo proveedor
+        clientNames: ['TODOS (Cualquier Cliente)'], // Resetear a todos los clientes por defecto
+    });
+    setIsAddDialogOpen(true);
+    toast({
+        title: 'Concepto Clonado',
+        description: `Datos cargados. Seleccione un nuevo proveedor y guarde.`,
+    });
+  };
+
   const handleRowSelect = (id: string, checked: boolean) => {
     const newSet = new Set(selectedIds);
     if (checked) newSet.add(id); else newSet.delete(id);
@@ -258,6 +282,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
 
     worksheet.columns = [
         { header: 'Nombre del Concepto', key: 'conceptName', width: 30 },
+        { header: 'Proveedor', key: 'provider', width: 30 },
         { header: 'Cliente(s)', key: 'clientNames', width: 40 },
         { header: 'Tipo Operación', key: 'operationType', width: 20 },
         { header: 'Tipo Producto', key: 'productType', width: 20 },
@@ -283,11 +308,12 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     concepts.forEach(concept => {
         worksheet.addRow({
             conceptName: concept.conceptName,
+            provider: concept.provider,
             clientNames: concept.clientNames.join(', '),
             operationType: concept.operationType,
             productType: concept.productType,
             unitOfMeasure: concept.unitOfMeasure,
-            value: concept.conceptName !== 'JORNAL ORDINARIO' && !cargueDescargueConcepts.includes(concept.conceptName) ? concept.value : '',
+            value: concept.conceptName !== 'JORNAL ORDINARIO' && !cargueDescargueConcepts.includes(concept.conceptName.toUpperCase()) ? concept.value : '',
             lunesASabadoTariff: concept.conceptName === 'JORNAL ORDINARIO' ? concept.lunesASabadoTariff : '',
             domingoFestivoTariff: concept.conceptName === 'JORNAL ORDINARIO' ? concept.domingoFestivoTariff : '',
             dayTariff: cargueDescargueConcepts.includes(concept.conceptName.toUpperCase()) ? concept.dayTariff : '',
@@ -423,71 +449,97 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                 </div>
                  <div className="rounded-md border">
                     <ScrollArea className="h-[500px]">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} disabled={filteredConcepts.length === 0} /></TableHead>
-                                    <TableHead>Concepto</TableHead>
-                                    <TableHead>Proveedor</TableHead>
-                                    <TableHead>Valor</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredConcepts.length > 0 ? (
-                                    filteredConcepts.map((c) => {
-                                        const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
-                                        return (
-                                            <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
-                                                <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
-                                                <TableCell>
-                                                    <div className="font-medium flex items-center gap-2">
-                                                        {c.conceptName}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={(c.clientNames || []).join(', ')}>
-                                                        {(c.clientNames || []).join(', ')} / {c.unitOfMeasure}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>{c.provider}</TableCell>
-                                                <TableCell>
-                                                    {c.conceptName === 'JORNAL ORDINARIO' ? (
-                                                        <div className="text-xs">
-                                                            <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                            <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                        </div>
-                                                    ) : cargueDescargueConcepts.includes(c.conceptName.toUpperCase()) ? (
-                                                         <div className="text-xs">
-                                                            <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                            <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
-                                                            <p className="text-muted-foreground">Fin turno: {c.dayShiftEnd}</p>
-                                                        </div>
-                                                    ) : (
-                                                        c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
-                                                    )}
-                                                </TableCell>
-                                                 <TableCell>
-                                                    <Switch
-                                                        checked={c.status === 'activo'}
-                                                        onCheckedChange={() => handleToggleStatus(c.id, c.status)}
-                                                        disabled={togglingStatusId === c.id}
-                                                    />
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
-                                                </TableCell>
+                      <Accordion type="multiple" className="w-full">
+                        {Object.entries(groupedConcepts).map(([provider, conceptsInGroup]) => (
+                            <AccordionItem value={provider} key={provider}>
+                                <AccordionTrigger className="px-4 py-2 bg-muted/50 hover:bg-muted/80">
+                                    <div className="flex items-center gap-2">
+                                        <HardHat className="h-5 w-5 text-primary" />
+                                        <span>{provider}</span>
+                                        <Badge variant="secondary">{conceptsInGroup.length}</Badge>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-12"><Checkbox checked={conceptsInGroup.every(c => selectedIds.has(c.id))} onCheckedChange={(checked) => {
+                                                    const newSet = new Set(selectedIds);
+                                                    if(checked) {
+                                                        conceptsInGroup.forEach(c => newSet.add(c.id));
+                                                    } else {
+                                                        conceptsInGroup.forEach(c => newSet.delete(c.id));
+                                                    }
+                                                    setSelectedIds(newSet);
+                                                }} /></TableHead>
+                                                <TableHead>Concepto</TableHead>
+                                                <TableHead>Valor</TableHead>
+                                                <TableHead>Estado</TableHead>
+                                                <TableHead className="text-right">Acciones</TableHead>
                                             </TableRow>
-                                        )
-                                    })
-                                ) : (
-                                    <TableRow><TableCell colSpan={6} className="h-24 text-center">No hay conceptos que coincidan con la búsqueda.</TableCell></TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {conceptsInGroup.map((c) => {
+                                                const cargueDescargueConcepts = ['CARGUE', 'DESCARGUE', 'TONELADAS/CARGADAS', 'TONELADAS/DESCARGADAS'];
+                                                return (
+                                                    <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
+                                                        <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
+                                                        <TableCell>
+                                                            <div className="font-medium flex items-center gap-2">
+                                                                {c.conceptName}
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={(c.clientNames || []).join(', ')}>
+                                                                {(c.clientNames || []).join(', ')} / {c.unitOfMeasure}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {c.conceptName === 'JORNAL ORDINARIO' ? (
+                                                                <div className="text-xs">
+                                                                    <p>L-S: {c.lunesASabadoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                    <p>D-F: {c.domingoFestivoTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                </div>
+                                                            ) : cargueDescargueConcepts.includes(c.conceptName.toUpperCase()) ? (
+                                                                <div className="text-xs">
+                                                                    <p>Día: {c.dayTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                    <p>Noche: {c.nightTariff?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</p>
+                                                                    <p className="text-muted-foreground">Fin turno: {c.dayShiftEnd}</p>
+                                                                </div>
+                                                            ) : (
+                                                                c.value?.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Switch
+                                                                checked={c.status === 'activo'}
+                                                                onCheckedChange={() => handleToggleStatus(c.id, c.status)}
+                                                                disabled={togglingStatusId === c.id}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <Button variant="ghost" size="icon" title="Clonar" onClick={() => handleClone(c)}><Copy className="h-4 w-4 text-green-600" /></Button>
+                                                                <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                      </Accordion>
+                      {Object.keys(groupedConcepts).length === 0 && (
+                        <div className="text-center p-12 text-muted-foreground">
+                            {searchTerm || clientFilter.length > 0 || providerFilter !== 'all' ? 'No se encontraron conceptos con los filtros aplicados.' : 'No hay conceptos definidos.'}
+                        </div>
+                      )}
                     </ScrollArea>
                 </div>
             </CardContent>
           </Card>
+        </div>
       </div>
       
       {/* Edit Dialog */}
@@ -547,7 +599,7 @@ function ConceptFormFields({ form, clientOptions, crewProviders }: { form: any, 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Proveedor</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} defaultValue="GRUPO ROSALES LOGISTICA 24/7 SAS">
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Seleccione proveedor" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {crewProviders.map(p => (
@@ -576,7 +628,7 @@ function ConceptFormFields({ form, clientOptions, crewProviders }: { form: any, 
                 )}
             />
             <FormField control={form.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
              {isJornal ? (
                 <>
