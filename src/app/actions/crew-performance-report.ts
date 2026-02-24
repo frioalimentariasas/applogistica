@@ -332,8 +332,8 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     addSettlement(conceptName, quantity, unitOfMeasure, mainProvider);
                 }
             }
-            // Handle JORNAL ORDINARIO
-            if (formData.numeroOperariosCuadrilla > 0) {
+            // Handle JORNAL ORDINARIO only for 'EMPAQUE DE CAJAS'
+            if (formData.tipoEmpaqueMaquila === 'EMPAQUE DE CAJAS' && formData.numeroOperariosCuadrilla > 0) {
                 const quantity = Number(formData.numeroOperariosCuadrilla);
                 
                 const jornalConcept = billingConcepts.find(c => c.conceptName === 'JORNAL ORDINARIO' && c.provider === mainProvider);
@@ -678,5 +678,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
-
-    

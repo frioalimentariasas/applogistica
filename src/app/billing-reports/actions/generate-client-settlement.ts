@@ -713,7 +713,7 @@ async function processAvicolaMaquila(
         isWithinInterval(new Date(op.formData.fecha), { start: serverQueryStartDate, end: serverQueryEndDate }) &&
         (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
         op.formData.tipoPedido === 'MAQUILA' &&
-        (op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE CAJAS' || op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS')
+        (op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE CAJAS')
     );
     
     for (const recepcion of recepcionesMaquila) {

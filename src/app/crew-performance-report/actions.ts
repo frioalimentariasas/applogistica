@@ -334,6 +334,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                 }
             }
             // Handle JORNAL ORDINARIO
+            if (formData.tipoEmpaqueMaquila === 'EMPAQUE DE CAJAS'){
             if (formData.numeroOperariosCuadrilla > 0) {
                 const quantity = Number(formData.numeroOperariosCuadrilla);
                 
@@ -354,6 +355,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     addSettlementWithDirectValue('JORNAL ORDINARIO', quantity, 'UNIDAD', tarifaAplicar);
                 } else {
                     addSettlement('JORNAL ORDINARIO', quantity, 'UNIDAD', mainProvider);
+                    }
                 }
             }
         }
