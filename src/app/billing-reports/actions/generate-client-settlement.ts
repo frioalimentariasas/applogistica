@@ -696,62 +696,6 @@ async function processCargueAlmacenamiento(
     }
 }
 
-async function processAvicolaMaquila(
-    concept: ClientBillingConcept,
-    allSubmissionsForClient: any[],
-    serverQueryStartDate: Date,
-    serverQueryEndDate: Date,
-    settlementRows: ClientSettlementRow[]
-) {
-    const alquilerConceptNameNormalized = 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
-    const apoyoConceptNameNormalized = 'SERVICIO APOYO JORNAL';
-    const currentConceptNameNormalized = concept.conceptName
-        .replace('AREA', 'ÁREA')
-        .toUpperCase();
-
-    const recepcionesMaquila = allSubmissionsForClient.filter(op =>
-        isWithinInterval(new Date(op.formData.fecha), { start: serverQueryStartDate, end: serverQueryEndDate }) &&
-        (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
-        op.formData.tipoPedido === 'MAQUILA' &&
-        (op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE CAJAS')
-    );
-    
-    for (const recepcion of recepcionesMaquila) {
-        let quantity = 0;
-        let unitOfMeasure = concept.unitOfMeasure;
-        
-        if (currentConceptNameNormalized === alquilerConceptNameNormalized) {
-            quantity = 1;
-        } else if (currentConceptNameNormalized === apoyoConceptNameNormalized) {
-            quantity = 3;
-            unitOfMeasure = 'UNIDAD';
-        }
-
-        if (quantity > 0) {
-            settlementRows.push({
-                date: recepcion.formData.fecha,
-                uniqueId: `${recepcion.id}-${concept.id}`,
-                placa: recepcion.formData.placa || 'N/A',
-                container: recepcion.formData.contenedor || 'N/A',
-                camara: 'N/A',
-                totalPaletas: calculatePalletsForOperation(recepcion, 'AMBOS', new Map()),
-                operacionLogistica: 'Maquila',
-                pedidoSislog: recepcion.formData.pedidoSislog,
-                conceptName: concept.conceptName,
-                tipoVehiculo: 'N/A',
-                quantity,
-                unitOfMeasure: unitOfMeasure,
-                unitValue: concept.value || 0,
-                totalValue: quantity * (concept.value || 0),
-                horaInicio: recepcion.formData.horaInicio,
-                horaFin: recepcion.formData.horaFin,
-                justification: '',
-            });
-        }
-    }
-}
-
-
 export async function generateClientSettlement(criteria: {
   clientName: string;
   startDate: string;
@@ -988,12 +932,68 @@ export async function generateClientSettlement(criteria: {
     const avicolaApoyoConcept = selectedConcepts.find(c => c.conceptName === 'SERVICIO APOYO JORNAL');
 
     if (clientName === 'AVICOLA EL MADROÑO S.A.') {
-        if (avicolaAlquilerConcept) {
-            await processAvicolaMaquila(avicolaAlquilerConcept, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows);
+      if (avicolaAlquilerConcept) {
+        const maquilaOps = allSubmissionsForClient.filter(op => 
+            isWithinInterval(new Date(op.formData.fecha), { start: serverQueryStartDate, end: serverQueryEndDate }) &&
+            op.formData.tipoPedido === 'MAQUILA' &&
+            (op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE CAJAS' || op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS')
+        );
+        const uniqueDates = [...new Set(maquilaOps.map(op => format(new Date(op.formData.fecha), 'yyyy-MM-dd')))];
+
+        for (const dateStr of uniqueDates) {
+            const representativeOp = maquilaOps.find(op => format(new Date(op.formData.fecha), 'yyyy-MM-dd') === dateStr)!;
+            settlementRows.push({
+                date: representativeOp.formData.fecha,
+                uniqueId: `${representativeOp.id}-${avicolaAlquilerConcept.id}-${dateStr}`,
+                placa: 'N/A',
+                container: 'N/A',
+                camara: 'N/A',
+                totalPaletas: 0,
+                operacionLogistica: 'Maquila',
+                pedidoSislog: 'Varios',
+                conceptName: avicolaAlquilerConcept.conceptName,
+                tipoVehiculo: 'N/A',
+                quantity: 1, // Cobro por día
+                unitOfMeasure: 'DIA',
+                unitValue: avicolaAlquilerConcept.value || 0,
+                totalValue: avicolaAlquilerConcept.value || 0,
+                horaInicio: 'N/A',
+                horaFin: 'N/A',
+                justification: '',
+            });
         }
-        if (avicolaApoyoConcept) {
-             await processAvicolaMaquila(avicolaApoyoConcept, allSubmissionsForClient, serverQueryStartDate, serverQueryEndDate, settlementRows);
-        }
+      }
+      if (avicolaApoyoConcept) {
+          const apoyoMaquilaOps = allSubmissionsForClient.filter(op =>
+              isWithinInterval(new Date(op.formData.fecha), { start: serverQueryStartDate, end: serverQueryEndDate }) &&
+              (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
+              op.formData.tipoPedido === 'MAQUILA' &&
+              op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE CAJAS'
+          );
+
+          for (const recepcion of apoyoMaquilaOps) {
+              const quantity = 3; 
+              settlementRows.push({
+                  date: recepcion.formData.fecha,
+                  uniqueId: `${recepcion.id}-${avicolaApoyoConcept.id}`,
+                  placa: recepcion.formData.placa || 'N/A',
+                  container: recepcion.formData.contenedor || 'N/A',
+                  camara: 'N/A',
+                  totalPaletas: calculatePalletsForOperation(recepcion, 'AMBOS', new Map()),
+                  operacionLogistica: 'Maquila',
+                  pedidoSislog: recepcion.formData.pedidoSislog,
+                  conceptName: avicolaApoyoConcept.conceptName,
+                  tipoVehiculo: 'N/A',
+                  quantity,
+                  unitOfMeasure: 'UNIDAD',
+                  unitValue: avicolaApoyoConcept.value || 0,
+                  totalValue: quantity * (avicolaApoyoConcept.value || 0),
+                  horaInicio: recepcion.formData.horaInicio,
+                  horaFin: recepcion.formData.horaFin,
+                  justification: '',
+              });
+          }
+      }
     }
     
     const operacionCargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN CARGUE');
@@ -1156,7 +1156,7 @@ export async function generateClientSettlement(criteria: {
                     totalPallets = quantity;
                     break;
                 case 'PALETAS_SALIDA_MAQUILA_SECO':
-                     if ((submission.formType.includes('reception') || submission.formType.includes('recepcion')) && submission.formData.tipoPedido === 'MAQUILA') {
+                     if ((submission.formType.includes('reception') || submission.formType.includes('reception')) && submission.formData.tipoPedido === 'MAQUILA') {
                         quantity = Number(submission.formData.salidaPaletasMaquilaSE) || 0;
                     } else {
                         quantity = 0;
@@ -1164,7 +1164,7 @@ export async function generateClientSettlement(criteria: {
                     totalPallets = quantity;
                     break;
                 case 'CANTIDAD_SACOS_MAQUILA':
-                    if ((submission.formType.includes('reception') || submission.formType.includes('recepcion')) && submission.formData.tipoPedido === 'MAQUILA' && submission.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
+                    if ((submission.formType.includes('reception') || submission.formType.includes('reception')) && submission.formData.tipoPedido === 'MAQUILA' && submission.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
                         quantity = calculateUnitsForOperation(submission, concept.filterSesion, articleSessionMap, concept);
                     } else {
                         quantity = 0;
