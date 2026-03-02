@@ -1,5 +1,4 @@
 
-      
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -7,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, useWatch, FormProvider, useFormContext, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -1541,8 +1540,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                             !field.value && "text-muted-foreground"
                                           )}
                                         >
-                                          {field.value ? (
-                                            format(field.value, "PPP", { locale: es })
+                                          {field.value && isValid(new Date(field.value)) ? (
+                                            format(new Date(field.value), "PPP", { locale: es })
                                           ) : (
                                             <span>Seleccione una fecha</span>
                                           )}
@@ -1563,7 +1562,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                   <FormControl>
                                     <Input
                                       disabled
-                                      value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
+                                      value={field.value && isValid(new Date(field.value)) ? format(new Date(field.value), "dd/MM/yyyy") : ""}
                                     />
                                   </FormControl>
                                 )}
@@ -2581,6 +2580,3 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           </Dialog>
       );
   }
-    
-
-    

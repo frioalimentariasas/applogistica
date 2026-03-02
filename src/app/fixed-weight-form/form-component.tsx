@@ -3,10 +3,10 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray, Controller, useWatch, FormProvider } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format, subDays } from "date-fns";
+import { format, subDays, isValid } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -1086,7 +1086,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                 <PopoverTrigger asChild>
                                   <FormControl>
                                     <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                                      {field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                                      {field.value && isValid(new Date(field.value)) ? format(new Date(field.value), "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
                                       <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
                                   </FormControl>
@@ -1112,7 +1112,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                               </Popover>
                             ) : (
                               <FormControl>
-                                <Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} />
+                                <Input disabled value={field.value && isValid(new Date(field.value)) ? format(new Date(field.value), "dd/MM/yyyy") : ""} />
                               </FormControl>
                             )}
                             <FormMessage />
@@ -1140,7 +1140,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                   <FormControl>
                                       <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
                                   </FormControl>
-                                  <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaFin')} aria-label="Capturar hora actual">
+                                  <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaFin')}>
                                       <Clock className="h-4 w-4" />
                                   </Button>
                               </div>
@@ -1258,14 +1258,14 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                             <FormField control={form.control} name={`productos.${index}.paletasCompletas`} render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Paletas Completas</FormLabel>
-                                                    <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
+                                                    <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}/>
                                             <FormField control={form.control} name={`productos.${index}.paletasPicking`} render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Paletas Picking</FormLabel>
-                                                    <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
+                                                    <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}/>
@@ -1955,6 +1955,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-    
-
     

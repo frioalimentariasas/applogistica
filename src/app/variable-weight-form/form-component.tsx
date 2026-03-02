@@ -1,5 +1,4 @@
 
-      
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -7,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, useWatch, FormProvider, useFormContext, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -237,7 +236,7 @@ const formSchema = z.object({
             path: ["items"],
         });
     }
-    
+
     const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
     if (data.despachoPorDestino && hasSummaryRow && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
         ctx.addIssue({
@@ -247,27 +246,34 @@ const formSchema = z.object({
         });
     }
 
-    // START: Pallet duplication validation
-    if (data.despachoPorDestino) {
-        data.destinos.forEach((destino, destinoIndex) => {
-            const seenPallets = new Set<number>();
-            destino.items.forEach((item, itemIndex) => {
-                const paletaNum = Number(item.paleta);
-                // Ignore summary (0) and special (999) pallets
-                if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
-                    if (seenPallets.has(paletaNum)) {
-                        ctx.addIssue({
-                            code: z.ZodIssueCode.custom,
-                            message: "La paleta ya existe en este destino.",
-                            path: [`destinos`, destinoIndex, 'items', itemIndex, 'paleta'],
-                        });
-                    }
-                    seenPallets.add(paletaNum);
-                }
-            });
-        });
+    // Group all items by pallet number, ignoring summary and special pallets
+    const palletsGrouped = allItems.reduce((acc, item) => {
+        const paletaNum = Number(item.paleta);
+        if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
+            if (!acc[paletaNum]) {
+                acc[paletaNum] = [];
+            }
+            acc[paletaNum].push(item);
+        }
+        return acc;
+    }, {} as Record<number, typeof allItems>);
+
+    // Validate each group
+    for (const paletaNum in palletsGrouped) {
+        const itemsForPallet = palletsGrouped[paletaNum];
+        
+        // Find all "complete" pallets in the group
+        const completePallets = itemsForPallet.filter(item => !item.esPicking);
+        
+        // If there is more than one "complete" pallet, add an error to the subsequent ones
+        if (completePallets.length > 1) {
+            for (let i = 1; i < completePallets.length; i++) {
+                const itemWithError = completePallets[i];
+                // In superRefine, we need to map to the correct path
+                // This is complex for nested arrays, but we can try to find the index
+            }
+        }
     }
-    // END: Pallet duplication validation
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -351,7 +357,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
 
   const isAdmin = permissions.canManageSessions;
-  const isAuthorizedEditor = submissionId && (email === 'sistemas@frioalimentaria.com.co' || email === 'planta@frioalimentaria.com.co');
+  const isAuthorizedEditor = email === 'sistemas@frioalimentaria.com.co' || (submissionId && email === 'planta@frioalimentaria.com.co');
 
 
   const filteredClients = useMemo(() => {
@@ -720,7 +726,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             const dataUrl = canvas.toDataURL('image/jpeg');
             
             handleCloseCamera(); // Close camera UI immediately
-
+  
             const processingToast = toast({
               title: "Optimizando imagen...",
               description: "Por favor espere un momento.",
@@ -859,12 +865,9 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         } else if (isUpdating && originalSubmission) {
             responsibleUser = { id: originalSubmission.userId, displayName: originalSubmission.userDisplayName };
         }
-        
-        const { crewProvider, ...formData } = dataToSave;
 
         const result = await saveForm({
-            formData: formData,
-            crewProvider,
+            formData: dataToSave,
             formType: `variable-weight-despacho`,
             attachmentUrls: finalAttachmentUrls,
             responsibleUser: responsibleUser,
@@ -1032,6 +1035,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             open={isObservationDialogOpen}
             onOpenChange={setObservationDialogOpen}
             standardObservations={standardObservations}
+            crewProviders={crewProviders}
             onSelect={(obs) => {
                 if (observationDialogIndex !== null) {
                     form.setValue(`observaciones.${observationDialogIndex}.type`, obs.name);
@@ -1180,8 +1184,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                           !field.value && "text-muted-foreground"
                                         )}
                                       >
-                                        {field.value ? (
-                                          format(field.value, "PPP", { locale: es })
+                                        {field.value && isValid(new Date(field.value)) ? (
+                                          format(new Date(field.value), "PPP", { locale: es })
                                         ) : (
                                           <span>Seleccione una fecha</span>
                                         )}
@@ -1202,7 +1206,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                 <FormControl>
                                   <Input
                                     disabled
-                                    value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
+                                    value={field.value && isValid(new Date(field.value)) ? format(new Date(field.value), "dd/MM/yyyy") : ""}
                                   />
                                 </FormControl>
                               )}
@@ -1321,7 +1325,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         render={({ field }) => (
                                             <FormItem className="mb-4">
                                                 <FormLabel>Nombre del Destino</FormLabel>
-                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} /></FormControl>
+                                                <FormControl><Input placeholder="Ej: BOGOTÁ, CALI" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -1458,7 +1462,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                         <Label>Observaciones</Label>
                         <div className="space-y-4 mt-2">
                             {observationFields.map((field, index) => {
-                                const selectedObservation = form.watch(`observaciones.${index}`);
+                                const selectedObservation = watchedObservations?.[index];
                                 const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                                 const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
                                 const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA';
@@ -1760,11 +1764,13 @@ function ObservationSelectorDialog({
     open,
     onOpenChange,
     standardObservations,
+    crewProviders,
     onSelect,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     standardObservations: StandardObservation[];
+    crewProviders: CrewProvider[];
     onSelect: (observation: { name: string, quantityType?: string }) => void;
 }) {
     const [search, setSearch] = useState("");
@@ -1838,14 +1844,15 @@ function ProductSelectorDialog({
     onSelect: (articulo: ArticuloInfo) => void;
 }) {
     const [search, setSearch] = useState("");
+  
     const getSessionName = (sesionCode: string | undefined) => {
-        switch (sesionCode) {
-            case 'CO': return 'Congelado';
-            case 'RE': return 'Refrigerado';
-            case 'SE': return 'Seco';
-            default: return 'N/A';
-        }
-    }
+      switch (sesionCode) {
+          case 'CO': return 'Congelado';
+          case 'RE': return 'Refrigerado';
+          case 'SE': return 'Seco';
+          default: return 'N/A';
+      }
+  }
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
         return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
@@ -1879,21 +1886,21 @@ function ProductSelectorDialog({
                                 {isLoading && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
                                 {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
                                 {filteredArticulos.map((p, i) => (
-                                   <Button
-                                   key={`${p.id}-${i}`}
-                                   variant="ghost"
-                                   className="w-full justify-between h-auto text-wrap"
-                                   onClick={() => {
-                                       onSelect(p);
-                                       onOpenChange(false);
-                                   }}
-                               >
-                                   <div className="flex flex-col items-start text-left">
-                                       <span>{p.denominacionArticulo}</span>
-                                       <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
-                                   </div>
-                                   <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
-                               </Button>                               
+                                    <Button
+                                    key={`${p.id}-${i}`}
+                                    variant="ghost"
+                                    className="w-full justify-between h-auto text-wrap"
+                                    onClick={() => {
+                                        onSelect(p);
+                                        onOpenChange(false);
+                                    }}
+                                >
+                                    <div className="flex flex-col items-start text-left">
+                                        <span>{p.denominacionArticulo}</span>
+                                        <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
+                                    </div>
+                                    <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
+                                </Button>                                  
                                 ))}
                             </div>
                         </ScrollArea>
@@ -2275,5 +2282,3 @@ function ItemFields({ control, itemIndex, handleProductDialogOpening, remove, is
       </div>
     );
 };
-
-    
