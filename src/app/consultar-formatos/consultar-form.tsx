@@ -26,8 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch, ChevronsUpDown, Replace } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-//import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -323,6 +322,24 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         return `/consultar-formatos`;
     };
 
+    const formatDateDisplay = (val: any, includeTime = false) => {
+        if (!val) return 'N/A';
+        let date: Date;
+        if (val instanceof Date) {
+            date = val;
+        } else if (typeof val === 'string') {
+            date = parseISO(val);
+        } else if (val && typeof val === 'object' && (val.seconds !== undefined || val._seconds !== undefined)) {
+            const s = val.seconds !== undefined ? val.seconds : val._seconds;
+            date = new Date(s * 1000);
+        } else {
+            return 'Fecha Inválida';
+        }
+        
+        if (isNaN(date.getTime())) return 'Fecha Inválida';
+        return format(date, includeTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy', { locale: es });
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
@@ -571,22 +588,8 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     ) : results.length > 0 ? (
                                         results.map((sub) => (
                                             <TableRow key={sub.id}>
-                                                <TableCell>
-                                                    {(() => {
-                                                        const val = sub.formData.fecha;
-                                                        if (!val) return 'N/A';
-                                                        const d = typeof val === 'string' ? parseISO(val) : val;
-                                                        return d instanceof Date && !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy', { locale: es }) : 'Fecha Inválida';
-                                                    })()}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {(() => {
-                                                        const val = sub.createdAt;
-                                                        if (!val) return 'N/A';
-                                                        const d = typeof val === 'string' ? parseISO(val) : val;
-                                                        return d instanceof Date && !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy HH:mm', { locale: es }) : 'Fecha Inválida';
-                                                    })()}
-                                                </TableCell>
+                                                <TableCell>{formatDateDisplay(sub.formData.fecha)}</TableCell>
+                                                <TableCell>{formatDateDisplay(sub.createdAt, true)}</TableCell>
                                                 <TableCell>{getFormTypeName(sub.formType)}</TableCell>
                                                 <TableCell>{getOperationTypeName(sub.formType)}</TableCell>
                                                 <TableCell>{sub.formData.tipoPedido || 'N/A'}</TableCell>

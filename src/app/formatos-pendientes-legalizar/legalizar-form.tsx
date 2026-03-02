@@ -111,6 +111,24 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
         return `/fixed-weight-form?operation=${operation}&id=${id}`;
     };
 
+    const formatDateDisplay = (val: any) => {
+        if (!val) return 'N/A';
+        let date: Date;
+        if (val instanceof Date) {
+            date = val;
+        } else if (typeof val === 'string') {
+            date = parseISO(val);
+        } else if (val && typeof val === 'object' && (val.seconds !== undefined || val._seconds !== undefined)) {
+            const s = val.seconds !== undefined ? val.seconds : val._seconds;
+            date = new Date(s * 1000);
+        } else {
+            return 'Fecha Inválida';
+        }
+        
+        if (isNaN(date.getTime())) return 'Fecha Inválida';
+        return format(date, 'dd/MM/yyyy', { locale: es });
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-5xl mx-auto">
@@ -195,14 +213,7 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
                                     {isLoading ? <ResultsSkeleton /> : results.length > 0 ? (
                                         results.map((sub) => (
                                             <TableRow key={sub.id}>
-                                                <TableCell>
-                                                    {(() => {
-                                                        const val = sub.formData.fecha;
-                                                        if (!val) return 'N/A';
-                                                        const d = typeof val === 'string' ? parseISO(val) : val;
-                                                        return d instanceof Date && !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy', { locale: es }) : 'Fecha Inválida';
-                                                    })()}
-                                                </TableCell>
+                                                <TableCell>{formatDateDisplay(sub.formData.fecha)}</TableCell>
                                                 <TableCell>{sub.formData.pedidoSislog}</TableCell>
                                                 <TableCell>{sub.formData.nombreCliente || sub.formData.cliente}</TableCell>
                                                 <TableCell>{sub.userDisplayName}</TableCell>
