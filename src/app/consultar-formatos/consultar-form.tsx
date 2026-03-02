@@ -353,23 +353,42 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
-                            <div className="space-y-2">
-                                <Label htmlFor="pedidoSislog">Pedido SISLOG</Label>
-                                <Input 
-                                    id="pedidoSislog"
-                                    placeholder="Pedido SISLOG"
-                                    value={criteria.pedidoSislog}
-                                    onChange={(e) => setCriteria({...criteria, pedidoSislog: e.target.value})}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="placa">Placa</Label>
-                                <Input 
-                                    id="placa"
-                                    placeholder="Placa del vehículo"
-                                    value={criteria.placa}
-                                    onChange={(e) => setCriteria({...criteria, placa: e.target.value.toUpperCase()})}
-                                />
+                        <div className="space-y-2">
+                                <Label htmlFor="fechaCreacion">Fecha de Operación</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            id="date"
+                                            variant={"outline"}
+                                            className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {dateRange?.from ? (
+                                                dateRange.to ? (
+                                                    <>
+                                                        {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                                                        {format(dateRange.to, "LLL dd, y", { locale: es })}
+                                                    </>
+                                                ) : (
+                                                    format(dateRange.from, "LLL dd, y", { locale: es })
+                                                )
+                                            ) : (
+                                                <span>Seleccione un rango</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            initialFocus
+                                            mode="range"
+                                            defaultMonth={dateRange?.from}
+                                            selected={dateRange}
+                                            onSelect={setDateRange}
+                                            numberOfMonths={2}
+                                            locale={es}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                             <div className="space-y-2">
                                 <Label>Nombre del Cliente</Label>
@@ -416,75 +435,13 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                 </Dialog>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="fechaCreacion">Fecha de Operación</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            id="date"
-                                            variant={"outline"}
-                                            className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateRange?.from ? (
-                                                dateRange.to ? (
-                                                    <>
-                                                        {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
-                                                        {format(dateRange.to, "LLL dd, y", { locale: es })}
-                                                    </>
-                                                ) : (
-                                                    format(dateRange.from, "LLL dd, y", { locale: es })
-                                                )
-                                            ) : (
-                                                <span>Seleccione un rango</span>
-                                            )}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            initialFocus
-                                            mode="range"
-                                            defaultMonth={dateRange?.from}
-                                            selected={dateRange}
-                                            onSelect={setDateRange}
-                                            numberOfMonths={2}
-                                            locale={es}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="operationType">Tipo de Operación</Label>
-                                <Select
-                                    value={criteria.operationType || 'all'}
-                                    onValueChange={(value) => setCriteria({ ...criteria, operationType: value === 'all' ? undefined : (value as 'recepcion' | 'despacho') })}
-                                    disabled={isLoading}
-                                >
-                                    <SelectTrigger id="operationType">
-                                        <SelectValue placeholder="Todos" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos</SelectItem>
-                                        <SelectItem value="recepcion">Recepción</SelectItem>
-                                        <SelectItem value="despacho">Despacho</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="productType">Tipo de Producto</Label>
-                                <Select
-                                    value={criteria.productType || 'all'}
-                                    onValueChange={(value) => setCriteria({ ...criteria, productType: value === 'all' ? undefined : (value as 'fijo' | 'variable') })}
-                                    disabled={isLoading}
-                                >
-                                    <SelectTrigger id="productType">
-                                        <SelectValue placeholder="Todos" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos</SelectItem>
-                                        <SelectItem value="fijo">Peso Fijo</SelectItem>
-                                        <SelectItem value="variable">Peso Variable</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label htmlFor="pedidoSislog">Pedido SISLOG</Label>
+                                <Input 
+                                    id="pedidoSislog"
+                                    placeholder="Pedido SISLOG"
+                                    value={criteria.pedidoSislog}
+                                    onChange={(e) => setCriteria({...criteria, pedidoSislog: e.target.value})}
+                                />
                             </div>
                             <div className="space-y-2 xl:col-span-2">
                                 <Label htmlFor="tipoPedido">Tipo de Pedido</Label>
@@ -525,6 +482,49 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                         </ScrollArea>
                                     </DialogContent>
                                 </Dialog>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="operationType">Tipo de Operación</Label>
+                                <Select
+                                    value={criteria.operationType || 'all'}
+                                    onValueChange={(value) => setCriteria({ ...criteria, operationType: value === 'all' ? undefined : (value as 'recepcion' | 'despacho') })}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger id="operationType">
+                                        <SelectValue placeholder="Todos" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos</SelectItem>
+                                        <SelectItem value="recepcion">Recepción</SelectItem>
+                                        <SelectItem value="despacho">Despacho</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="productType">Tipo de Producto</Label>
+                                <Select
+                                    value={criteria.productType || 'all'}
+                                    onValueChange={(value) => setCriteria({ ...criteria, productType: value === 'all' ? undefined : (value as 'fijo' | 'variable') })}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger id="productType">
+                                        <SelectValue placeholder="Todos" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos</SelectItem>
+                                        <SelectItem value="fijo">Peso Fijo</SelectItem>
+                                        <SelectItem value="variable">Peso Variable</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="placa">Placa</Label>
+                                <Input 
+                                    id="placa"
+                                    placeholder="Placa del vehículo"
+                                    value={criteria.placa}
+                                    onChange={(e) => setCriteria({...criteria, placa: e.target.value.toUpperCase()})}
+                                />
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2 xl:col-span-full">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>

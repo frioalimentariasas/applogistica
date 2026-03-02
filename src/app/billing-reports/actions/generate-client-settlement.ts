@@ -945,20 +945,20 @@ export async function generateClientSettlement(criteria: {
             settlementRows.push({
                 date: representativeOp.formData.fecha,
                 uniqueId: `${representativeOp.id}-${avicolaAlquilerConcept.id}-${dateStr}`,
-                placa: 'N/A',
-                container: 'N/A',
+                placa: representativeOp.formData.placa || 'N/A',
+                container: representativeOp.formData.contenedor || 'N/A',
                 camara: 'N/A',
-                totalPaletas: 0,
+                totalPaletas: calculatePalletsForOperation(representativeOp, 'AMBOS', new Map()),
                 operacionLogistica: 'Maquila',
-                pedidoSislog: 'Varios',
+                pedidoSislog: representativeOp.formData.pedidoSislog,
                 conceptName: avicolaAlquilerConcept.conceptName,
                 tipoVehiculo: 'N/A',
                 quantity: 1, // Cobro por día
                 unitOfMeasure: 'DIA',
                 unitValue: avicolaAlquilerConcept.value || 0,
                 totalValue: avicolaAlquilerConcept.value || 0,
-                horaInicio: 'N/A',
-                horaFin: 'N/A',
+                horaInicio: representativeOp.formData.horaInicio,
+                horaFin: representativeOp.formData.horaFin,
                 justification: '',
             });
         }

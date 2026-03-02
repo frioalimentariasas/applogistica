@@ -1,12 +1,43 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes, ClipboardList, Users, TrendingUp, DollarSign, ListTodo, FileSpreadsheet, ListPlus, Edit, HardHat, FileCog, Wrench, Package, Calculator, TruckIcon, CalendarIcon, FileSignature } from 'lucide-react';
+import { 
+  LogOut, 
+  ScrollText, 
+  BookCopy, 
+  ShieldCheck, 
+  Settings, 
+  Timer, 
+  ArrowRight, 
+  PackagePlus, 
+  Truck, 
+  Scale, 
+  Layers,
+  DollarSign, 
+  TrendingUp, 
+  FileSpreadsheet, 
+  ListPlus, 
+  Edit, 
+  HardHat, 
+  FileCog, 
+  Wrench, 
+  Calculator, 
+  TruckIcon, 
+  CalendarIcon, 
+  FileSignature,
+  CheckCircle2,
+  Home as HomeIcon,
+  Loader2,
+  ListTodo,
+  Box,
+  ClipboardList,
+  Package,
+  Users2
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
@@ -14,8 +45,18 @@ import { FirebaseChecker } from '@/components/app/firebase-checker';
 import { useAuth, type AppPermissions } from '@/hooks/use-auth';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { cn } from '@/lib/utils';
 
 const Logo = () => (
     <div className="flex flex-col items-center justify-center text-center">
@@ -29,10 +70,11 @@ const Logo = () => (
     </div>
   );
 
-
 export default function Home() {
   const [operationType, setOperationType] = useState<string>();
   const [productType, setProductType] = useState<string>();
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading, displayName, permissions } = useAuth();
@@ -55,7 +97,7 @@ export default function Home() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleOpenConfirmation = (e: React.FormEvent) => {
     e.preventDefault();
     if (!operationType || !productType) {
         toast({
@@ -65,7 +107,12 @@ export default function Home() {
         });
         return;
     }
+    setIsConfirmOpen(true);
+  };
 
+  const handleFinalSubmit = () => {
+    setIsConfirmOpen(false);
+    
     if (productType === 'fijo') {
       router.push(`/fixed-weight-form?operation=${operationType}`);
       return;
@@ -81,23 +128,15 @@ export default function Home() {
         return;
       }
     }
-    
-    toast({
-      title: "En desarrollo",
-      description: "Este formato aún no está disponible.",
-      variant: "destructive"
-    });
   };
 
   const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions, group: string }[] = [
-    // Operaciones Logísticas
     { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms', group: 'Operaciones Logísticas' },
     { label: 'Formatos Pendientes de Legalizar Peso Bruto (kg)', href: '/formatos-pendientes-legalizar', icon: ScrollText, permission: 'canViewPendingLegalization', group: 'Operaciones Logísticas' },
     { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport', group: 'Operaciones Logísticas' },
     { label: 'Trazabilidad de Paletas', href: '/pallet-movement-report', icon: TruckIcon, permission: 'canViewPalletTraceability', group: 'Operaciones Logísticas'},
     { label: 'Trazabilidad de Contenedor', href: '/container-traceability', icon: TruckIcon, permission: 'canViewContainerTraceability', group: 'Operaciones Logísticas'},
     
-    // Gestión y Liquidación Clientes
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-clientes', icon: DollarSign, permission: 'canManageClientLiquidationConcepts', group: 'Gestión y Liquidación Clientes' },
     { label: 'Registro de Op. Manuales Clientes', href: '/operaciones-manuales-clientes', icon: Edit, permission: 'canManageClientManualOperations', group: 'Gestión y Liquidación Clientes' },
     { label: 'Calendario de Facturación', href: '/calendario-facturacion', icon: CalendarIcon, permission: 'canViewBillingCalendar', group: 'Gestión y Liquidación Clientes' },
@@ -106,14 +145,12 @@ export default function Home() {
     { label: 'Asistente de Verificación Liquidación Por Lote SMYL', href: '/smyl-liquidation-assistant', icon: Package, permission: 'canViewSmylAssistant', group: 'Gestión y Liquidación Clientes' },
     { label: 'Asistente Liquidación Operaciones sin Contenedor/Lote', href: '/inventory-liquidation-assistant', icon: Calculator, permission: 'canViewInventoryAssistant', group: 'Gestión y Liquidación Clientes' },
 
-    // Gestión y Liquidación Cuadrilla
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-cuadrilla', icon: DollarSign, permission: 'canManageLiquidationConcepts', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Registro de operaciones Manuales Cuadrilla', href: '/operaciones-manuales-cuadrilla', icon: Edit, permission: 'canManageManualOperations', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Informe de Productividad y Liquidación', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Gestión de Estándares', href: '/gestion-estandares-cuadrilla', icon: Settings, permission: 'canManageStandards', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Reportes Especiales', href: '/reportes-especiales', icon: FileSpreadsheet, permission: 'canViewSpecialReports', group: 'Gestión y Liquidación Cuadrilla' },
 
-    // Gestión de Maestros
     { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageNovelties', group: 'Gestión de Maestros' },
     { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageOrderTypes', group: 'Gestión de Maestros' },
     { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles', group: 'Gestión de Maestros' },
@@ -122,7 +159,6 @@ export default function Home() {
     { label: 'Gestión de Días Festivos', href: '/gestion-festivos', icon: CalendarIcon, permission: 'canManageHolidays', group: 'Gestión de Maestros' },
     { label: 'Gestión de Proveedores de Cuadrilla', href: '/gestion-proveedores-cuadrilla', icon: HardHat, permission: 'canManageClients', group: 'Gestión de Maestros' },
 
-    // Parámetros y Seguridad
     { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions', group: 'Parámetros y Seguridad' },
   ];
 
@@ -146,11 +182,10 @@ export default function Home() {
     groupData.items.length > 0
   );
 
-
   if (loading || !user) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-white">
-        <p>Cargando...</p>
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
@@ -173,57 +208,102 @@ export default function Home() {
         {displayName && (
             <div className="text-center">
                 <p className="text-lg text-gray-800">Bienvenido, <span className="font-semibold">{displayName}</span></p>
-                        <CardHeader>
-                            <CardTitle className="text-2xl font-bold">
-                                          <span className="text-2xl font-extrabold tracking-tight text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                                            Control de Operaciones Logísticas
-                                            </span>
-                                        </CardTitle>
-                        </CardHeader>
+                <div className="mt-4">
+                    <h2 className="text-2xl font-extrabold tracking-tight text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                        Control de Operaciones Logísticas
+                    </h2>
+                </div>
             </div>
         )}
         
         <div className="space-y-8">
             {permissions.canGenerateForms && (
                 <div>
-                    <Card className="flex flex-col">
-                        <CardContent className="flex-grow flex flex-col justify-between">
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <fieldset>
-                                    <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Operación</legend>
+                    <Card className={cn(
+                        "transition-all duration-300 border-2",
+                        operationType === 'recepcion' ? "border-emerald-500 bg-emerald-50/30" : 
+                        operationType === 'despacho' ? "border-sky-500 bg-sky-50/30" : "border-transparent"
+                    )}>
+                        <CardHeader>
+                            <CardTitle className="text-center">Generar Nuevo Formato</CardTitle>
+                            <CardDescription className="text-center">Seleccione cuidadosamente el tipo de operación para evitar errores.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleOpenConfirmation} className="space-y-8">
+                                <div className="space-y-4">
+                                    <Label className="text-base font-bold flex items-center gap-2">
+                                        1. ¿Qué operación va a realizar?
+                                    </Label>
                                     <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                            <RadioGroupItem value="recepcion" id="recepcion" />
-                                            <ArrowDownCircle className="h-5 w-5 text-primary" />
-                                            <span className="font-medium">Recepción</span>
+                                        <Label htmlFor="recepcion" className={cn(
+                                            "flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all hover:bg-emerald-50",
+                                            operationType === 'recepcion' ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-600 ring-offset-2" : "border-gray-200 bg-white"
+                                        )}>
+                                            <RadioGroupItem value="recepcion" id="recepcion" className="sr-only" />
+                                            <PackagePlus className={cn("h-10 w-10", operationType === 'recepcion' ? "text-emerald-600" : "text-gray-400")} />
+                                            <div className="text-center">
+                                                <span className={cn("block text-lg font-bold", operationType === 'recepcion' ? "text-emerald-700" : "text-gray-700")}>ENTRADA (Recepción)</span>
+                                                <span className="text-xs text-gray-500 mt-1 block">Ingreso de mercancía a bodega</span>
+                                            </div>
                                         </Label>
-                                        <Label htmlFor="despacho" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'despacho' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                            <RadioGroupItem value="despacho" id="despacho" />
-                                            <ArrowUpCircle className="h-5 w-5 text-primary" />
-                                            <span className="font-medium">Despacho</span>
+                                        <Label htmlFor="despacho" className={cn(
+                                            "flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all hover:bg-sky-50",
+                                            operationType === 'despacho' ? "border-sky-600 bg-sky-50 ring-2 ring-sky-600 ring-offset-2" : "border-gray-200 bg-white"
+                                        )}>
+                                            <RadioGroupItem value="despacho" id="despacho" className="sr-only" />
+                                            <Truck className={cn("h-10 w-10", operationType === 'despacho' ? "text-sky-600" : "text-gray-400")} />
+                                            <div className="text-center">
+                                                <span className={cn("block text-lg font-bold", operationType === 'despacho' ? "text-sky-700" : "text-gray-700")}>SALIDA (Despacho)</span>
+                                                <span className="text-xs text-gray-500 mt-1 block">Salida de productos hacia cliente</span>
+                                            </div>
                                         </Label>
                                     </RadioGroup>
-                                </fieldset>
+                                </div>
                                 
-                                <fieldset>
-                                    <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Producto</legend>
-                                    <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                            <RadioGroupItem value="fijo" id="fijo" />
-                                            <Box className="h-5 w-5 text-primary" />
-                                            <span className="font-medium">Peso Fijo</span>
+                                {operationType && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                                        <Label className="text-base font-bold flex items-center gap-2">
+                                            2. ¿Cómo es el peso de la mercancía?
                                         </Label>
-                                        <Label htmlFor="variable" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'variable' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                            <RadioGroupItem value="variable" id="variable" />
-                                            <Boxes className="h-5 w-5 text-primary" />
-                                            <span className="font-medium">Peso Variable</span>
-                                        </Label>
-                                    </RadioGroup>
-                                </fieldset>
+                                        <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <Label htmlFor="fijo" className={cn(
+                                                "flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all",
+                                                productType === 'fijo' ? (operationType === 'recepcion' ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-600" : "border-sky-600 bg-sky-50 ring-2 ring-sky-600") : "border-gray-200 bg-white hover:bg-gray-50"
+                                            )}>
+                                                <RadioGroupItem value="fijo" id="fijo" className="sr-only" />
+                                                <Layers className={cn("h-10 w-10", productType === 'fijo' ? (operationType === 'recepcion' ? "text-emerald-600" : "text-sky-600") : "text-gray-400")} />
+                                                <div className="text-center">
+                                                    <span className={cn("block text-lg font-bold", productType === 'fijo' ? "text-gray-900" : "text-gray-700")}>PESO FIJO</span>
+                                                    <span className="text-xs text-gray-500 mt-1 block">Cajas con pesos estándar (ej. 10kg)</span>
+                                                </div>
+                                            </Label>
+                                            <Label htmlFor="variable" className={cn(
+                                                "flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all",
+                                                productType === 'variable' ? (operationType === 'recepcion' ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-600" : "border-sky-600 bg-sky-50 ring-2 ring-sky-600") : "border-gray-200 bg-white hover:bg-gray-50"
+                                            )}>
+                                                <RadioGroupItem value="variable" id="variable" className="sr-only" />
+                                                <Scale className={cn("h-10 w-10", productType === 'variable' ? (operationType === 'recepcion' ? "text-emerald-600" : "text-sky-600") : "text-gray-400")} />
+                                                <div className="text-center">
+                                                    <span className={cn("block text-lg font-bold", productType === 'variable' ? "text-gray-900" : "text-gray-700")}>PESO VARIABLE</span>
+                                                    <span className="text-xs text-gray-500 mt-1 block">Pesamos cada paleta individualmente</span>
+                                                </div>
+                                            </Label>
+                                        </RadioGroup>
+                                    </div>
+                                )}
 
-                                <Button type="submit" size="lg" className="w-full h-12 text-base" disabled={!operationType || !productType}>
-                                    <FileText className="mr-2 h-5 w-5" />
-                                    Generar Formato
+                                <Button 
+                                    type="submit" 
+                                    size="lg" 
+                                    className={cn(
+                                        "w-full h-14 text-lg font-bold transition-all shadow-md",
+                                        operationType === 'recepcion' ? "bg-emerald-600 hover:bg-emerald-700" : 
+                                        operationType === 'despacho' ? "bg-sky-600 hover:bg-sky-700" : "bg-primary"
+                                    )} 
+                                    disabled={!operationType || !productType}
+                                >
+                                    <FileText className="mr-2 h-6 w-6" />
+                                    Generar Formato Seleccionado
                                 </Button>
                             </form>
                         </CardContent>
@@ -232,15 +312,11 @@ export default function Home() {
             )}
 
             {availableMenuGroups.length > 0 && (
-                <div>
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
                     <Card className="w-full">
-                    <div className="text-center">
-                        <CardTitle className="text-2xl font-bold">
-                                          <span className="text-2xl font-extrabold tracking-tight text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                                          Menú de Consultas y Herramientas
-                                            </span>
-                                        </CardTitle>
-                        </div>
+                        <CardHeader className="text-center">
+                            <CardTitle className="text-xl font-bold text-gray-800">Menú de Consultas y Herramientas</CardTitle>
+                        </CardHeader>
                         <CardContent>
                             <Accordion type="multiple" className="w-full space-y-2">
                                 {availableMenuGroups.map(([groupName, groupData]) => (
@@ -286,6 +362,50 @@ export default function Home() {
             <p className="text-xs text-primary font-mono mt-1 font-bold">FRIO ALIMENTARIA SAS NIT: 900736914-0</p>
         </footer>
 
+        {/* Confirmation Dialog */}
+        <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+            <AlertDialogContent className="sm:max-w-md border-t-8 border-t-primary">
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="text-center text-xl flex flex-col items-center gap-2">
+                        <CheckCircle2 className="h-12 w-12 text-primary animate-in zoom-in duration-300" />
+                        ¿Confirmar Selección de Formato?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-center text-base pt-4 space-y-4">
+                        <div className="bg-muted p-4 rounded-lg border">
+                            <p className="text-gray-600 text-sm">Vas a abrir un formato de:</p>
+                            <div className="flex flex-col gap-1 mt-2">
+                                <span className={cn(
+                                    "text-lg font-extrabold uppercase",
+                                    operationType === 'recepcion' ? "text-emerald-600" : "text-sky-600"
+                                )}>
+                                    {operationType === 'recepcion' ? "ENTRADA (Recepción)" : "SALIDA (Despacho)"}
+                                </span>
+                                <span className="text-gray-900 font-bold text-base">
+                                    PESO {productType === 'fijo' ? "FIJO" : "VARIABLE"}
+                                </span>
+                            </div>
+                        </div>
+                        <p className="font-semibold text-gray-800">
+                            ¿Es este el formato correcto para la operación que vas a iniciar?
+                        </p>
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="sm:justify-center gap-2 mt-4">
+                    <AlertDialogCancel className="w-full sm:w-auto">
+                        No, Cambiar
+                    </AlertDialogCancel>
+                    <AlertDialogAction 
+                        onClick={handleFinalSubmit}
+                        className={cn(
+                            "w-full sm:w-auto font-bold",
+                            operationType === 'recepcion' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-sky-600 hover:bg-sky-700"
+                        )}
+                    >
+                        Sí, Abrir Formato
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
