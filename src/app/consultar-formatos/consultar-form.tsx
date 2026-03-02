@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import Link from 'next/link';
+import Link from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { format, parseISO, startOfDay, endOfDay, subDays } from 'date-fns';
@@ -26,7 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch, ChevronsUpDown, Replace } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -459,7 +459,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                         <Input
                                             placeholder="Buscar tipo..."
                                             value={tipoPedidoSearch}
-                                            onChange={(e) => setTipoPedidoSearch(e.target.value)}
+                                            onChange={(e) => setTypePedidoSearch(e.target.value)}
                                             className="my-4"
                                         />
                                         <ScrollArea className="h-72">
@@ -570,8 +570,8 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     ) : results.length > 0 ? (
                                         results.map((sub) => (
                                             <TableRow key={sub.id}>
-                                                <TableCell>{format(parseISO(sub.formData.fecha), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                <TableCell>{format(parseISO(sub.createdAt), 'dd/MM/yyyy HH:mm', { locale: es })}</TableCell>
+                                                <TableCell>{format(typeof sub.formData.fecha === 'string' ? parseISO(sub.formData.fecha) : sub.formData.fecha, 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                <TableCell>{format(typeof sub.createdAt === 'string' ? parseISO(sub.createdAt) : sub.createdAt, 'dd/MM/yyyy HH:mm', { locale: es })}</TableCell>
                                                 <TableCell>{getFormTypeName(sub.formType)}</TableCell>
                                                 <TableCell>{getOperationTypeName(sub.formType)}</TableCell>
                                                 <TableCell>{sub.formData.tipoPedido || 'N/A'}</TableCell>
@@ -703,5 +703,3 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         </div>
     );
 }
-
-    

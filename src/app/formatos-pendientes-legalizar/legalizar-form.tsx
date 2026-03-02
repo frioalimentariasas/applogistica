@@ -195,7 +195,7 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
                                     {isLoading ? <ResultsSkeleton /> : results.length > 0 ? (
                                         results.map((sub) => (
                                             <TableRow key={sub.id}>
-                                                <TableCell>{format(parseISO(sub.formData.fecha), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                <TableCell>{format(typeof sub.formData.fecha === 'string' ? parseISO(sub.formData.fecha) : sub.formData.fecha, 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                 <TableCell>{sub.formData.pedidoSislog}</TableCell>
                                                 <TableCell>{sub.formData.nombreCliente || sub.formData.cliente}</TableCell>
                                                 <TableCell>{sub.userDisplayName}</TableCell>
