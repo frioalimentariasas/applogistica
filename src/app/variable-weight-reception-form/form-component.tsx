@@ -346,7 +346,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                 )} />
                 <FormField control={control} name={`${basePath}.${itemIndex}.descripcion`} render={({ field }) => (
                     <FormItem className="md:col-span-2">
-                        <FormLabel>Descripción <span className="text-destructive">*</span></FormLabel>
+                        <FormLabel>Descripción del Producto <span className="text-destructive">*</span></FormLabel>
                         <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, placaIndex })}>
                             <span className="truncate">{field.value || "Seleccionar producto..."}</span>
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1101,54 +1101,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         setIsCameraOpen(false);
     };
   
-    useEffect(() => {
-      let stream: MediaStream;
-      const enableCamera = async () => {
-          if (isCameraOpen) {
-              if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                  const rearCameraConstraints = { video: { facingMode: { exact: "environment" } } };
-                  const anyCameraConstraints = { video: true };
-                  try {
-                      stream = await navigator.mediaDevices.getUserMedia(rearCameraConstraints);
-                      if (videoRef.current) {
-                          videoRef.current.srcObject = stream;
-                      }
-                  } catch (err) {
-                      console.warn("Rear camera not available, trying any camera.", err);
-                      try {
-                         stream = await navigator.mediaDevices.getUserMedia(anyCameraConstraints);
-                          if (videoRef.current) {
-                              videoRef.current.srcObject = stream;
-                          }
-                      } catch (finalErr) {
-                           console.error("Error accessing camera: ", finalErr);
-                          toast({
-                              variant: 'destructive',
-                              title: 'Acceso a la cámara denegado',
-                              description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
-                          });
-                          setIsCameraOpen(false);
-                      }
-                  }
-              } else {
-                  toast({
-                      variant: 'destructive',
-                      title: 'Cámara no disponible',
-                      description: 'Su navegador no soporta el acceso a la cámara.',
-                  });
-                  setIsCameraOpen(false);
-              }
-          }
-      };
-      enableCamera();
-      return () => {
-          if (stream) {
-              stream.getTracks().forEach(track => track.stop());
-          }
-      }
-    }, [isCameraOpen, toast]);
-  
     async function onSubmit(data: FormValues) {
+      if (isSubmitting) return; // Prevent concurrent submissions
       if (!user || !storage) {
           toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
           return;
@@ -2580,3 +2534,48 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           </Dialog>
       );
   }
+
+function ItemsPorPlaca({ placaIndex, handleProductDialogOpening }: { placaIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex: number }) => void }) {
+    const { control, getValues } = useFormContext();
+    const { fields, append, remove } = useFieldArray({
+        control,
+        name: `placas.${placaIndex}.items`,
+    });
+
+    const handleAddItemToPlaca = () => {
+        const items = getValues(`placas.${placaIndex}.items`);
+        const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
+
+        const newItemPayload = lastItem ? {
+            ...originalDefaultValues.items![0],
+            codigo: lastItem.codigo,
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+             cantidadPorPaleta: lastItem.cantidadPorPaleta,
+            taraCaja: lastItem.taraCaja,
+        } : { ...originalDefaultValues.items![0] };
+        
+        append(newItemPayload);
+    };
+
+    return (
+        <div className="space-y-4">
+            <h4 className="text-md font-semibold text-gray-600">Ítems de la Placa</h4>
+            {fields.map((item, itemIndex) => (
+                <ItemFields
+                    key={item.id}
+                    itemIndex={itemIndex}
+                    control={control}
+                    remove={remove}
+                    handleProductDialogOpening={(ctx) => handleProductDialogOpening({ ...ctx, placaIndex })}
+                    isTunel
+                    placaIndex={placaIndex}
+                />
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={handleAddItemToPlaca}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem a Placa
+            </Button>
+        </div>
+    );
+};

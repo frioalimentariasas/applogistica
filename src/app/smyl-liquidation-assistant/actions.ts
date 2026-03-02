@@ -83,7 +83,7 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
         const items = data.items || [];
         if (items.some((item: any) => item.lote === lotId)) {
             const totalCalculatedWeight = items.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
-            if (totalCalculatedWeight >= 20000) {
+            if (totalCalculatedWeight >= 12000) {
                 initialReceptionDoc = doc;
                 break; // Found the first, so break
             }
@@ -181,7 +181,7 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
 
     try {
         const history = await getLotHistory(lotId);
-        if (!history) return { error: `No se encontró una recepción 'GENERICO' inicial para el lote '${lotId}' con peso >= 20000kg.` };
+        if (!history) return { error: `No se encontró una recepción 'GENERICO' inicial para el lote '${lotId}' con peso >= 12000kg.` };
 
         const { initialReception, movements } = history;
         const dailyBalances: DailyBalance[] = [];
@@ -296,7 +296,7 @@ export async function getSmylEligibleLots(
     const items = data.items || [];
     const totalWeight = items.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
 
-    if (totalWeight >= 20000) {
+    if (totalWeight >= 12000) {
       items.forEach((item: any) => {
         if (item.lote && !allPossibleLots.has(item.lote)) {
           allPossibleLots.set(item.lote, {

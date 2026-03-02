@@ -113,6 +113,31 @@ export async function saveForm(
         return { success: true, message: 'Formulario actualizado con éxito.', formId: formIdToUpdate };
 
     } else {
+        // --- DEDUPLICATION LOGIC ---
+        // We check if a submission with the same Sislog and formType already exists 
+        // within a short timeframe (e.g., 60 seconds) to prevent double clicks or retry issues.
+        const pedidoSislog = payload.formData.pedidoSislog;
+        if (pedidoSislog) {
+            const existingQuery = await firestore.collection('submissions')
+                .where('formType', '==', payload.formType)
+                .where('formData.pedidoSislog', '==', pedidoSislog)
+                .get();
+            
+            if (!existingQuery.empty) {
+                const now = Date.now();
+                const duplicate = existingQuery.docs.find(doc => {
+                    const data = doc.data();
+                    const createdAt = new Date(data.createdAt).getTime();
+                    return (now - createdAt < 60000); // 60 seconds window
+                });
+
+                if (duplicate) {
+                    console.log(`[Deduplication] Duplicate detected for ${pedidoSislog}. Returning existing ID: ${duplicate.id}`);
+                    return { success: true, message: 'Formulario ya guardado.', formId: duplicate.id };
+                }
+            }
+        }
+
         // This is a new submission. We save all the initial data.
         const submissionData: FormSubmissionData = {
             userId: payload.responsibleUser.id,

@@ -22,7 +22,7 @@ import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
-import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
+import { getStandardObservations, type StandardObservation } from "@/app/gestion-observations/actions";
 import { PedidoType } from "@/app/gestion-tipos-pedido/actions";
 import { Html5Qrcode } from "html5-qrcode";
 import { getPalletInfoByCode, type PalletInfo } from "@/app/actions/pallet-lookup";
@@ -75,7 +75,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RestoreDialog } from "@/components/app/restore-dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -192,7 +192,7 @@ const formSchema = z.object({
         const format1 = /^[A-Z]{4}[0-9]{7}$/;
         const format2 = /^[A-Z]{2}[0-9]{6}-[0-9]{4}$/;
         const upperValue = value.toUpperCase();
-        return upperValue === 'N/A' || format1.test(upperValue) || format2.test(upperValue);
+        return upperValue === 'N/A' || upperValue === 'NO APLICA' || format1.test(upperValue) || format2.test(upperValue);
     }, {
         message: "Formato inválido. Debe ser 'N/A', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números."
     }),
@@ -314,6 +314,7 @@ const MAX_ATTACHMENTS = 60;
 const MAX_TOTAL_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 function getByteSizeFromBase64(base64: string): number {
+    // This is an approximation
     return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
 }
 
@@ -357,7 +358,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
 
   const isAdmin = permissions.canManageSessions;
-  const isAuthorizedEditor = email === 'sistemas@frioalimentaria.com.co' || (submissionId && email === 'planta@frioalimentaria.com.co');
+  const isAuthorizedEditor = email === 'sistemas@frioalimentaria.com.co' || (submissionId && email === 'planta@frioalimentaria.com.co');  
 
 
   const filteredClients = useMemo(() => {
@@ -568,7 +569,10 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
           const sanitizedFormData = {
               ...originalDefaultValues,
               ...formData,
-              observaciones: formData.observaciones ?? [],
+              observaciones: (formData.observaciones || []).map((obs: any) => ({
+                  ...obs,
+                  provider: obs.provider || (obs.executedByGrupoRosales ? 'GRUPO ROSALES LOGISTICA 24/7 SAS' : undefined),
+              })),
               setPoint: formData.setPoint ?? null,
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               crewProvider: submission.crewProvider || 'GRUPO ROSALES LOGISTICA 24/7 SAS',
@@ -726,7 +730,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             const dataUrl = canvas.toDataURL('image/jpeg');
             
             handleCloseCamera(); // Close camera UI immediately
-  
+
             const processingToast = toast({
               title: "Optimizando imagen...",
               description: "Por favor espere un momento.",
@@ -776,54 +780,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
       setIsCameraOpen(false);
   };
 
-  useEffect(() => {
-    let stream: MediaStream;
-    const enableCamera = async () => {
-        if (isCameraOpen) {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                const rearCameraConstraints = { video: { facingMode: { exact: "environment" } } };
-                const anyCameraConstraints = { video: true };
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia(rearCameraConstraints);
-                    if (videoRef.current) {
-                        videoRef.current.srcObject = stream;
-                    }
-                } catch (err) {
-                    console.warn("Rear camera not available, trying any camera.", err);
-                    try {
-                       stream = await navigator.mediaDevices.getUserMedia(anyCameraConstraints);
-                        if (videoRef.current) {
-                            videoRef.current.srcObject = stream;
-                        }
-                    } catch (finalErr) {
-                         console.error("Error accessing camera: ", finalErr);
-                        toast({
-                            variant: 'destructive',
-                            title: 'Acceso a la cámara denegado',
-                            description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
-                        });
-                        setIsCameraOpen(false);
-                    }
-                }
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Cámara no disponible',
-                    description: 'Su navegador no soporta el acceso a la cámara.',
-                });
-                setIsCameraOpen(false);
-            }
-        }
-    };
-    enableCamera();
-    return () => {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
-    }
-  }, [isCameraOpen, toast]);
-
   async function onSubmit(data: FormValues) {
+    if (isSubmitting) return; // Prevent concurrent submissions
     if (!user || !storage) {
         toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
         return;
@@ -1321,7 +1279,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                     </div>
                                     <FormField
                                         control={form.control}
-                                        name={`destinos.${destinoIndex}.nombreDestino`}
+                                        name={`destinos.${destinoIndex}.items`}
                                         render={({ field }) => (
                                             <FormItem className="mb-4">
                                                 <FormLabel>Nombre del Destino</FormLabel>

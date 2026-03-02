@@ -753,6 +753,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
 
 
   async function onSubmit(data: FormValues) {
+    if (isSubmitting) return; // Prevent concurrent submissions
     if (!user || !storage) {
         toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
         return;
@@ -1684,7 +1685,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                           </div>
                       )}
                   </CardContent>
-              </Card>
+               </Card>
               
               <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
                   <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto">
@@ -1955,4 +1956,3 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-    
