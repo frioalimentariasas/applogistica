@@ -207,10 +207,12 @@ interface VariableWeightReceptionReportProps {
     formData: any;
     userDisplayName: string;
     attachments: string[];
+    crewProvider?: string;
 }
 
-export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
+export function VariableWeightReceptionReport({ formData, userDisplayName, attachments, crewProvider }: VariableWeightReceptionReportProps) {
     const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
+    const isTunelACamara = formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS';
     const operationTerm = 'Descargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
     const hasStandardObservations = (formData.observaciones || []).some((obs: any) => obs.type !== 'OTRAS OBSERVACIONES');
@@ -253,19 +255,22 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                         </tr>
                     </tbody>
                 </table>
-            </ReportSection>
-            
+            </ReportSection>         
             <ReportSection title="Detalle de la Recepción" noPadding>
                 <div style={{overflowX: 'auto'}}>
-                    {formData.recepcionPorPlaca || isTunelCongelacion ? (
-                        (formData.placas || []).map((placa: any, index: number) => (
-                           <div key={`placa-${index}`} style={{marginBottom: '10px'}}>
-                                <div style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: index > 0 ? '1px solid #aaa' : 'none' }}>
-                                    Placa: {placa.numeroPlaca} | Conductor: {placa.conductor} (C.C. {placa.cedulaConductor})
-                                </div>
-                                <ItemsTable items={placa.items || []} tipoPedido={formData.tipoPedido} />
-                           </div>
-                        ))
+                    {formData.recepcionPorPlaca || isTunelCongelacion || isTunelACamara ? (
+                        (formData.placas && formData.placas.length > 0) ? (
+                            (formData.placas || []).map((placa: any, index: number) => (
+                               <div key={`placa-${index}`} style={{marginBottom: '10px'}}>
+                                    <div style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: index > 0 ? '1px solid #aaa' : 'none' }}>
+                                        Placa: {placa.numeroPlaca} | Conductor: {placa.conductor} (C.C. {placa.cedulaConductor})
+                                    </div>
+                                    <ItemsTable items={placa.items || []} tipoPedido={formData.tipoPedido} />
+                               </div>
+                            ))
+                        ) : (
+                             <ItemsTable items={formData.items || []} tipoPedido={formData.tipoPedido} />
+                        )
                     ) : (
                          <ItemsTable items={formData.items || []} tipoPedido={formData.tipoPedido} />
                     )}
@@ -274,27 +279,24 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 
             {isTunelCongelacion ? (
                 <TunelCongelacionSummary formData={formData} />
-            ) : formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' ? (
+            ) : isTunelACamara ? (
                  <TunelACamaraSummary formData={formData} />
             ) : (
                 <DefaultSummary formData={formData} />
             )}
 
-            {/* --- INICIO DE CÓDIGO A AGREGAR --- */}
-            <ReportSection title="Información Vehículo">
+            <ReportSection title="Información Contenedor">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <tbody>
-            <tr>
+                <tbody>
+                <tr>
                 <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Condiciones Higiene" value={formData.condicionesHigiene} /></td>
                 <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Termoregistrador" value={formData.termoregistrador} /></td>
                 <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Cliente Requiere Termoregistro" value={formData.clienteRequiereTermoregistro} /></td>
-            </tr>
-            </tbody>
-            </table>
-        </ReportSection>
-        {/* --- FIN DE CÓDIGO A AGREGAR --- */}
-      
-
+                </tr>
+                </tbody>
+                    </table>
+                </ReportSection>
+   
             {formData.observaciones && formData.observaciones.length > 0 && (
                  <ReportSection title="Observaciones">
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
@@ -311,6 +313,8 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             {formData.observaciones.map((obs: any, i: number) => {
                                 const isOther = obs.type === 'OTRAS OBSERVACIONES';
                                 const showCrewCheckbox = obs.type === 'REESTIBADO' || obs.type === 'TRANSBORDO CANASTILLA' || obs.type === 'SALIDA PALETAS TUNEL';
+                                const providerName = obs.provider || (obs.executedByGrupoRosales === true ? 'Sí' : 'No');
+
                                 return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
@@ -326,7 +330,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                                 {`${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim()}
                                             </td>
                                             <td style={{ padding: '4px' }}>
-                                                {showCrewCheckbox ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : ''}
+                                                {showCrewCheckbox ? providerName : ''}
                                             </td>
                                         </>
                                     )}
@@ -335,9 +339,8 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             })}
                         </tbody>
                     </table>
-                </ReportSection>
+                </ReportSection>  
             )}
-
             <ReportSection title="Responsables de la Operación">
                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                      <tbody>
@@ -346,7 +349,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Operario" value={userDisplayName} /></td>
                             {showCrewField && (
                                 <td style={{...fieldCellStyle, width: '33.33%'}}>
-                                    <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
+                                    <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla === 'si' ? `Sí (${crewProvider || 'Proveedor no asignado'})` : 'No'} />
                                     {formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla && (
                                         <div style={{ marginLeft: '8px', fontSize: '10px' }}>
                                             ↳ No. Operarios: {formData.numeroOperariosCuadrilla}

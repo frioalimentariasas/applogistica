@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -183,7 +182,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             let yPos = 0;
             let attachmentsStartPage = -1;
     
-            const { formType, formData, userDisplayName } = submission;
+            const { formType, formData, userDisplayName, crewProvider } = submission;
     
             const addHeader = (title: string) => {
                 const logoPdfHeight = 35;
@@ -305,10 +304,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 if (formData.observaciones && formData.observaciones.length > 0) {
                     const obsBody = formData.observaciones.map((obs: any) => {
                         const isOther = obs.type === 'OTRAS OBSERVACIONES';
-                        let typeText = obs.customType || obs.type;
+                        const providerName = obs.provider || (obs.executedByGrupoRosales === true ? 'GRUPO ROSALES LOGISTICA 24/7 SAS' : null);
                         
-                        if (!isOther && (obs.type === 'REESTIBADO' || obs.type === 'TRANSBORDO CANASTILLA' || obs.type === 'SALIDA PALETAS TUNEL') && obs.executedByGrupoRosales === true) {
-                            typeText += " (Realizado por Cuadrilla)";
+                        let typeText = obs.customType || obs.type;
+                        if (providerName) {
+                            typeText += ` (Cuadrilla: ${providerName})`;
                         }
 
                         if (isOther) {
@@ -537,7 +537,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
                             userDisplayName || 'No Aplica',
                              {content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}},
-                            `${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'No Aplica'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
+                            `${formData.aplicaCuadrilla === 'si' ? `Sí (${crewProvider || 'Proveedor no asignado'})` : 'No'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
                         ],
                     ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)),
                     theme: 'grid', 
@@ -636,7 +636,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                      if(isTunelModeByPlate) {
                         (formData.placas || []).forEach((placa: any) => {
-                            const subTitle = `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`;
+                            const subTitle = `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. {placa.cedulaConductor})`;
                             drawItemsTable(placa.items || [], subTitle);
                         });
                     } else {
@@ -804,7 +804,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             const key = shouldGroupByDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
                 
                             if (!acc[key]) {
-                                const summaryItem = formData.summary?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
+                                const summaryItem = form.getValues('summary')?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
                                 acc[key] = {
                                     descripcion: item.descripcion,
                                     destino: item.destino,
@@ -991,7 +991,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                  if (showCrewField) {
                      responsablesBody[0].push({content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}});
-                     responsablesBody[0].push(`${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'No Aplica'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`);
+                     responsablesBody[0].push(`${formData.aplicaCuadrilla === 'si' ? `Sí (${crewProvider || 'Proveedor no asignado'})` : 'No'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`);
                  }
 
                  autoTable(doc, { 
@@ -1073,11 +1073,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     };
     
     const renderReportContent = () => {
-        const { formData, userDisplayName } = submission;
+        const { formData, userDisplayName, crewProvider } = submission;
         const props = { 
             formData: submission.formData,
             userDisplayName, 
             attachments: base64Images.map(img => img.src),
+            crewProvider,
         };
 
         switch (submission.formType) {

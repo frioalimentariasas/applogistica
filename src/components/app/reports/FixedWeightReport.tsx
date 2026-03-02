@@ -1,5 +1,3 @@
-
-
 import { parseISO } from 'date-fns';
 
 const formatTime12Hour = (time24: string | undefined): string => {
@@ -79,9 +77,10 @@ interface FixedWeightReportProps {
     userDisplayName: string;
     attachments: string[];
     formType: string;
+    crewProvider?: string;
 }
 
-export function FixedWeightReport({ formData, userDisplayName, attachments, formType }: FixedWeightReportProps) {
+export function FixedWeightReport({ formData, userDisplayName, attachments, formType, crewProvider }: FixedWeightReportProps) {
     const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
     const totalPaletasCompletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.paletasCompletas) || 0), 0);
     const totalPaletasPicking = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.paletasPicking) || 0), 0);
@@ -232,6 +231,8 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             {formData.observaciones.map((obs: any, i: number) => {
                                 const isOther = obs.type === 'OTRAS OBSERVACIONES';
                                 const showCrewCheckbox = obs.type === 'REESTIBADO' || obs.type === 'TRANSBORDO CANASTILLA';
+                                const providerName = obs.provider || (obs.executedByGrupoRosales === true ? 'Sí' : 'No');
+                                
                                 return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
@@ -247,7 +248,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                                 {`${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim()}
                                             </td>
                                             <td style={{ padding: '4px' }}>
-                                                {showCrewCheckbox ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : ''}
+                                                {showCrewCheckbox ? providerName : ''}
                                             </td>
                                         </>
                                     )}
@@ -266,7 +267,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Coordinador" value={formData.coordinador} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Operario" value={userDisplayName} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}>
-                                <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
+                                <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla === 'si' ? `Sí (${crewProvider || 'Proveedor no asignado'})` : 'No'} />
                                 {formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla && (
                                     <div style={{ marginLeft: '8px', fontSize: '10px' }}>
                                         ↳ No. Operarios: {formData.numeroOperariosCuadrilla}
