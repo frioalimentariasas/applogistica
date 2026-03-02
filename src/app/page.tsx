@@ -371,24 +371,26 @@ export default function Home() {
                         <CheckCircle2 className="h-12 w-12 text-primary animate-in zoom-in duration-300" />
                         ¿Confirmar Selección de Formato?
                     </AlertDialogTitle>
-                    <AlertDialogDescription className="text-center text-base pt-4 space-y-4">
-                        <div className="bg-muted p-4 rounded-lg border">
-                            <p className="text-gray-600 text-sm">Vas a abrir un formato de:</p>
-                            <div className="flex flex-col gap-1 mt-2">
-                                <span className={cn(
-                                    "text-lg font-extrabold uppercase",
-                                    operationType === 'recepcion' ? "text-emerald-600" : "text-sky-600"
-                                )}>
-                                    {operationType === 'recepcion' ? "ENTRADA (Recepción)" : "SALIDA (Despacho)"}
-                                </span>
-                                <span className="text-gray-900 font-bold text-base">
-                                    PESO {productType === 'fijo' ? "FIJO" : "VARIABLE"}
-                                </span>
+                    <AlertDialogDescription asChild>
+                        <div className="text-center text-base pt-4 space-y-4 text-muted-foreground">
+                            <div className="bg-muted p-4 rounded-lg border">
+                                <p className="text-gray-600 text-sm font-normal">Vas a abrir un formato de:</p>
+                                <div className="flex flex-col gap-1 mt-2">
+                                    <span className={cn(
+                                        "text-lg font-extrabold uppercase",
+                                        operationType === 'recepcion' ? "text-emerald-600" : "text-sky-600"
+                                    )}>
+                                        {operationType === 'recepcion' ? "ENTRADA (Recepción)" : "SALIDA (Despacho)"}
+                                    </span>
+                                    <span className="text-gray-900 font-bold text-base">
+                                        PESO {productType === 'fijo' ? "FIJO" : "VARIABLE"}
+                                    </span>
+                                </div>
                             </div>
+                            <p className="font-semibold text-gray-800">
+                                ¿Es este el formato correcto para la operación que vas a iniciar?
+                            </p>
                         </div>
-                        <p className="font-semibold text-gray-800">
-                            ¿Es este el formato correcto para la operación que vas a iniciar?
-                        </p>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter className="sm:justify-center gap-2 mt-4">
