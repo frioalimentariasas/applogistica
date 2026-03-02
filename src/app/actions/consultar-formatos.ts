@@ -35,30 +35,35 @@ const operarioEmails = [
     'frioal.operario4@gmail.com'
 ];
 
-// This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
+/**
+ * Recursively converts Firestore Timestamps to ISO strings.
+ * More robust check using the toDate method.
+ */
 const serializeTimestamps = (data: any): any => {
-    if (data === null || data === undefined || typeof data !== 'object') {
+    if (data === null || data === undefined) {
         return data;
     }
 
-    // Handle Firestore Timestamp
-    if (data instanceof admin.firestore.Timestamp) {
+    // Handle Firestore Timestamp (check for toDate function)
+    if (typeof data.toDate === 'function') {
         return data.toDate().toISOString();
     }
 
-    // Handle array
     if (Array.isArray(data)) {
         return data.map(item => serializeTimestamps(item));
     }
     
-    // Handle object
-    const newObj: { [key: string]: any } = {};
-    for (const key in data) {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-            newObj[key] = serializeTimestamps(data[key]);
+    if (typeof data === 'object') {
+        const newObj: { [key: string]: any } = {};
+        for (const key in data) {
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                newObj[key] = serializeTimestamps(data[key]);
+            }
         }
+        return newObj;
     }
-    return newObj;
+
+    return data;
 };
 
 export async function searchSubmissions(criteria: SearchCriteria): Promise<SubmissionResult[]> {

@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { format, parseISO, startOfDay, endOfDay, subDays } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, subDays, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { searchSubmissions, SubmissionResult, SearchCriteria, deleteSubmission } from '@/app/actions/consultar-formatos';
@@ -26,7 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch, ChevronsUpDown, Replace } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -322,9 +322,14 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         return `/consultar-formatos`;
     };
 
+    /**
+     * More robust date display helper.
+     * Handles native Date objects, ISO strings, and objects with seconds/_seconds.
+     */
     const formatDateDisplay = (val: any, includeTime = false) => {
         if (!val) return 'N/A';
         let date: Date;
+        
         if (val instanceof Date) {
             date = val;
         } else if (typeof val === 'string') {
@@ -332,11 +337,16 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         } else if (val && typeof val === 'object' && (val.seconds !== undefined || val._seconds !== undefined)) {
             const s = val.seconds !== undefined ? val.seconds : val._seconds;
             date = new Date(s * 1000);
+        } else if (typeof val.toDate === 'function') {
+            date = val.toDate();
         } else {
             return 'Fecha Inválida';
         }
         
-        if (isNaN(date.getTime())) return 'Fecha Inválida';
+        if (!isValid(date)) {
+            return 'Fecha Inválida';
+        }
+        
         return format(date, includeTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy', { locale: es });
     };
 

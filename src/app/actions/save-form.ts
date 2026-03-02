@@ -42,9 +42,20 @@ export interface SaveFormPayload {
 /**
  * Recursively removes any keys with 'undefined' values from an object.
  * Firestore Admin SDK does not allow 'undefined' as a value.
+ * Updated to preserve Date objects and Firestore Timestamps.
  */
 function sanitizeFirestoreData(data: any): any {
   if (data === null || typeof data !== 'object') {
+    return data;
+  }
+
+  // Preserve Date objects
+  if (data instanceof Date) {
+    return data;
+  }
+
+  // Preserve Firestore Timestamps (duck typing check)
+  if (typeof data.toDate === 'function') {
     return data;
   }
 
