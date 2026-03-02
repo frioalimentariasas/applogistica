@@ -34,7 +34,8 @@ import {
   Box,
   ClipboardList,
   Package,
-  Users2
+  Users2,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
