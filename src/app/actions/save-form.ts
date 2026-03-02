@@ -39,6 +39,31 @@ export interface SaveFormPayload {
     createdAt?: string; // Only used for updates to preserve original creation date
 }
 
+/**
+ * Recursively removes any keys with 'undefined' values from an object.
+ * Firestore Admin SDK does not allow 'undefined' as a value.
+ */
+function sanitizeFirestoreData(data: any): any {
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(sanitizeFirestoreData);
+  }
+
+  const sanitized: { [key: string]: any } = {};
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      const value = data[key];
+      if (value !== undefined) {
+        sanitized[key] = sanitizeFirestoreData(value);
+      }
+    }
+  }
+  return sanitized;
+}
+
 
 export async function saveForm(
     payload: SaveFormPayload,
@@ -72,7 +97,8 @@ export async function saveForm(
         }
         
         const docRef = firestore.collection('submissions').doc(formIdToUpdate);
-        await docRef.update(updateData);
+        // Sanitize the entire object to remove any 'undefined' from formData or other fields
+        await docRef.update(sanitizeFirestoreData(updateData));
         return { success: true, message: 'Formulario actualizado con éxito.', formId: formIdToUpdate };
 
     } else {
@@ -84,9 +110,16 @@ export async function saveForm(
             formType: payload.formType,
             attachmentUrls: payload.attachmentUrls,
             createdAt: new Date().toISOString(),
-            crewProvider: payload.crewProvider,
         };
-        const docRef = await firestore.collection('submissions').add(submissionData);
+
+        // Only add crewProvider if it has a value
+        if (payload.crewProvider) {
+            submissionData.crewProvider = payload.crewProvider;
+        }
+
+        // Sanitize the entire object to remove any 'undefined' from formData or other fields
+        const cleanedData = sanitizeFirestoreData(submissionData);
+        const docRef = await firestore.collection('submissions').add(cleanedData);
         return { success: true, message: 'Formulario guardado con éxito.', formId: docRef.id };
     }
 
