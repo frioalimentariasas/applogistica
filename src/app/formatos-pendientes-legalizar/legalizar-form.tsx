@@ -195,7 +195,14 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
                                     {isLoading ? <ResultsSkeleton /> : results.length > 0 ? (
                                         results.map((sub) => (
                                             <TableRow key={sub.id}>
-                                                <TableCell>{format(typeof sub.formData.fecha === 'string' ? parseISO(sub.formData.fecha) : sub.formData.fecha, 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                <TableCell>
+                                                    {(() => {
+                                                        const val = sub.formData.fecha;
+                                                        if (!val) return 'N/A';
+                                                        const d = typeof val === 'string' ? parseISO(val) : val;
+                                                        return d instanceof Date && !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy', { locale: es }) : 'Fecha Inválida';
+                                                    })()}
+                                                </TableCell>
                                                 <TableCell>{sub.formData.pedidoSislog}</TableCell>
                                                 <TableCell>{sub.formData.nombreCliente || sub.formData.cliente}</TableCell>
                                                 <TableCell>{sub.userDisplayName}</TableCell>
