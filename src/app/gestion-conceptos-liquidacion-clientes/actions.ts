@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -137,8 +135,6 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     const allConcepts = await getClientBillingConcepts();
     const applicableConcepts = new Map<string, ClientBillingConcept>();
     
-    //const serverQueryStartDate = startOfDay(parseISO(startDate));
-    //const serverQueryEndDate = endOfDay(parseISO(endDate));
     const serverQueryStartDate = new Date(`${startDate}T00:00:00-05:00`);
     const serverQueryEndDate = new Date(`${endDate}T23:59:59.999-05:00`);
     
@@ -150,6 +146,12 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 
     // Fetch all manual operations in the date range. Client will be filtered later.
     const manualOpsSnapshot = await firestore.collection('manual_client_operations')
+        .where('operationDate', '>=', serverQueryStartDate)
+        .where('operationDate', '<=', serverQueryEndDate)
+        .get();
+
+    // Fetch all crew operations in the date range (needed for Canastas check)
+    const crewManualOpsSnapshot = await firestore.collection('manual_operations')
         .where('operationDate', '>=', serverQueryStartDate)
         .where('operationDate', '<=', serverQueryEndDate)
         .get();
@@ -174,6 +176,20 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     
     for (const concept of conceptsForClient) {
         if (concept.calculationType === 'REGLAS') {
+            // Check for Canastas case for AVICOLA EL MADROÑO S.A.
+            if (concept.conceptName === 'OPERACIÓN CARGUE' && clientName === 'AVICOLA EL MADROÑO S.A.') {
+                const hasCanastas = crewManualOpsSnapshot.docs.some(doc => {
+                    const opData = doc.data();
+                    return opData.clientName === clientName && opData.concept === 'CARGUE DE CANASTAS';
+                });
+                if (hasCanastas) {
+                    if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
+                    continue; // Already added, move to next
+                }
+            }
+
             const hasApplicableOperation = clientSubmissions.some(doc => {
                 const submission = serializeTimestamps(doc.data());
                 
@@ -440,8 +456,3 @@ export async function deleteMultipleClientBillingConcepts(ids: string[]): Promis
     return { success: false, message: 'Ocurrió un error en el servidor.' };
   }
 }
-
-  
-
-
-      

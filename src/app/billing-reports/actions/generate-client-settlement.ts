@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -1010,7 +1008,7 @@ export async function generateClientSettlement(criteria: {
             const matchingTariff = findMatchingTariff(totalTons, operacionCargueConcept);
             if (matchingTariff) {
                 const operacionLogistica = getOperationLogisticsType(opData.operationDate, opData.startTime, opData.endTime, operacionCargueConcept);
-                const unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
+                const unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : (operacionLogistica === 'Extra' ? matchingTariff.extraTariff : matchingTariff.nightTariff);
 
                 settlementRows.push({
                     date: opData.operationDate,
@@ -1028,7 +1026,7 @@ export async function generateClientSettlement(criteria: {
                     unitValue: unitValue,
                     totalValue: unitValue,
                     horaInicio: opData.startTime,
-                    horaFin: op.data.endTime,
+                    horaFin: opData.endTime,
                     justification: '',
                 });
             }
@@ -1954,12 +1952,3 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${h.toString().padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
-
-    
-
-
-
-
-    
-
-      

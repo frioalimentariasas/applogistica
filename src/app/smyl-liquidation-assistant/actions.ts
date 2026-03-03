@@ -181,7 +181,7 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
 
     try {
         const history = await getLotHistory(lotId);
-        if (!history) return { error: `No se encontró una recepción 'GENERICO' inicial para el lote '${lotId}' con peso >= 12000kg.` };
+        if (!history) return { error: `No se encontró Entrada (recepción) 'GENERICO' inicial para el lote '${lotId}' con peso >= 12000kg.` };
 
         const { initialReception, movements } = history;
         const dailyBalances: DailyBalance[] = [];
