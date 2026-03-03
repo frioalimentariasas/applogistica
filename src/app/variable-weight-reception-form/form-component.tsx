@@ -447,7 +447,6 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
     );
 };
 
-
 type FormValues = z.infer<typeof formSchema>;
 
 const originalDefaultValues: FormValues = {

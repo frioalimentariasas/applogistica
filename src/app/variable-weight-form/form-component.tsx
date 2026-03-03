@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -22,7 +21,7 @@ import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
-import { getStandardObservations, type StandardObservation } from "@/app/gestion-observations/actions";
+import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
 import { PedidoType } from "@/app/gestion-tipos-pedido/actions";
 import { Html5Qrcode } from "html5-qrcode";
 import { getPalletInfoByCode, type PalletInfo } from "@/app/actions/pallet-lookup";
@@ -158,7 +157,7 @@ const observationSchema = z.object({
   customType: z.string().optional(),
   quantity: z.coerce.number({invalid_type_error: "La cantidad debe ser un número."}).min(0, "La cantidad no puede ser negativa.").optional(),
   quantityType: z.string().optional(),
-  executedByGrupoRosales: z.boolean().default(false),
+  provider: z.string().optional(),
 }).refine(data => {
     if (data.type === 'OTRAS OBSERVACIONES' && !data.customType?.trim()) {
         return false;
@@ -398,7 +397,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   const allDestinos = useWatch({ control: form.control, name: 'destinos' });
   const allItems = useWatch({ control: form.control, name: 'items' });
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
-  const watchedItemsForSummary = useMemo(() => despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []), [despachoPorDestino, allDestinos, allItems]);
+  
+  const watchedItemsForSummary = useMemo(() => despachoPorDestino ? (allDestinos || []).flatMap(d => d?.items || []) : (allItems || []), [despachoPorDestino, allDestinos, allItems]);
   const isSummaryMode = useMemo(() => watchedItemsForSummary.some(item => Number(item?.paleta) === 0), [watchedItemsForSummary]);
 
   const formIdentifier = submissionId ? `variable-weight-dispatch-edit-${submissionId}` : `variable-weight-${operation}`;
@@ -406,7 +406,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
   const isClientChangeDisabled = useMemo(() => {
     if (isAuthorizedEditor) return false;
-    const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []);
+    const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d?.items || []) : (allItems || []);
     return itemsToProcess.length > 1 || (itemsToProcess.length === 1 && !!itemsToProcess[0]?.descripcion);
   }, [despachoPorDestino, allDestinos, allItems, isAuthorizedEditor]);
   
@@ -431,7 +431,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   }, [watchedAplicaCuadrilla, form]);
 
   const calculatedSummary = useMemo(() => {
-      const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items.map(i => ({...i, destino: d.nombreDestino}))) : (allItems || []);
+      const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => (d?.items || []).map(i => ({...i, destino: d.nombreDestino}))) : (allItems || []);
       const isIndividualPalletMode = itemsToProcess.every(item => Number(item?.paleta) > 0);
       const shouldGroupByDestino = despachoPorDestino && isIndividualPalletMode;
       
@@ -497,7 +497,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
     if (isSummaryMode) {
         return totalGeneralPaletasCompletas + totalGeneralPaletasPicking;
     }
-    const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []);
+    const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d?.items || []) : (allItems || []);
     const uniquePallets = new Set<number>();
     let count999 = 0;
     itemsToProcess.forEach((i: any) => {
@@ -779,6 +779,53 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
       }
       setIsCameraOpen(false);
   };
+
+  useEffect(() => {
+    let stream: MediaStream;
+    const enableCamera = async () => {
+        if (isCameraOpen) {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                const rearCameraConstraints = { video: { facingMode: { exact: "environment" } } };
+                const anyCameraConstraints = { video: true };
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(rearCameraConstraints);
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                    }
+                } catch (err) {
+                    console.warn("Rear camera not available, trying any camera.", err);
+                    try {
+                       stream = await navigator.mediaDevices.getUserMedia(anyCameraConstraints);
+                        if (videoRef.current) {
+                            videoRef.current.srcObject = stream;
+                        }
+                    } catch (finalErr) {
+                         console.error("Error accessing camera: ", finalErr);
+                        toast({
+                            variant: 'destructive',
+                            title: 'Acceso a la cámara denegado',
+                            description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
+                        });
+                        setIsCameraOpen(false);
+                    }
+                }
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Cámara no disponible',
+                    description: 'Su navegador no soporta el acceso a la cámara.',
+                });
+                setIsCameraOpen(false);
+            }
+        }
+    };
+    enableCamera();
+    return () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
+  }, [isCameraOpen, toast]);
 
   async function onSubmit(data: FormValues) {
     if (isSubmitting) return; // Prevent concurrent submissions
@@ -1279,7 +1326,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                     </div>
                                     <FormField
                                         control={form.control}
-                                        name={`destinos.${destinoIndex}.items`}
+                                        name={`destinos.${destinoIndex}.nombreDestino`}
                                         render={({ field }) => (
                                             <FormItem className="mb-4">
                                                 <FormLabel>Nombre del Destino</FormLabel>
@@ -1488,20 +1535,24 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                             {showCrewCheckbox && (
                                                 <FormField
                                                     control={form.control}
-                                                    name={`observaciones.${index}.executedByGrupoRosales`}
+                                                    name={`observaciones.${index}.provider`}
                                                     render={({ field }) => (
-                                                        <FormItem className="flex flex-row items-end space-x-2 pb-2">
-                                                            <FormControl>
-                                                                <Checkbox
-                                                                    checked={field.value}
-                                                                    onCheckedChange={field.onChange}
-                                                                />
-                                                            </FormControl>
-                                                            <div className="space-y-1 leading-none">
-                                                                <Label htmlFor={`obs-check-${index}`} className="font-normal cursor-pointer uppercase">
-                                                                    REALIZADO POR CUADRILLA
-                                                                </Label>
-                                                            </div>
+                                                        <FormItem>
+                                                            <FormLabel>Proveedor Cuadrilla</FormLabel>
+                                                            <Select onValueChange={(value) => field.onChange(value === "NO_APLICA" ? undefined : value)} value={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="No Aplica" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    <SelectItem value="NO_APLICA">No Aplica</SelectItem>
+                                                                    {crewProviders.map(p => (
+                                                                        <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
                                                         </FormItem>
                                                     )}
                                                 />
@@ -1514,7 +1565,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => appendObservation({ type: '', quantity: 0, executedByGrupoRosales: false, customType: '', quantityType: '' })}
+                                onClick={() => appendObservation({ type: '', quantity: 0, customType: '', quantityType: '' })}
                                 className="mt-4"
                             >
                                 <PlusCircle className="mr-2 h-4 w-4" />
