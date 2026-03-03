@@ -92,13 +92,17 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             serverQueryStartDate = startOfDay(subDays(nowInColombia, 6)); 
         }
 
-        // Apply the most basic filters at the query level. The most common one will be by date.
-        // If a unique identifier like pedidoSislog or placa is provided, we might not need a date filter.
+        // Apply filters to the query. 
+        // We removed 'else' to make them additive.
         if (criteria.pedidoSislog) {
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog);
-        } else if (criteria.placa) {
+        }
+        
+        if (criteria.placa) {
             query = query.where('formData.placa', '==', criteria.placa);
-        } else if (serverQueryStartDate && serverQueryEndDate) {
+        }
+        
+        if (serverQueryStartDate && serverQueryEndDate) {
             query = query.where('formData.fecha', '>=', serverQueryStartDate)
                          .where('formData.fecha', '<=', serverQueryEndDate);
         }
@@ -119,9 +123,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         if (criteria.nombreCliente) {
             results = results.filter(sub => (sub.formData.nombreCliente || sub.formData.cliente) === criteria.nombreCliente);
         }
-        if (criteria.placa && !criteria.pedidoSislog) { // Re-filter for placa if it wasn't the primary query filter
-            results = results.filter(sub => sub.formData.placa === criteria.placa);
-        }
+        
         if (criteria.tipoPedido) {
             results = results.filter(sub => sub.formData.tipoPedido === criteria.tipoPedido);
         }
