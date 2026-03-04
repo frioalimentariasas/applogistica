@@ -396,6 +396,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   const despachoPorDestino = useWatch({ control: form.control, name: 'despachoPorDestino' });
   const allDestinos = useWatch({ control: form.control, name: 'destinos' });
   const allItems = useWatch({ control: form.control, name: 'items' });
+  const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   
   const watchedItemsForSummary = useMemo(() => despachoPorDestino ? (allDestinos || []).flatMap(d => d?.items || []) : (allItems || []), [despachoPorDestino, allDestinos, allItems]);

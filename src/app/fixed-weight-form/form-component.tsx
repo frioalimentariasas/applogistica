@@ -703,7 +703,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
       }
       setIsCameraOpen(false);
   };
-
+  
   useEffect(() => {
     let stream: MediaStream;
     const enableCamera = async () => {
