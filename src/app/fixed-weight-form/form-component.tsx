@@ -677,7 +677,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                     return;
                 }
 
-                setAttachments(prev => [...prev, ...optimizedImage]);
+                setAttachments(prev => [...prev, optimizedImage]);
             } catch (error) {
                  console.error("Image optimization error:", error);
                  toast({
@@ -1597,11 +1597,12 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                           <FormControl>
                                               <Input 
                                                   type="number"
-                                                  min="1"
+                                                  step="0.1"
+                                                  min="0.1"
                                                   placeholder="Ej: 3" 
                                                   {...field} 
                                                   value={field.value ?? ''}
-                                                  onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                                  onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}
                                               />
                                           </FormControl>
                                           <FormMessage />
@@ -1757,11 +1758,13 @@ function ObservationSelectorDialog({
     open,
     onOpenChange,
     standardObservations,
+    crewProviders,
     onSelect,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     standardObservations: StandardObservation[];
+    crewProviders: CrewProvider[];
     onSelect: (observation: { name: string, quantityType?: string }) => void;
 }) {
     const [search, setSearch] = useState("");

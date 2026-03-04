@@ -8,8 +8,8 @@ import { AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export default async function ReportPage({ params }: { params: { id: string } }) {
-  const id = params.id;
+export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
 
   if (!id) {
     notFound();

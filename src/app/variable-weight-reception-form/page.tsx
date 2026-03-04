@@ -1,5 +1,4 @@
 
-
 import { Suspense } from 'react';
 import VariableWeightReceptionFormComponent from './form-component';
 import { getPedidoTypesForForm } from '../gestion-tipos-pedido/actions';
@@ -9,9 +8,9 @@ import type { PedidoType } from '@/app/gestion-tipos-pedido/actions';
 export default async function VariableWeightReceptionFormPage({
   searchParams,
 }: {
-  searchParams: { operation: string };
+  searchParams: Promise<{ operation: string }>;
 }) {
-  const operation = searchParams.operation;
+  const { operation } = await searchParams;
   if (operation !== 'recepcion') {
     notFound();
   }
@@ -24,5 +23,3 @@ export default async function VariableWeightReceptionFormPage({
     </Suspense>
   );
 }
-
-

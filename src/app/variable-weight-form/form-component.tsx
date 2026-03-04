@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -218,9 +219,9 @@ const formSchema = z.object({
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
-    const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
+    const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap(d => d.items || []) : (data.items || []);
     
-    if (data.despachoPorDestino && data.destinos.length === 0) {
+    if (data.despachoPorDestino && (data.destinos || []).length === 0) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "Debe agregar al menos un destino.",
@@ -228,7 +229,7 @@ const formSchema = z.object({
         });
     }
 
-    if (!data.despachoPorDestino && data.items.length === 0) {
+    if (!data.despachoPorDestino && (data.items || []).length === 0) {
          ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "Debe agregar al menos un ítem.",
@@ -754,7 +755,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                     return;
                 }
 
-                setAttachments(prev => [...prev, ...optimizedImage]);
+                setAttachments(prev => [...prev, optimizedImage]);
             } catch (error) {
                  console.error("Image optimization error:", error);
                  toast({
@@ -860,7 +861,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         
         const finalAttachmentUrls = [...existingAttachmentUrls, ...uploadedUrls];
         const isUpdating = !!submissionId;
-        const editor = { id: user.uid, displayName: displayName || 'N/A' };
+        const editor = { id: user.uid, displayName: displayName || 'No Aplica' };
         
         let responsibleUser = { id: editor.id, displayName: editor.displayName };
         if (isUpdating && isAdmin && data.operarioResponsable) {
@@ -900,7 +901,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     form.handleSubmit((data) => {
-        const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
+        const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap(d => d.items || []) : (data.items || []);
         const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
         const hasDetailRow = allItems.some(item => Number(item.paleta) > 0);
 
@@ -962,7 +963,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
   const handleAddItem = () => {
     const items = form.getValues('items');
-    const lastItem = items.length > 0 ? items[items.length - 1] : null;
+    const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
 
     if (!lastItem) {
         append({ ...originalDefaultValues.items![0] });
@@ -1212,7 +1213,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                 <FormControl>
                                   <Input
                                     disabled
-                                    value={field.value && isValid(new Date(field.value)) ? format(new Date(field.value), "dd/MM/yyyy") : ""}
+                                    value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
                                   />
                                 </FormControl>
                               )}
@@ -1314,7 +1315,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                      )}
                      {despachoPorDestino ? (
                         <div className="space-y-4">
-                            {destinoFields.map((destino, destinoIndex) => (
+                            {(destinoFields || []).map((destino, destinoIndex) => (
                                 <div key={destino.id} className="p-4 border rounded-lg bg-gray-50/50">
                                     <div className="flex justify-between items-center mb-4">
                                         <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
@@ -1343,7 +1344,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                         </div>
                      ) : (
                         <div className="space-y-4">
-                            {fields.map((field, index) => (
+                            {(fields || []).map((field, index) => (
                                 <ItemFields key={field.id} control={form.control} itemIndex={index} handleProductDialogOpening={handleProductDialogOpening} remove={remove} />
                             ))}
                             <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
@@ -1378,7 +1379,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {calculatedSummary.map((summaryItem, index) => {
+                                        {(calculatedSummary || []).map((summaryItem, index) => {
                                             const summaryIndex = (form.getValues('summary') || []).findIndex(s => s.descripcion === summaryItem.descripcion && s.destino === summaryItem.destino);
                                             return(
                                             <TableRow key={index}>
@@ -1467,7 +1468,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                        <div>
                         <Label>Observaciones</Label>
                         <div className="space-y-4 mt-2">
-                            {observationFields.map((field, index) => {
+                            {(observationFields || []).map((field, index) => {
                                 const selectedObservation = watchedObservations?.[index];
                                 const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                                 const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
@@ -1538,7 +1539,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                                     control={form.control}
                                                     name={`observaciones.${index}.provider`}
                                                     render={({ field }) => (
-                                                        <FormItem>
+                                                        <FormItem className="flex flex-col">
                                                             <FormLabel>Proveedor Cuadrilla</FormLabel>
                                                             <Select onValueChange={(value) => field.onChange(value === "NO_APLICA" ? undefined : value)} value={field.value}>
                                                                 <FormControl>
@@ -1608,7 +1609,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                           name="aplicaCuadrilla"
                           render={({ field }) => (
                               <FormItem className="space-y-1">
-                                  <FormLabel>Operación por Cuadrilla <span className="text-destructive">*</span></FormLabel>
+                                  <FormLabel>Operación Realizada por Cuadrilla <span className="text-destructive">*</span></FormLabel>
                                   <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                           )}
                         />
@@ -1854,15 +1855,16 @@ function ProductSelectorDialog({
     onSelect: (articulo: ArticuloInfo) => void;
 }) {
     const [search, setSearch] = useState("");
-  
+
     const getSessionName = (sesionCode: string | undefined) => {
-      switch (sesionCode) {
-          case 'CO': return 'Congelado';
-          case 'RE': return 'Refrigerado';
-          case 'SE': return 'Seco';
-          default: return 'N/A';
-      }
-  }
+        switch (sesionCode) {
+            case 'CO': return 'Congelado';
+            case 'RE': return 'Refrigerado';
+            case 'SE': return 'Seco';
+            default: return 'N/A';
+        }
+    }
+
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
         return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
@@ -1897,20 +1899,20 @@ function ProductSelectorDialog({
                                 {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
                                 {filteredArticulos.map((p, i) => (
                                     <Button
-                                    key={`${p.id}-${i}`}
-                                    variant="ghost"
-                                    className="w-full justify-between h-auto text-wrap"
-                                    onClick={() => {
-                                        onSelect(p);
-                                        onOpenChange(false);
-                                    }}
-                                >
-                                    <div className="flex flex-col items-start text-left">
-                                        <span>{p.denominacionArticulo}</span>
-                                        <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
-                                    </div>
-                                    <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
-                                </Button>                                  
+                                        key={`${p.id}-${i}`}
+                                        variant="ghost"
+                                        className="w-full justify-between h-auto text-wrap"
+                                        onClick={() => {
+                                            onSelect(p);
+                                            onOpenChange(false);
+                                        }}
+                                    >
+                                        <div className="flex flex-col items-start text-left">
+                                            <span>{p.denominacionArticulo}</span>
+                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
+                                        </div>
+                                        <Badge variant={p.sesion === 'CO' ? 'default' : p.sesion === 'RE' ? 'secondary' : 'outline' } className="shrink-0">{getSessionName(p.sesion)}</Badge>
+                                    </Button>
                                 ))}
                             </div>
                         </ScrollArea>
@@ -1987,7 +1989,7 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
     const isSummaryFormat = watchedItems.some((item: any) => Number(item?.paleta) === 0);
 
     const subtotals = useMemo(() => {
-        return watchedItems.reduce((acc: {cantidad: number, paletas: number, peso: number}, item: any) => {
+        return (watchedItems || []).reduce((acc: {cantidad: number, paletas: number, peso: number}, item: any) => {
             if (isSummaryFormat) {
                 acc.cantidad += Number(item.totalCantidad) || 0;
                 acc.paletas += (Number(item.paletasCompletas) || 0) + (Number(item.paletasPicking) || 0);
@@ -2003,8 +2005,8 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
     if (!isSummaryFormat) {
         const uniquePallets = new Set();
         let pallets999Count = 0;
-        watchedItems.forEach((item: any) => {
-            const paletaNum = Number(item.paleta);
+        (watchedItems || []).forEach((item: any) => {
+            const paletaNum = Number(item?.paleta);
             if (!isNaN(paletaNum) && paletaNum > 0) {
                  if (paletaNum === 999) {
                     pallets999Count++;
@@ -2019,7 +2021,7 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
 
     const handleAddItem = () => {
         const items = getValues(`destinos.${destinoIndex}.items`);
-        const lastItem = items.length > 0 ? items[items.length - 1] : null;
+        const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
 
         if (!lastItem) {
             append({

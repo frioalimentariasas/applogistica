@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -123,18 +124,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const attachmentPromises = submission.attachmentUrls.map(url => getImageAsBase64(url));
                 
                 // Use a client-side fetch for the same-origin logo
-                const logoUrl = new URL('/images/company-logo.png', window.location.origin).href;
-                const logoPromise = getImageAsBase64Client(logoUrl);
+                let logoData = "";
+                if (typeof window !== 'undefined') {
+                    const logoUrl = new URL('/images/company-logo.png', window.location.origin).href;
+                    logoData = await getImageAsBase64Client(logoUrl);
+                }
 
-                const [logoData, ...attachmentDataURIs] = await Promise.all([logoPromise, ...attachmentPromises]);
+                const [...attachmentDataURIs] = await Promise.all([...attachmentPromises]);
                 
                 if (logoData) {
                     const optimizedLogo = await optimizeImage(logoData);
                     const dims = await getImageWithDimensions(optimizedLogo);
                     setLogoDimensions({ width: dims.width, height: dims.height });
                     setLogoBase64(optimizedLogo);
-                } else {
-                    setLogoBase64(logoData);
                 }
 
                 const validAttachmentURIs = attachmentDataURIs.filter(img => img && !img.startsWith('data:image/gif'));

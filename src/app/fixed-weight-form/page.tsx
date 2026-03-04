@@ -8,9 +8,9 @@ import type { PedidoType } from '@/app/gestion-tipos-pedido/actions';
 export default async function FixedWeightFormPage({
   searchParams,
 }: {
-  searchParams: { operation: string };
+  searchParams: Promise<{ operation: string }>;
 }) {
-  const operation = searchParams.operation;
+  const { operation } = await searchParams;
   if (operation !== 'recepcion' && operation !== 'despacho') {
     notFound();
   }

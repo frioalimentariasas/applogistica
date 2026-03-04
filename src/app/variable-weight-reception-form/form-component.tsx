@@ -69,7 +69,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
@@ -182,6 +182,14 @@ const formSchema = z.object({
     salidaPaletasMaquilaSE: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
     numeroOperariosCuadrilla: z.coerce.number().min(0.1, "Debe ser mayor a 0.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
+}).refine((data) => {
+    if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
+        return false;
+    }
+    return true;
+}, {
+    message: "La hora de fin no puede ser igual a la de inicio.",
+    path: ["horaFin"],
 }).superRefine((data, ctx) => {
       const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || data.tipoPedido === 'MAQUILA' || data.tipoPedido === 'TUNEL DE CONGELACIÓN';
       const isTunelCongelacion = data.tipoPedido === 'TUNEL DE CONGELACIÓN';
@@ -215,11 +223,11 @@ const formSchema = z.object({
       if(data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL DE CONGELACIÓN') {
         if (data.recepcionPorPlaca && (!data.placas || data.placas.length === 0)) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos una placa.', path: ['placas'] });
-        } else if (!data.recepcionPorPlaca && (!data.items || data.items.length === 0)) {
+        } else if (!data.recepcionPorPlaca && (!data.items || (data.items || []).length === 0)) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos un ítem.', path: ['items'] });
         }
       } else {
-        if (!data.items || data.items.length === 0) {
+        if (!data.items || (data.items || []).length === 0) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos un ítem.', path: ['items'] });
         }
       }
@@ -232,7 +240,7 @@ const formSchema = z.object({
       }
 
       // Validar items
-      const allItems = data.recepcionPorPlaca ? data.placas?.flatMap(p => p.items) : data.items;
+      const allItems = data.recepcionPorPlaca ? (data.placas || []).flatMap(p => p.items) : data.items;
       allItems?.forEach((item, index) => {
           const basePath = data.recepcionPorPlaca ? `placas.${Math.floor(index / (data.placas?.[0]?.items?.length || 1))}.items.${index % (data.placas?.[0]?.items?.length || 1)}` : `items.${index}`;
           const isSummaryRow = Number(item.paleta) === 0;
@@ -250,7 +258,7 @@ const formSchema = z.object({
       });
 
       // --- START: NEW DUPLICATE PALLET VALIDATION ---
-      const allItemsForValidation = data.recepcionPorPlaca ? data.placas?.flatMap(p => p.items) : data.items;
+      const allItemsForValidation = data.recepcionPorPlaca ? (data.placas || []).flatMap(p => p.items) : data.items;
       if (!allItemsForValidation || allItemsForValidation.length === 0) return;
 
       const isSummaryMode = allItemsForValidation.some(item => Number(item?.paleta) === 0);
@@ -259,7 +267,7 @@ const formSchema = z.object({
       const seenPallets = new Set<number>();
 
       if (data.recepcionPorPlaca) {
-          data.placas?.forEach((placa, placaIndex) => {
+          (data.placas || []).forEach((placa, placaIndex) => {
               placa.items.forEach((item, itemIndex) => {
                   const paletaNum = Number(item.paleta);
                   // Ignore 0, null, undefined
@@ -276,7 +284,7 @@ const formSchema = z.object({
               });
           });
       } else {
-          data.items?.forEach((item, itemIndex) => {
+          (data.items || []).forEach((item, itemIndex) => {
               const paletaNum = Number(item.paleta);
               if (!isNaN(paletaNum) && paletaNum > 0) {
                   if (seenPallets.has(paletaNum)) {
@@ -1074,7 +1082,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                       return;
                   }
   
-                  setAttachments(prev => [...prev, ...optimizedImage]);
+                  setAttachments(prev => [...prev, optimizedImage]);
               } catch (error) {
                    console.error("Image optimization error:", error);
                    toast({
@@ -1673,7 +1681,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                               {watchedRecepcionPorPlaca ? (
                                   <div className="space-y-4">
                                       <Accordion type="multiple" className="w-full">
-                                          {placaFields.map((placaField, placaIndex) => (
+                                          {(placaFields || []).map((placaField, placaIndex) => (
                                               <AccordionItem key={placaField.id} value={`placa-${placaIndex}`}>
                                                   <div className="flex items-center">
                                                       <AccordionTrigger className="flex-grow">
@@ -1733,7 +1741,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                   </div>
                               ) : (
                                   <div className="space-y-4">
-                                      {fields.map((field, index) => (
+                                      {(fields || []).map((field, index) => (
                                           <ItemFields
                                               key={field.id}
                                               control={form.control}
@@ -1749,7 +1757,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                           </div>
                        ) : (
                           <div className="space-y-4">
-                              {fields.map((field, index) => (
+                              {(fields || []).map((field, index) => (
                                   <ItemFields
                                       key={field.id}
                                       control={form.control}
@@ -1849,7 +1857,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                   </TableHeader>
   
                                   {isTunelCongelacion ? (
-                                      calculatedSummaryForDisplay.placaGroups.map((placaGroup, placaGroupIndex) => (
+                                      (calculatedSummaryForDisplay.placaGroups || []).map((placaGroup, placaGroupIndex) => (
                                           <React.Fragment key={`placa-group-${placaGroup.placa}-${placaGroupIndex}`}>
                                               <TableBody>
                                                   <TableRow className="bg-blue-50 hover:bg-blue-50/90">
@@ -1902,7 +1910,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                           </React.Fragment>
                                       ))
                                   ) : (
-                                      calculatedSummaryForDisplay.presentationGroups.map((group, groupIndex) => (
+                                      (calculatedSummaryForDisplay.presentationGroups || []).map((group, groupIndex) => (
                                       <React.Fragment key={group.presentation}>
                                           <TableBody>
                                           <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -2044,7 +2052,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                          <div>
                           <Label>Observaciones</Label>
                           <div className="space-y-4 mt-2">
-                              {observationFields.map((field, index) => {
+                              {(observationFields || []).map((field, index) => {
                                   const selectedObservation = watchedObservations?.[index];
                                   const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                                   const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
@@ -2115,7 +2123,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                     control={form.control}
                                                     name={`observaciones.${index}.provider`}
                                                     render={({ field }) => (
-                                                        <FormItem>
+                                                        <FormItem className="flex flex-col">
                                                             <FormLabel>Proveedor Cuadrilla</FormLabel>
                                                             <Select onValueChange={(value) => field.onChange(value === "NO_APLICA" ? undefined : value)} value={field.value}>
                                                                 <FormControl>
@@ -2166,7 +2174,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                   <FormItem className="lg:col-span-2">
                                       <FormLabel>Operario Responsable</FormLabel>
                                       <Select onValueChange={field.onChange} value={field.value} defaultValue={originalSubmission?.userId}>
-                                          <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
+                                          <FormControl><SelectTrigger><SelectValue placeholder="Operario" /></SelectTrigger></FormControl>
                                           <SelectContent>
                                               {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
                                           </SelectContent>
@@ -2577,5 +2585,50 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                   </ScrollArea>
               </DialogContent>
           </Dialog>
+      );
+  }
+  
+  function ItemsPorPlaca({ placaIndex, handleProductDialogOpening }: { placaIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex: number }) => void }) {
+      const { control, getValues } = useFormContext();
+      const { fields, append, remove } = useFieldArray({
+          control,
+          name: `placas.${placaIndex}.items`,
+      });
+  
+      const handleAddItemToPlaca = () => {
+          const items = getValues(`placas.${placaIndex}.items`);
+          const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
+  
+          const newItemPayload = lastItem ? {
+              ...originalDefaultValues.items![0],
+              codigo: lastItem.codigo,
+              descripcion: lastItem.descripcion,
+              lote: lastItem.lote,
+              presentacion: lastItem.presentacion,
+               cantidadPorPaleta: lastItem.cantidadPorPaleta,
+              taraCaja: lastItem.taraCaja,
+          } : { ...originalDefaultValues.items![0] };
+          
+          append(newItemPayload);
+      };
+  
+      return (
+          <div className="space-y-4">
+              <h4 className="text-md font-semibold text-gray-600">Ítems de la Placa</h4>
+              {fields.map((item, itemIndex) => (
+                  <ItemFields
+                      key={item.id}
+                      itemIndex={itemIndex}
+                      control={control}
+                      remove={remove}
+                      handleProductDialogOpening={(ctx) => handleProductDialogOpening({ ...ctx, placaIndex })}
+                      isTunel
+                      placaIndex={placaIndex}
+                  />
+              ))}
+              <Button type="button" variant="outline" size="sm" onClick={handleAddItemToPlaca}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem a Placa
+              </Button>
+          </div>
       );
   }
