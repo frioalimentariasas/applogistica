@@ -40,7 +40,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench, Edit, FileCog, Briefcase, HardHat, TruckIcon, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench, Edit, FileCog, Briefcase, HardHat, TruckIcon, CalendarIcon, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -532,6 +532,23 @@ export default function SessionManagementComponent() {
                                         render={({ field }) => (
                                             <Checkbox
                                                 id={'canGenerateForms'}
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        )}
+                                    />
+                                </div>
+                                <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                    <div className="space-y-0.5">
+                                        <Label htmlFor={'canViewUserManual'} className="text-sm font-medium">Acceso al Manual de Usuario</Label>
+                                    </div>
+                                    <Controller
+                                        key={'canViewUserManual'}
+                                        name={'canViewUserManual'}
+                                        control={permissionsForm.control}
+                                        render={({ field }) => (
+                                            <Checkbox
+                                                id={'canViewUserManual'}
                                                 checked={field.value}
                                                 onCheckedChange={field.onChange}
                                             />

@@ -35,7 +35,8 @@ import {
   ClipboardList,
   Package,
   Users2,
-  FileText
+  FileText,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -161,6 +162,7 @@ export default function Home() {
     { label: 'Gestión de Proveedores de Cuadrilla', href: '/gestion-proveedores-cuadrilla', icon: HardHat, permission: 'canManageCrewProviders', group: 'Gestión de Maestros' },
 
     { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions', group: 'Parámetros y Seguridad' },
+    { label: 'Manual de Usuario', href: '/manual-usuario', icon: BookOpen, permission: 'canViewUserManual', group: 'Parámetros y Seguridad' },
   ];
 
   const menuGroups: {

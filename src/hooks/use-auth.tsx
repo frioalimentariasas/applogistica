@@ -9,6 +9,7 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 export interface AppPermissions {
   // Standalone
   canGenerateForms: boolean;
+  canViewUserManual: boolean;
 
   // Group Access
   canAccessOperacionesLogísticas: boolean;
@@ -58,6 +59,7 @@ export interface AppPermissions {
 
 export const defaultPermissions: AppPermissions = {
   canGenerateForms: false,
+  canViewUserManual: true, // Default to true so people can see how to use the app
 
   canAccessOperacionesLogísticas: false,
   canAccessGestionClientes: false,
