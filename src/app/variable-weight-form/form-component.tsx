@@ -872,9 +872,10 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         } else if (isUpdating && originalSubmission) {
             responsibleUser = { id: originalSubmission.userId, displayName: originalSubmission.userDisplayName };
         }
-
+        const { crewProvider, ...formData } = dataToSave;
         const result = await saveForm({
-            formData: dataToSave,
+            formData: formData,
+            crewProvider,
             formType: `variable-weight-despacho`,
             attachmentUrls: finalAttachmentUrls,
             responsibleUser: responsibleUser,

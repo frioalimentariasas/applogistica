@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { type ReactNode, useEffect, useState, useContext, useCallback } from 'react';
@@ -51,6 +50,7 @@ export interface AppPermissions {
   canManageClients: boolean;
   canManageObservations: boolean;
   canManageHolidays: boolean;
+  canManageCrewProviders: boolean;
 
   // Parámetros y Seguridad
   canManageSessions: boolean;
@@ -94,6 +94,7 @@ export const defaultPermissions: AppPermissions = {
   canManageClients: false,
   canManageObservations: false,
   canManageHolidays: false,
+  canManageCrewProviders: false,
 
   canManageSessions: false,
 };

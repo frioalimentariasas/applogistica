@@ -381,7 +381,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
-                        <div className="space-y-2">
+                        <div className="space-y-2 xl:col-span-2">
                                 <Label htmlFor="fechaCreacion">Fecha de Operación</Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
@@ -471,6 +471,49 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     onChange={(e) => setCriteria({...criteria, pedidoSislog: e.target.value})}
                                 />
                             </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="placa">Placa</Label>
+                                <Input 
+                                    id="placa"
+                                    placeholder="Placa del vehículo"
+                                    value={criteria.placa}
+                                    onChange={(e) => setCriteria({...criteria, placa: e.target.value.toUpperCase()})}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="operationType">Tipo de Operación</Label>
+                                <Select
+                                    value={criteria.operationType || 'all'}
+                                    onValueChange={(value) => setCriteria({ ...criteria, operationType: value === 'all' ? undefined : (value as 'recepcion' | 'despacho') })}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger id="operationType">
+                                        <SelectValue placeholder="Todos" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos</SelectItem>
+                                        <SelectItem value="recepcion">Recepción</SelectItem>
+                                        <SelectItem value="despacho">Despacho</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="productType">Tipo de Producto</Label>
+                                <Select
+                                    value={criteria.productType || 'all'}
+                                    onValueChange={(value) => setCriteria({ ...criteria, productType: value === 'all' ? undefined : (value as 'fijo' | 'variable') })}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger id="productType">
+                                        <SelectValue placeholder="Todos" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos</SelectItem>
+                                        <SelectItem value="fijo">Peso Fijo</SelectItem>
+                                        <SelectItem value="variable">Peso Variable</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div className="space-y-2 xl:col-span-2">
                                 <Label htmlFor="tipoPedido">Tipo de Pedido</Label>
                                 <Dialog open={isTipoPedidoDialogOpen} onOpenChange={setIsTipoPedidoDialogOpen}>
@@ -510,49 +553,6 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                         </ScrollArea>
                                     </DialogContent>
                                 </Dialog>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="operationType">Tipo de Operación</Label>
-                                <Select
-                                    value={criteria.operationType || 'all'}
-                                    onValueChange={(value) => setCriteria({ ...criteria, operationType: value === 'all' ? undefined : (value as 'recepcion' | 'despacho') })}
-                                    disabled={isLoading}
-                                >
-                                    <SelectTrigger id="operationType">
-                                        <SelectValue placeholder="Todos" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos</SelectItem>
-                                        <SelectItem value="recepcion">Recepción</SelectItem>
-                                        <SelectItem value="despacho">Despacho</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="productType">Tipo de Producto</Label>
-                                <Select
-                                    value={criteria.productType || 'all'}
-                                    onValueChange={(value) => setCriteria({ ...criteria, productType: value === 'all' ? undefined : (value as 'fijo' | 'variable') })}
-                                    disabled={isLoading}
-                                >
-                                    <SelectTrigger id="productType">
-                                        <SelectValue placeholder="Todos" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos</SelectItem>
-                                        <SelectItem value="fijo">Peso Fijo</SelectItem>
-                                        <SelectItem value="variable">Peso Variable</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="placa">Placa</Label>
-                                <Input 
-                                    id="placa"
-                                    placeholder="Placa del vehículo"
-                                    value={criteria.placa}
-                                    onChange={(e) => setCriteria({...criteria, placa: e.target.value.toUpperCase()})}
-                                />
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2 xl:col-span-full">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>

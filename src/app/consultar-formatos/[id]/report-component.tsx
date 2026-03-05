@@ -804,9 +804,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         const grouped = allItems.reduce((acc:any, item:any) => {
                             if (!item?.descripcion?.trim()) return acc;
                             const key = shouldGroupByDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
-                
-                            if (!acc[key]) {
-                                const summaryItem = form.getValues('summary')?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
+                            
+                           if (!acc[key]) {
+                                const summaryItem = formData.summary?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
+                               /* const summaryItem = form.getValues('summary')?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);*/
                                 acc[key] = {
                                     descripcion: item.descripcion,
                                     destino: item.destino,

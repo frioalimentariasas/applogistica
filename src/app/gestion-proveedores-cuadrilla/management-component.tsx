@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -115,7 +114,7 @@ export default function ProviderManagementComponent({ initialProviders }: { init
       return <div className="flex min-h-screen w-full items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
   }
 
-  if (!permissions.canManageClients) { // Re-using permission
+  if (!permissions.canManageCrewProviders) {
       return (
           <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
               <div className="max-w-xl mx-auto text-center">

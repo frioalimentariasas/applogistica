@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -131,6 +130,7 @@ const permissionGroups: {
       { key: 'canManageClients', label: 'Gestión de Clientes' },
       { key: 'canManageObservations', label: 'Gestión de Observaciones' },
       { key: 'canManageHolidays', label: 'Gestión de Días Festivos' },
+      { key: 'canManageCrewProviders', label: 'Gestión de Proveedores de Cuadrilla' },
     ]
   },
 ];
