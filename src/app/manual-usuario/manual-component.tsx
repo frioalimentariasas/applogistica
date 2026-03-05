@@ -150,7 +150,6 @@ export function ManualComponent() {
     const margin = 40;
 
     const generateHeader = (pageNum: number, total: number) => {
-      // Manual Header Table simulation using autoTable for perfect borders
       autoTable(doc, {
         startY: 20,
         margin: { left: margin, right: margin },
@@ -176,8 +175,6 @@ export function ManualComponent() {
       return (doc as any).lastAutoTable.finalY + 30;
     };
 
-    // Placeholder implementation for pages
-    // Real implementation would loop through sections and add content
     generateHeader(1, 1);
     doc.setFontSize(14);
     doc.text("Este es un resumen del manual. El contenido completo está disponible en la versión web interactiva.", margin, 150);
@@ -448,7 +445,7 @@ export function ManualComponent() {
             <p className="mt-1">Todos los derechos reservados.</p>
           </footer>
         </div>
-      </nav>
+      </main>
     </div>
   );
 }
