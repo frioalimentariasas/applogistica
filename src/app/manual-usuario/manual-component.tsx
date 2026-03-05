@@ -66,7 +66,9 @@ import {
   Wrench,
   Eye,
   Pencil,
-  LayoutGrid
+  LayoutGrid,
+  Users2,
+  File as FileIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -180,8 +182,8 @@ export function ManualComponent() {
         await uploadBytes(storageRef, file);
         downloadUrl = await getDownloadURL(storageRef);
       } else {
-        const reader = new FileReader();
         const optimizedBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
           reader.onload = async () => {
             try {
               const opt = await optimizeImage(reader.result as string);
@@ -567,7 +569,6 @@ export function ManualComponent() {
             </div>
           </Section>
 
-          {/* Nuevo Titulo de Agrupación */}
           <div className="pt-12 pb-4 flex items-center gap-3 border-b-2 border-primary/20">
             <LayoutGrid className="h-8 w-8 text-primary" />
             <h2 className="text-3xl font-extrabold text-primary">
