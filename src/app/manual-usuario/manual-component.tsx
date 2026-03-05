@@ -68,7 +68,9 @@ import {
   Pencil,
   LayoutGrid,
   Users2,
-  File as FileIcon
+  Loader2,
+  File as FileIcon,
+  Maximize2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -146,7 +148,7 @@ export function ManualComponent() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [manualAssets, setManualAssets] = useState<Record<string, ManualAsset>>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [expandedImage, setExpandedImage] = useState<string | null>(null);
+  const [expandedItem, setExpandedItem] = useState<{ url: string; type: 'image' | 'pdf' } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -255,32 +257,46 @@ export function ManualComponent() {
               "space-y-2 relative group w-full",
               itemsToDisplay.length === 1 && "max-w-2xl"
             )}>
-              {canEdit && items.length > 0 && (
+              <div className="absolute top-2 right-2 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button 
-                  variant="destructive" 
+                  variant="secondary" 
                   size="icon" 
-                  className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 shadow-md"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteItem(assetKey, idx);
-                  }}
+                  className="h-8 w-8 shadow-md"
+                  onClick={() => setExpandedItem({ url: item.url, type: item.type })}
+                  title="Ver en pantalla completa"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Maximize2 className="h-4 w-4 text-primary" />
                 </Button>
-              )}
+                {canEdit && items.length > 0 && (
+                  <Button 
+                    variant="destructive" 
+                    size="icon" 
+                    className="h-8 w-8 shadow-md"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteItem(assetKey, idx);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               
               <div className={cn(
-                  "relative w-full overflow-hidden rounded-xl border-2 border-white shadow-lg bg-gray-100 min-h-[200px] flex items-center justify-center transition-transform hover:scale-[1.02]",
+                  "relative w-full overflow-hidden rounded-xl border-2 border-white shadow-lg bg-gray-100 min-h-[200px] flex items-center justify-center transition-transform hover:scale-[1.01]",
                   item.type === 'image' && "cursor-zoom-in"
               )}
-              onClick={() => item.type === 'image' && setExpandedImage(item.url)}
+              onClick={() => item.type === 'image' && setExpandedItem({ url: item.url, type: item.type })}
               >
                 {item.type === 'pdf' ? (
-                  <iframe 
-                    src={`${item.url}#toolbar=0`} 
-                    className="w-full h-[400px] border-0"
-                    title={`${caption} ${idx + 1}`}
-                  />
+                  <div className="relative w-full h-[400px]">
+                    <iframe 
+                      src={`${item.url}#toolbar=0`} 
+                      className="w-full h-full border-0 pointer-events-none"
+                      title={`${caption} ${idx + 1}`}
+                    />
+                    <div className="absolute inset-0 bg-black/0 cursor-pointer" onClick={() => setExpandedItem({ url: item.url, type: item.type })} />
+                  </div>
                 ) : (
                   <div className="relative aspect-video w-full">
                     <Image
@@ -727,25 +743,31 @@ export function ManualComponent() {
         </div>
       </main>
 
-      <Dialog open={!!expandedImage} onOpenChange={(open) => !open && setExpandedImage(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 overflow-hidden border-none bg-black/10 backdrop-blur-sm shadow-none flex items-center justify-center">
+      <Dialog open={!!expandedItem} onOpenChange={(open) => !open && setExpandedItem(null)}>
+        <DialogContent className="max-w-[95vw] w-full h-[95vh] p-0 overflow-hidden border-none bg-black/10 backdrop-blur-sm shadow-none flex flex-col items-center justify-center">
           <DialogHeader className="sr-only">
-            <DialogTitle>Vista de imagen ampliada</DialogTitle>
-            <DialogDescription>Previsualización en alta resolución de la captura de pantalla del manual.</DialogDescription>
+            <DialogTitle>Vista de recurso ampliado</DialogTitle>
+            <DialogDescription>Previsualización en alta resolución de la imagen o documento del manual.</DialogDescription>
           </DialogHeader>
           <div className="relative w-full h-full flex items-center justify-center p-4">
-            {expandedImage && (
+            {expandedItem?.type === 'image' ? (
               <img 
-                src={expandedImage} 
+                src={expandedItem.url} 
                 alt="Imagen ampliada" 
-                className="max-w-full max-h-[90vh] object-contain rounded-md shadow-2xl animate-in zoom-in-95 duration-300"
+                className="max-w-full max-h-full object-contain rounded-md shadow-2xl animate-in zoom-in-95 duration-300"
               />
-            )}
+            ) : expandedItem?.type === 'pdf' ? (
+              <iframe 
+                src={expandedItem.url} 
+                className="w-full h-full rounded-md shadow-2xl animate-in zoom-in-95 duration-300 bg-white"
+                title="PDF ampliado"
+              />
+            ) : null}
             <Button 
               variant="secondary" 
               size="icon" 
               className="absolute top-4 right-4 rounded-full shadow-lg z-50 bg-white/80 hover:bg-white"
-              onClick={() => setExpandedImage(null)}
+              onClick={() => setExpandedItem(null)}
             >
               <X className="h-5 w-5" />
             </Button>
