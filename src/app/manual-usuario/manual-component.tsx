@@ -63,7 +63,10 @@ import {
   Upload,
   Loader2,
   File as FileIcon,
-  X
+  X,
+  Truck,
+  FileCog,
+  Wrench
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -629,6 +632,10 @@ export function ManualComponent() {
       {/* Dialogo para ver imagen ampliada */}
       <Dialog open={!!expandedImage} onOpenChange={(open) => !open && setExpandedImage(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 overflow-hidden border-none bg-black/10 backdrop-blur-sm shadow-none flex items-center justify-center">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista de imagen ampliada</DialogTitle>
+            <DialogDescription>Previsualización en alta resolución de la captura de pantalla del manual.</DialogDescription>
+          </DialogHeader>
           <div className="relative w-full h-full flex items-center justify-center p-4">
             {expandedImage && (
               <img 
