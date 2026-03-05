@@ -69,7 +69,9 @@ import {
   FileCog,
   Wrench,
   Eye,
-  Pencil
+  Pencil,
+  Truck,
+  TrendingUp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -247,15 +249,24 @@ export function ManualComponent() {
 
     return (
       <div className="my-8 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={cn(
+          "grid gap-6",
+          itemsToDisplay.length === 1 ? "grid-cols-1 place-items-center" : "grid-cols-1 md:grid-cols-2"
+        )}>
           {itemsToDisplay.map((item, idx) => (
-            <div key={idx} className="space-y-2 relative group">
+            <div key={idx} className={cn(
+              "space-y-2 relative group w-full",
+              itemsToDisplay.length === 1 && "max-w-2xl"
+            )}>
               {canEdit && items.length > 0 && (
                 <Button 
                   variant="destructive" 
                   size="icon" 
                   className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 shadow-md"
-                  onClick={() => handleDeleteItem(assetKey, idx)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteItem(assetKey, idx);
+                  }}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -287,7 +298,7 @@ export function ManualComponent() {
               </div>
               <div className="flex items-center justify-center gap-2 text-muted-foreground">
                 {item.type === 'pdf' ? <FileIcon className="h-3 w-3 text-primary" /> : <Camera className="h-3 w-3" />}
-                <p className="text-xs font-medium italic">{caption} {items.length > 1 ? `(${idx + 1})` : ''}</p>
+                <p className="text-xs font-medium italic text-center">{caption} {items.length > 1 ? `(${idx + 1})` : ''}</p>
               </div>
             </div>
           ))}
