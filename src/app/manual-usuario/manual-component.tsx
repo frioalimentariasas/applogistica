@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -54,15 +55,10 @@ import {
   Activity,
   Calculator,
   TruckIcon,
-  Users2,
   FileSearch,
   Timer,
   Warehouse,
   Sparkles,
-  Edit,
-  Upload,
-  Loader2,
-  File as FileIcon,
   X,
   Plus,
   Trash2,
@@ -70,8 +66,6 @@ import {
   Wrench,
   Eye,
   Pencil,
-  Truck,
-  TrendingUp,
   LayoutGrid
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -594,6 +588,27 @@ export function ManualComponent() {
                 caption="Módulo de Consulta: Filtros avanzados y lista de resultados." 
               />
             </SubSection>
+
+            <SubSection title="Formatos Pendientes de Legalizar Peso Bruto">
+              <p className="text-sm text-gray-600 mb-4">Este módulo permite ubicar rápidamente los formatos de peso fijo que requieren la entrada del peso de báscula para completar el registro y habilitar su liquidación.</p>
+              <StepMedia 
+                assetKey="pending_legalization"
+                defaultSrc={images.manual.pending_legalization} 
+                hint="pending legalization list" 
+                caption="Módulo de Pendientes: Listado de formatos sin peso bruto final." 
+              />
+            </SubSection>
+
+            <SubSection title="Informe Productividad Operarios Frio Alimentaria">
+              <p className="text-sm text-gray-600 mb-4">Reporte diseñado para auditar los tiempos de ejecución de las operaciones realizadas por el personal propio de planta, analizando las duraciones entre inicio y fin de cada cargue/descargue.</p>
+              <StepMedia 
+                assetKey="performance_ops"
+                defaultSrc={images.manual.performance_ops} 
+                hint="performance report operations" 
+                caption="Informe de Productividad: Detalle de tiempos por operario." 
+              />
+            </SubSection>
+
             <SubSection title="Trazabilidad de Paletas y Contenedores">
               <p className="text-sm text-gray-600">
                 Al ingresar un código de paleta o número de contenedor, el sistema mostrará todos los movimientos registrados 
