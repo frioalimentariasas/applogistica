@@ -25,8 +25,6 @@ import {
   Info,
   ChevronRight,
   Camera,
-  CheckCircle2,
-  AlertTriangle,
   HardHat,
   Settings,
   PackagePlus,
@@ -78,7 +76,7 @@ const SubSection = ({ title, children }: { title: string; children: React.ReactN
   </div>
 );
 
-const ManualHeader = ({ pageNumber, totalPages }: { pageNumber?: number; totalPages?: number }) => (
+const ManualHeader = () => (
   <div className="w-full bg-white border border-gray-300 flex overflow-hidden rounded-sm mb-8 print:border-black">
     <div className="w-1/4 border-r border-gray-300 p-4 flex items-center justify-center print:border-black">
       <Image
@@ -101,11 +99,8 @@ const ManualHeader = ({ pageNumber, totalPages }: { pageNumber?: number; totalPa
       <div className="border-b border-gray-300 p-2 print:border-black">
         <span className="font-bold">Versión:</span> 01
       </div>
-      <div className="border-b border-gray-300 p-2 print:border-black">
+      <div className="p-2 print:border-black">
         <span className="font-bold">Fecha:</span> 25/08/2025
-      </div>
-      <div className="p-2">
-        <span className="font-bold">Página:</span> {pageNumber || 1} de {totalPages || '27'}
       </div>
     </div>
   </div>
@@ -161,7 +156,7 @@ export function ManualComponent() {
         body: [[
           { content: '', styles: { minCellHeight: 50 } }, 
           'MANUAL DE USUARIO: APP DE CONTROL DE OPERACIONES LOGÍSTICAS',
-          `Código: FA-GL-MA01\nVersión: 01\nFecha: 25/08/2025\nPágina: ${pageNum} de ${total}`
+          `Código: FA-GL-MA01\nVersión: 01\nFecha: 25/08/2025`
         ]],
         didDrawCell: (data) => {
           if (data.column.index === 0 && data.row.index === 0 && logoBase64) {
