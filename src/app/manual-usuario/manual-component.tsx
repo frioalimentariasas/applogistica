@@ -71,7 +71,8 @@ import {
   Eye,
   Pencil,
   Truck,
-  TrendingUp
+  TrendingUp,
+  LayoutGrid
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -571,6 +572,14 @@ export function ManualComponent() {
               </div>
             </div>
           </Section>
+
+          {/* Nuevo Titulo de Agrupación */}
+          <div className="pt-12 pb-4 flex items-center gap-3 border-b-2 border-primary/20">
+            <LayoutGrid className="h-8 w-8 text-primary" />
+            <h2 className="text-3xl font-extrabold text-primary">
+              Menú de Consultas y Herramientas
+            </h2>
+          </div>
 
           <Section id="consultas" title="4. Consultas y Trazabilidad">
             <p className="text-gray-600">
