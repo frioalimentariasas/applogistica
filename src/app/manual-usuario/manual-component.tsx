@@ -65,6 +65,7 @@ import {
   File as FileIcon,
   X
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const getImageAsBase64Client = async (url: string): Promise<string> => {
     try {
@@ -140,6 +141,7 @@ export function ManualComponent() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [manualAssets, setManualAssets] = useState<Record<string, ManualAsset>>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -216,15 +218,23 @@ export function ManualComponent() {
           <Button 
             variant="secondary" 
             size="sm" 
-            className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg border-primary/20"
-            onClick={() => setEditingKey(assetKey)}
+            className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg border-primary/20"
+            onClick={(e) => {
+                e.stopPropagation();
+                setEditingKey(assetKey);
+            }}
           >
             <Edit className="h-4 w-4 mr-2" />
             Cambiar Multimedia
           </Button>
         )}
         
-        <div className="relative w-full overflow-hidden rounded-xl border-4 border-white shadow-xl bg-gray-100 min-h-[300px] flex items-center justify-center">
+        <div className={cn(
+            "relative w-full overflow-hidden rounded-xl border-4 border-white shadow-xl bg-gray-100 min-h-[300px] flex items-center justify-center transition-transform hover:scale-[1.01]",
+            !isPdf && "cursor-zoom-in"
+        )}
+        onClick={() => !isPdf && setExpandedImage(src)}
+        >
           {isPdf ? (
             <iframe 
               src={`${src}#toolbar=0`} 
@@ -615,6 +625,29 @@ export function ManualComponent() {
           </footer>
         </div>
       </main>
+
+      {/* Dialogo para ver imagen ampliada */}
+      <Dialog open={!!expandedImage} onOpenChange={(open) => !open && setExpandedImage(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 overflow-hidden border-none bg-black/10 backdrop-blur-sm shadow-none flex items-center justify-center">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
+            {expandedImage && (
+              <img 
+                src={expandedImage} 
+                alt="Imagen ampliada" 
+                className="max-w-full max-h-[90vh] object-contain rounded-md shadow-2xl animate-in zoom-in-95 duration-300"
+              />
+            )}
+            <Button 
+              variant="secondary" 
+              size="icon" 
+              className="absolute top-4 right-4 rounded-full shadow-lg z-50 bg-white/80 hover:bg-white"
+              onClick={() => setExpandedImage(null)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogo de Carga de Multimedia */}
       <Dialog open={!!editingKey} onOpenChange={(open) => !open && setEditingKey(null)}>
