@@ -37,7 +37,8 @@ import {
   Package,
   Activity,
   Calculator,
-  TruckIcon
+  TruckIcon,
+  Users2
 } from 'lucide-react';
 
 const getImageAsBase64Client = async (url: string): Promise<string> => {
