@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
@@ -8,11 +8,28 @@ import autoTable from 'jspdf-autotable';
 import images from '@/app/lib/placeholder-images.json';
 
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
+import { storage } from '@/lib/firebase';
+import { ref, uploadString, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { saveManualAsset, getManualAssets, type ManualAsset } from './actions';
+import { optimizeImage } from '@/lib/image-optimizer';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
 import { 
   ArrowLeft, 
   Download, 
@@ -40,7 +57,12 @@ import {
   FileSearch,
   Timer,
   Warehouse,
-  Sparkles
+  Sparkles,
+  Edit,
+  Upload,
+  Loader2,
+  File as FileIcon,
+  X
 } from 'lucide-react';
 
 const getImageAsBase64Client = async (url: string): Promise<string> => {
@@ -110,36 +132,123 @@ const ManualHeader = () => (
   </div>
 );
 
-const StepImage = ({ src, hint, caption }: { src: string; hint: string; caption: string }) => (
-  <div className="my-8 space-y-3">
-    <div className="relative aspect-video w-full overflow-hidden rounded-xl border-4 border-white shadow-xl bg-gray-100">
-      <Image
-        src={src}
-        alt={caption}
-        fill
-        className="object-cover"
-        data-ai-hint={hint}
-      />
-    </div>
-    <div className="flex items-center justify-center gap-2 text-muted-foreground">
-      <Camera className="h-4 w-4" />
-      <p className="text-sm font-medium italic">{caption}</p>
-    </div>
-  </div>
-);
-
 export function ManualComponent() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, permissions } = useAuth();
+  const { toast } = useToast();
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [manualAssets, setManualAssets] = useState<Record<string, ManualAsset>>({});
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const canEdit = permissions.canManageSessions;
 
   useEffect(() => {
-    const fetchLogo = async () => {
-      const data = await getImageAsBase64Client('/images/company-logo.png');
-      setLogoBase64(data);
+    const fetchData = async () => {
+      const [logoData, assets] = await Promise.all([
+        getImageAsBase64Client('/images/company-logo.png'),
+        getManualAssets()
+      ]);
+      setLogoBase64(logoData);
+      setManualAssets(assets);
     };
-    fetchLogo();
+    fetchData();
   }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingKey || !user) return;
+
+    setIsUploading(true);
+    try {
+      const isPdf = file.type === 'application/pdf';
+      const storagePath = `manual_assets/${editingKey}.${isPdf ? 'pdf' : 'jpg'}`;
+      const storageRef = ref(storage!, storagePath);
+      
+      let downloadUrl = '';
+
+      if (isPdf) {
+        await uploadBytes(storageRef, file);
+        downloadUrl = await getDownloadURL(storageRef);
+      } else {
+        const reader = new FileReader();
+        const optimizedBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = async () => {
+            try {
+              const opt = await optimizeImage(reader.result as string);
+              resolve(opt);
+            } catch(err) { reject(err); }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        
+        await uploadString(storageRef, optimizedBase64.split(',')[1], 'base64', { contentType: 'image/jpeg' });
+        downloadUrl = await getDownloadURL(storageRef);
+      }
+
+      const result = await saveManualAsset(editingKey, downloadUrl, isPdf ? 'pdf' : 'image');
+      if (result.success) {
+        toast({ title: "Multimedia actualizada", description: "El manual se ha actualizado correctamente." });
+        setManualAssets(prev => ({ ...prev, [editingKey]: { url: downloadUrl, type: isPdf ? 'pdf' : 'image', updatedAt: new Date().toISOString() } }));
+        setEditingKey(null);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ variant: 'destructive', title: "Error", description: "No se pudo cargar el archivo." });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const StepMedia = ({ assetKey, defaultSrc, caption, hint }: { assetKey: string; defaultSrc: string; caption: string; hint: string }) => {
+    const asset = manualAssets[assetKey];
+    const src = asset?.url || defaultSrc;
+    const isPdf = asset?.type === 'pdf';
+
+    return (
+      <div className="my-8 space-y-3 relative group">
+        {canEdit && (
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg border-primary/20"
+            onClick={() => setEditingKey(assetKey)}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Cambiar Multimedia
+          </Button>
+        )}
+        
+        <div className="relative w-full overflow-hidden rounded-xl border-4 border-white shadow-xl bg-gray-100 min-h-[300px] flex items-center justify-center">
+          {isPdf ? (
+            <iframe 
+              src={`${src}#toolbar=0`} 
+              className="w-full h-[500px] border-0"
+              title={caption}
+            />
+          ) : (
+            <div className="relative aspect-video w-full">
+              <Image
+                src={src}
+                alt={caption}
+                fill
+                className="object-cover"
+                data-ai-hint={hint}
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-center gap-2 text-muted-foreground">
+          {isPdf ? <FileIcon className="h-4 w-4 text-primary" /> : <Camera className="h-4 w-4" />}
+          <p className="text-sm font-medium italic">{caption}</p>
+        </div>
+      </div>
+    );
+  };
 
   const handleDownloadPDF = async () => {
     if (!logoBase64) return;
@@ -176,9 +285,9 @@ export function ManualComponent() {
 
     generateHeader();
     doc.setFontSize(14);
-    doc.text("Este documento es un resumen del manual interactivo.", margin, 150);
+    doc.text("Resumen del Manual Interactivo", margin, 150);
     doc.setFontSize(11);
-    doc.text("Para ver el manual completo con ayudas visuales y actualizaciones en tiempo real,", margin, 175);
+    doc.text("Para ver el manual completo con ayudas visuales y documentos actualizados,", margin, 175);
     doc.text("por favor consulte la sección 'Manual de Usuario' dentro de la aplicación móvil o web.", margin, 190);
     
     doc.save('Manual_Usuario_Control_Operaciones.pdf');
@@ -194,8 +303,6 @@ export function ManualComponent() {
     { id: 'maestros', label: 'Gestión de Maestros', icon: Settings },
     { id: 'seguridad', label: 'Seguridad y Usuarios', icon: ShieldCheck },
   ];
-
-  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -255,8 +362,9 @@ export function ManualComponent() {
             <p className="text-gray-600">
               Para ingresar a la aplicación, debe utilizar sus credenciales corporativas (Correo y Contraseña).
             </p>
-            <StepImage 
-              src={images.manual.login} 
+            <StepMedia 
+              assetKey="login"
+              defaultSrc={images.manual.login} 
               hint="app login screen" 
               caption="Pantalla de Acceso: Ingrese su correo y contraseña institucional." 
             />
@@ -274,15 +382,17 @@ export function ManualComponent() {
             <p className="text-gray-600">
               Desde la pantalla de inicio, el personal operativo puede iniciar el registro de cualquier movimiento logístico.
             </p>
-            <StepImage 
-              src={images.manual.dashboard} 
+            <StepMedia 
+              assetKey="dashboard"
+              defaultSrc={images.manual.dashboard} 
               hint="dashboard app main menu" 
               caption="Menú Principal: Opciones de generación de formatos y herramientas de gestión." 
             />
             <SubSection title="Proceso de Selección de Operación">
               <p className="text-gray-600">El sistema guía al usuario a través de dos preguntas clave para abrir el formulario correcto:</p>
-              <StepImage 
-                src={images.manual.selection} 
+              <StepMedia 
+                assetKey="selection"
+                defaultSrc={images.manual.selection} 
                 hint="operation type selection" 
                 caption="Interrogador de Operación: Selección de Entrada/Salida y Peso Fijo/Variable." 
               />
@@ -312,8 +422,9 @@ export function ManualComponent() {
             
             <SubSection title="Formato de Peso Fijo">
               <p className="text-sm text-gray-600">Ideal para productos con cajas de peso estandarizado.</p>
-              <StepImage 
-                src={images.manual.fixed_form} 
+              <StepMedia 
+                assetKey="fixed_form"
+                defaultSrc={images.manual.fixed_form} 
                 hint="fixed weight operation form" 
                 caption="Estructura del Formato de Peso Fijo." 
               />
@@ -321,8 +432,9 @@ export function ManualComponent() {
 
             <SubSection title="Formato de Peso Variable">
               <p className="text-sm text-gray-600">Utilizado cuando se requiere el pesaje individual de cada paleta.</p>
-              <StepImage 
-                src={images.manual.variable_form} 
+              <StepMedia 
+                assetKey="variable_form"
+                defaultSrc={images.manual.variable_form} 
                 hint="variable weight operation form" 
                 caption="Estructura del Formato de Peso Variable con pesaje por paleta." 
               />
@@ -379,8 +491,9 @@ export function ManualComponent() {
             </p>
             <SubSection title="Consultar Formatos Guardados">
               <p className="text-sm text-gray-600 mb-4">Filtre por fechas, pedido, placa o cliente para visualizar el detalle completo.</p>
-              <StepImage 
-                src={images.manual.search} 
+              <StepMedia 
+                assetKey="search"
+                defaultSrc={images.manual.search} 
                 hint="search and list forms" 
                 caption="Módulo de Consulta: Filtros avanzados y lista de resultados." 
               />
@@ -390,8 +503,9 @@ export function ManualComponent() {
                 Al ingresar un código de paleta o número de contenedor, el sistema mostrará todos los movimientos registrados 
                 (Recepción y Despachos) asociados a esa unidad.
               </p>
-              <StepImage 
-                src={images.manual.traceability} 
+              <StepMedia 
+                assetKey="traceability"
+                defaultSrc={images.manual.traceability} 
                 hint="traceability report" 
                 caption="Informe de Trazabilidad: Historial cronológico de movimientos." 
               />
@@ -411,8 +525,9 @@ export function ManualComponent() {
                 <Badge className="bg-green-100 text-green-800 border-green-200 justify-center h-10 font-bold uppercase"><Package className="mr-2 h-4 w-4" /> Movimientos</Badge>
                 <Badge className="bg-orange-100 text-orange-800 border-orange-200 justify-center h-10 font-bold uppercase"><Sparkles className="mr-2 h-4 w-4" /> Servicios Extra</Badge>
               </div>
-              <StepImage 
-                src={images.manual.billing} 
+              <StepMedia 
+                assetKey="billing"
+                defaultSrc={images.manual.billing} 
                 hint="billing and settlement report" 
                 caption="Módulo de Liquidación: Cálculo de tarifas y generación de reporte de cobro." 
               />
@@ -425,8 +540,9 @@ export function ManualComponent() {
               <p className="text-gray-600 text-sm">
                 Mide el desempeño de los operarios comparando el tiempo real de la operación frente a los estándares de Frio Alimentaria.
               </p>
-              <StepImage 
-                src={images.manual.performance} 
+              <StepMedia 
+                assetKey="performance"
+                defaultSrc={images.manual.performance} 
                 hint="crew productivity report" 
                 caption="Informe de Productividad: Comparativa de tiempos y semáforo de desempeño." 
               />
@@ -451,8 +567,9 @@ export function ManualComponent() {
             <p className="text-gray-600">
               Administración de las bases de datos fundamentales que alimentan la aplicación.
             </p>
-            <StepImage 
-              src={images.manual.masters} 
+            <StepMedia 
+              assetKey="masters"
+              defaultSrc={images.manual.masters} 
               hint="masters management screen" 
               caption="Panel de Gestión de Maestros: Clientes, Artículos, Festivos y Observaciones." 
             />
@@ -482,13 +599,13 @@ export function ManualComponent() {
               <p className="text-sm text-gray-600">
                 El administrador puede habilitar o deshabilitar funciones específicas para cada correo electrónico registrado.
               </p>
-              <StepImage 
-                src={images.manual.security} 
+              <StepMedia 
+                assetKey="security"
+                defaultSrc={images.manual.security} 
                 hint="users and permissions screen" 
                 caption="Gestión de Seguridad: Activación de permisos granulares por usuario." 
               />
             </SubSection>
-          </Section>
 
           <footer className="mt-20 text-center text-gray-400 text-xs border-t pt-8 pb-12">
             <p className="font-semibold text-gray-500">© 2025 Frio Alimentaria SAS - Sistema de Control de Operaciones Logísticas</p>
@@ -496,6 +613,42 @@ export function ManualComponent() {
           </footer>
         </div>
       </main>
+
+      {/* Dialogo de Carga de Multimedia */}
+      <Dialog open={!!editingKey} onOpenChange={(open) => !open && setEditingKey(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Actualizar Multimedia: {editingKey}</DialogTitle>
+            <DialogDescription>
+              Seleccione una imagen (JPG/PNG) o un archivo PDF para este punto del manual.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="grid w-full max-w-sm items-center gap-1.5">
+              <Label htmlFor="manual-file">Archivo (Imagen o PDF)</Label>
+              <Input 
+                id="manual-file" 
+                type="file" 
+                accept="image/jpeg,image/png,application/pdf"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                disabled={isUploading}
+              />
+            </div>
+            {isUploading && (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Subiendo archivo, por favor espere...</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingKey(null)} disabled={isUploading}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
