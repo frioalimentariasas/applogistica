@@ -337,10 +337,10 @@ export function ManualComponent() {
                 <Camera className="h-5 w-5 text-amber-600" />
                 <p className="font-bold text-amber-800 uppercase text-sm">Uso de la Cámara</p>
               </div>
-              <p className="text-sm text-amber-700 mt-1">
+              <div className="text-sm text-amber-700 mt-1">
                 Para adjuntar fotos, use el botón <Badge variant="outline" className="border-amber-400">Tomar Foto</Badge>. 
                 Asegúrese de capturar claramente el precinto, el estado de la carga y el termoregistrador si aplica.
-              </p>
+              </div>
             </div>
           </Section>
 
