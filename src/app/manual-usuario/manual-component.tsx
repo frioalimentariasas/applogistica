@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -606,6 +607,7 @@ export function ManualComponent() {
                 caption="Gestión de Seguridad: Activación de permisos granulares por usuario." 
               />
             </SubSection>
+          </Section>
 
           <footer className="mt-20 text-center text-gray-400 text-xs border-t pt-8 pb-12">
             <p className="font-semibold text-gray-500">© 2025 Frio Alimentaria SAS - Sistema de Control de Operaciones Logísticas</p>
