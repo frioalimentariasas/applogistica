@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -39,7 +38,9 @@ import {
   TruckIcon,
   Users2,
   FileSearch,
-  Timer
+  Timer,
+  Warehouse,
+  Sparkles
 } from 'lucide-react';
 
 const getImageAsBase64Client = async (url: string): Promise<string> => {
