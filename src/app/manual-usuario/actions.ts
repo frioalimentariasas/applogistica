@@ -3,32 +3,36 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 
-export interface ManualAsset {
+export interface ManualAssetItem {
   url: string;
   type: 'image' | 'pdf';
+  caption?: string;
+}
+
+export interface ManualAsset {
+  items: ManualAssetItem[];
   updatedAt: string;
 }
 
 /**
- * Guarda o actualiza la referencia de un recurso multimedia para el manual.
+ * Guarda o actualiza la lista de recursos multimedia para una sección del manual.
  */
-export async function saveManualAsset(key: string, url: string, type: 'image' | 'pdf'): Promise<{ success: boolean; message: string }> {
+export async function saveManualAsset(key: string, items: ManualAssetItem[]): Promise<{ success: boolean; message: string }> {
   if (!firestore) {
     return { success: false, message: 'Error de configuración del servidor.' };
   }
 
   try {
     await firestore.collection('manual_assets').doc(key).set({
-      url,
-      type,
+      items,
       updatedAt: new Date().toISOString(),
     });
     
     revalidatePath('/manual-usuario');
-    return { success: true, message: 'Recurso guardado correctamente.' };
+    return { success: true, message: 'Sección del manual actualizada correctamente.' };
   } catch (error) {
-    console.error(`Error saving manual asset ${key}:`, error);
-    return { success: false, message: 'No se pudo guardar el recurso.' };
+    console.error(`Error saving manual assets for ${key}:`, error);
+    return { success: false, message: 'No se pudo guardar la información.' };
   }
 }
 
@@ -42,7 +46,16 @@ export async function getManualAssets(): Promise<Record<string, ManualAsset>> {
     const snapshot = await firestore.collection('manual_assets').get();
     const assets: Record<string, ManualAsset> = {};
     snapshot.forEach(doc => {
-      assets[doc.id] = doc.data() as ManualAsset;
+      const data = doc.data();
+      // Soporte para migración de formato antiguo (un solo item) a nuevo (lista de items)
+      if (data.url) {
+        assets[doc.id] = {
+          items: [{ url: data.url, type: data.type }],
+          updatedAt: data.updatedAt
+        };
+      } else {
+        assets[doc.id] = data as ManualAsset;
+      }
     });
     return assets;
   } catch (error) {

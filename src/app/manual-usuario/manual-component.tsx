@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -12,7 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage } from '@/lib/firebase';
 import { ref, uploadString, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { saveManualAsset, getManualAssets, type ManualAsset } from './actions';
+import { saveManualAsset, getManualAssets, type ManualAsset, type ManualAssetItem } from './actions';
 import { optimizeImage } from '@/lib/image-optimizer';
 
 import { Button } from '@/components/ui/button';
@@ -64,7 +63,8 @@ import {
   Loader2,
   File as FileIcon,
   X,
-  Truck,
+  Plus,
+  Trash2,
   FileCog,
   Wrench
 } from 'lucide-react';
@@ -169,7 +169,8 @@ export function ManualComponent() {
     setIsUploading(true);
     try {
       const isPdf = file.type === 'application/pdf';
-      const storagePath = `manual_assets/${editingKey}.${isPdf ? 'pdf' : 'jpg'}`;
+      const fileId = Date.now().toString();
+      const storagePath = `manual_assets/${editingKey}/${fileId}.${isPdf ? 'pdf' : 'jpg'}`;
       const storageRef = ref(storage!, storagePath);
       
       let downloadUrl = '';
@@ -194,10 +195,16 @@ export function ManualComponent() {
         downloadUrl = await getDownloadURL(storageRef);
       }
 
-      const result = await saveManualAsset(editingKey, downloadUrl, isPdf ? 'pdf' : 'image');
+      const currentItems = manualAssets[editingKey]?.items || [];
+      const newItems = [...currentItems, { url: downloadUrl, type: isPdf ? 'pdf' : 'image' as const }];
+
+      const result = await saveManualAsset(editingKey, newItems);
       if (result.success) {
-        toast({ title: "Multimedia actualizada", description: "El manual se ha actualizado correctamente." });
-        setManualAssets(prev => ({ ...prev, [editingKey]: { url: downloadUrl, type: isPdf ? 'pdf' : 'image', updatedAt: new Date().toISOString() } }));
+        toast({ title: "Multimedia anexada", description: "El manual se ha actualizado correctamente." });
+        setManualAssets(prev => ({ 
+          ...prev, 
+          [editingKey]: { items: newItems, updatedAt: new Date().toISOString() } 
+        }));
         setEditingKey(null);
       } else {
         throw new Error(result.message);
@@ -210,56 +217,92 @@ export function ManualComponent() {
     }
   };
 
+  const handleDeleteItem = async (assetKey: string, index: number) => {
+    const currentItems = manualAssets[assetKey]?.items || [];
+    const newItems = currentItems.filter((_, i) => i !== index);
+
+    try {
+      const result = await saveManualAsset(assetKey, newItems);
+      if (result.success) {
+        toast({ title: "Elemento eliminado" });
+        setManualAssets(prev => ({ 
+          ...prev, 
+          [assetKey]: { items: newItems, updatedAt: new Date().toISOString() } 
+        }));
+      }
+    } catch (err) {
+      toast({ variant: 'destructive', title: "Error al eliminar" });
+    }
+  };
+
   const StepMedia = ({ assetKey, defaultSrc, caption, hint }: { assetKey: string; defaultSrc: string; caption: string; hint: string }) => {
     const asset = manualAssets[assetKey];
-    const src = asset?.url || defaultSrc;
-    const isPdf = asset?.type === 'pdf';
+    const items = asset?.items || [];
+    
+    // Si no hay items personalizados, mostrar el placeholder por defecto
+    const itemsToDisplay = items.length > 0 ? items : [{ url: defaultSrc, type: 'image' as const }];
 
     return (
-      <div className="my-8 space-y-3 relative group">
-        {canEdit && (
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg border-primary/20"
-            onClick={(e) => {
-                e.stopPropagation();
-                setEditingKey(assetKey);
-            }}
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            Cambiar Multimedia
-          </Button>
-        )}
-        
-        <div className={cn(
-            "relative w-full overflow-hidden rounded-xl border-4 border-white shadow-xl bg-gray-100 min-h-[300px] flex items-center justify-center transition-transform hover:scale-[1.01]",
-            !isPdf && "cursor-zoom-in"
-        )}
-        onClick={() => !isPdf && setExpandedImage(src)}
-        >
-          {isPdf ? (
-            <iframe 
-              src={`${src}#toolbar=0`} 
-              className="w-full h-[500px] border-0"
-              title={caption}
-            />
-          ) : (
-            <div className="relative aspect-video w-full">
-              <Image
-                src={src}
-                alt={caption}
-                fill
-                className="object-cover"
-                data-ai-hint={hint}
-              />
+      <div className="my-8 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {itemsToDisplay.map((item, idx) => (
+            <div key={idx} className="space-y-2 relative group">
+              {canEdit && items.length > 0 && (
+                <Button 
+                  variant="destructive" 
+                  size="icon" 
+                  className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 shadow-md"
+                  onClick={() => handleDeleteItem(assetKey, idx)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              
+              <div className={cn(
+                  "relative w-full overflow-hidden rounded-xl border-2 border-white shadow-lg bg-gray-100 min-h-[200px] flex items-center justify-center transition-transform hover:scale-[1.02]",
+                  item.type === 'image' && "cursor-zoom-in"
+              )}
+              onClick={() => item.type === 'image' && setExpandedImage(item.url)}
+              >
+                {item.type === 'pdf' ? (
+                  <iframe 
+                    src={`${item.url}#toolbar=0`} 
+                    className="w-full h-[400px] border-0"
+                    title={`${caption} ${idx + 1}`}
+                  />
+                ) : (
+                  <div className="relative aspect-video w-full">
+                    <Image
+                      src={item.url}
+                      alt={caption}
+                      fill
+                      className="object-cover"
+                      data-ai-hint={hint}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                {item.type === 'pdf' ? <FileIcon className="h-3 w-3 text-primary" /> : <Camera className="h-3 w-3" />}
+                <p className="text-xs font-medium italic">{caption} {items.length > 1 ? `(${idx + 1})` : ''}</p>
+              </div>
             </div>
-          )}
+          ))}
         </div>
-        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-          {isPdf ? <FileIcon className="h-4 w-4 text-primary" /> : <Camera className="h-4 w-4" />}
-          <p className="text-sm font-medium italic">{caption}</p>
-        </div>
+
+        {canEdit && (
+          <div className="flex justify-center mt-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="border-dashed border-primary/50 text-primary hover:bg-primary/5"
+              onClick={() => setEditingKey(assetKey)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Anexar Multimedia (Imagen o PDF)
+            </Button>
+          </div>
+        )}
       </div>
     );
   };
@@ -307,7 +350,7 @@ export function ManualComponent() {
     doc.save('Manual_Usuario_Control_Operaciones.pdf');
   };
 
-  const sections = [
+  const menuSections = [
     { id: 'acceso', label: 'Acceso al Sistema', icon: LogIn },
     { id: 'principal', label: 'Menú Principal', icon: Home },
     { id: 'formatos', label: 'Formatos de Operación', icon: FileText },
@@ -327,7 +370,7 @@ export function ManualComponent() {
         </div>
         <ScrollArea className="h-[calc(100vh-120px)]">
           <nav className="space-y-1">
-            {sections.map((sec) => (
+            {menuSections.map((sec) => (
               <a
                 key={sec.id}
                 href={`#${sec.id}`}
@@ -629,7 +672,6 @@ export function ManualComponent() {
         </div>
       </main>
 
-      {/* Dialogo para ver imagen ampliada */}
       <Dialog open={!!expandedImage} onOpenChange={(open) => !open && setExpandedImage(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 overflow-hidden border-none bg-black/10 backdrop-blur-sm shadow-none flex items-center justify-center">
           <DialogHeader className="sr-only">
@@ -656,13 +698,12 @@ export function ManualComponent() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogo de Carga de Multimedia */}
       <Dialog open={!!editingKey} onOpenChange={(open) => !open && setEditingKey(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Actualizar Multimedia: {editingKey}</DialogTitle>
+            <DialogTitle>Anexar Multimedia: {editingKey}</DialogTitle>
             <DialogDescription>
-              Seleccione una imagen (JPG/PNG) o un archivo PDF para este punto del manual.
+              Seleccione una imagen (JPG/PNG) o un archivo PDF para añadir a esta sección.
             </DialogDescription>
           </DialogHeader>
           <div className="py-6 space-y-4">
