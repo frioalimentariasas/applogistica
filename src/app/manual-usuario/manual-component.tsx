@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 import { 
   ArrowLeft, 
@@ -66,7 +67,9 @@ import {
   Plus,
   Trash2,
   FileCog,
-  Wrench
+  Wrench,
+  Eye,
+  Pencil
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -146,9 +149,10 @@ export function ManualComponent() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canEdit = permissions.canManageSessions;
+  const canEdit = permissions.canManageSessions && !isPreviewMode;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -239,7 +243,6 @@ export function ManualComponent() {
     const asset = manualAssets[assetKey];
     const items = asset?.items || [];
     
-    // Si no hay items personalizados, mostrar el placeholder por defecto
     const itemsToDisplay = items.length > 0 ? items : [{ url: defaultSrc, type: 'image' as const }];
 
     return (
@@ -392,10 +395,26 @@ export function ManualComponent() {
             </Button>
             <h1 className="text-lg font-semibold text-gray-700">Documentación de Usuario</h1>
           </div>
-          <Button onClick={handleDownloadPDF} variant="default" className="shadow-md">
-            <Download className="mr-2 h-4 w-4" />
-            Descargar PDF
-          </Button>
+          <div className="flex items-center gap-4">
+            {permissions.canManageSessions && (
+              <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full border border-primary/20">
+                {isPreviewMode ? <Eye className="h-4 w-4 text-primary" /> : <Pencil className="h-4 w-4 text-primary" />}
+                <Label htmlFor="preview-mode" className="text-xs font-bold text-primary uppercase cursor-pointer">
+                  {isPreviewMode ? 'Vista Usuario' : 'Vista Admin'}
+                </Label>
+                <Switch 
+                  id="preview-mode" 
+                  checked={isPreviewMode} 
+                  onCheckedChange={setIsPreviewMode}
+                  className="data-[state=checked]:bg-primary"
+                />
+              </div>
+            )}
+            <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="shadow-sm">
+              <Download className="mr-2 h-4 w-4" />
+              Descargar PDF
+            </Button>
+          </div>
         </header>
 
         <div className="mx-auto max-w-4xl p-6 lg:p-12">
