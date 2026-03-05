@@ -607,7 +607,7 @@ export function ManualComponent() {
               <StepMedia 
                 assetKey="search"
                 defaultSrc={images.manual.search} 
-                hint="search and list forms" 
+                hint="search and list formats" 
                 caption="Módulo de Consulta: Filtros avanzados y lista de resultados." 
               />
             </SubSection>
@@ -627,7 +627,7 @@ export function ManualComponent() {
               <StepMedia 
                 assetKey="performance_ops"
                 defaultSrc={images.manual.performance_ops} 
-                hint="performance report operations" 
+                hint="performance report internal ops" 
                 caption="Informe de Productividad: Detalle de tiempos por operario." 
               />
             </SubSection>
@@ -640,7 +640,7 @@ export function ManualComponent() {
               <StepMedia 
                 assetKey="traceability"
                 defaultSrc={images.manual.traceability} 
-                hint="traceability report" 
+                hint="traceability report details" 
                 caption="Informe de Trazabilidad: Historial cronológico de movimientos." 
               />
             </SubSection>
@@ -682,12 +682,12 @@ export function ManualComponent() {
             </SubSection>
 
             <SubSection title="Calendario de Facturación">
-              <p className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600">
                 Visualizador de fechas de facturación por cliente. Permite marcar el estado de la liquidación como: 
                 <Badge variant="outline" className="ml-1 bg-yellow-100 text-yellow-800">Pendiente</Badge>, 
                 <Badge variant="outline" className="ml-1 bg-blue-100 text-blue-800">En Proceso</Badge> o 
                 <Badge variant="outline" className="ml-1 bg-green-100 text-green-800">Facturado</Badge>.
-              </p>
+              </div>
               <StepMedia 
                 assetKey="billing_calendar"
                 defaultSrc={images.manual.billing} 
