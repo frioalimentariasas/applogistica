@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   ArrowLeft, 
   Download, 
@@ -30,7 +30,12 @@ import {
   ChevronRight,
   Camera,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  HardHat,
+  Settings,
+  PackagePlus,
+  Scale,
+  ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -238,7 +243,7 @@ export function ManualComponent() {
               La App de Control de Operaciones Logísticas es una herramienta integral diseñada para digitalizar, 
               estandarizar y optimizar los procesos de recepción, despacho y liquidación de servicios de Frio Alimentaria SAS.
             </p>
-            <Alert className="bg-sky-50 border-sky-200">
+            <Alert className="bg-sky-50 border-sky-200 mt-4">
               <Info className="h-4 w-4 text-sky-600" />
               <AlertTitle className="text-sky-900 font-bold">Nota importante</AlertTitle>
               <AlertDescription className="text-sky-800">
