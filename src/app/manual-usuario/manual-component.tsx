@@ -3,14 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import images from '@/app/lib/placeholder-images.json';
 
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -22,9 +21,6 @@ import {
   Home, 
   FileText, 
   Search, 
-  TrendingUp, 
-  Users2, 
-  ShieldCheck, 
   DollarSign, 
   Info,
   ChevronRight,
@@ -36,9 +32,13 @@ import {
   PackagePlus,
   Scale,
   ClipboardList,
-  CalendarIcon
+  CalendarIcon,
+  ShieldCheck,
+  Package,
+  Activity,
+  Calculator,
+  TruckIcon
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 const getImageAsBase64Client = async (url: string): Promise<string> => {
     try {
@@ -79,7 +79,6 @@ const SubSection = ({ title, children }: { title: string; children: React.ReactN
 
 const ManualHeader = ({ pageNumber, totalPages }: { pageNumber?: number; totalPages?: number }) => (
   <div className="w-full bg-white border border-gray-300 flex overflow-hidden rounded-sm mb-8 print:border-black">
-    {/* Logo Part */}
     <div className="w-1/4 border-r border-gray-300 p-4 flex items-center justify-center print:border-black">
       <Image
         src="/images/company-logo.png"
@@ -89,13 +88,11 @@ const ManualHeader = ({ pageNumber, totalPages }: { pageNumber?: number; totalPa
         priority
       />
     </div>
-    {/* Title Part */}
     <div className="w-1/2 flex items-center justify-center p-4 text-center">
       <h1 className="text-xl font-bold uppercase leading-tight tracking-tight">
         MANUAL DE USUARIO: APP DE CONTROL DE OPERACIONES LOGÍSTICAS
       </h1>
     </div>
-    {/* Metadata Table Part */}
     <div className="w-1/4 border-l border-gray-300 text-xs flex flex-col justify-center print:border-black">
       <div className="border-b border-gray-300 p-2 print:border-black">
         <span className="font-bold">Código:</span> FA-GL-MA01
@@ -130,7 +127,7 @@ const StepImage = ({ src, hint, caption }: { src: string; hint: string; caption:
 
 export function ManualComponent() {
   const router = useRouter();
-  const { user, permissions } = useAuth();
+  const { user } = useAuth();
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   useEffect(() => {
@@ -146,7 +143,6 @@ export function ManualComponent() {
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 40;
 
     const generateHeader = (pageNum: number, total: number) => {
@@ -162,12 +158,12 @@ export function ManualComponent() {
           2: { cellWidth: 120, fontSize: 7 }
         },
         body: [[
-          { content: '', styles: { minCellHeight: 50 } }, // Logo space
+          { content: '', styles: { minCellHeight: 50 } }, 
           'MANUAL DE USUARIO: APP DE CONTROL DE OPERACIONES LOGÍSTICAS',
           `Código: FA-GL-MA01\nVersión: 01\nFecha: 25/08/2025\nPágina: ${pageNum} de ${total}`
         ]],
         didDrawCell: (data) => {
-          if (data.column.index === 0 && data.row.index === 0) {
+          if (data.column.index === 0 && data.row.index === 0 && logoBase64) {
             doc.addImage(logoBase64, 'PNG', data.cell.x + 5, data.cell.y + 5, 140, 40);
           }
         }
@@ -196,7 +192,6 @@ export function ManualComponent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sidebar Navigation */}
       <aside className="fixed left-0 top-0 hidden h-screen w-72 border-r bg-white p-6 lg:block shadow-sm">
         <div className="mb-8 flex items-center gap-2">
           <BookOpen className="h-6 w-6 text-primary" />
@@ -218,7 +213,6 @@ export function ManualComponent() {
         </ScrollArea>
       </aside>
 
-      {/* Main Content Area */}
       <main className="lg:pl-72">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-white/80 px-6 py-4 backdrop-blur-md">
           <div className="flex items-center gap-4">
@@ -255,7 +249,7 @@ export function ManualComponent() {
               Para ingresar a la aplicación, debe utilizar sus credenciales corporativas (Correo y Contraseña).
             </p>
             <StepImage 
-              src="https://picsum.photos/seed/login/800/450" 
+              src={images.manual.login} 
               hint="login screen" 
               caption="Interfaz de Inicio de Sesión" 
             />
@@ -274,7 +268,7 @@ export function ManualComponent() {
               Desde la pantalla de inicio, el personal operativo puede iniciar el registro de cualquier movimiento logístico.
             </p>
             <StepImage 
-              src="https://picsum.photos/seed/home/800/450" 
+              src={images.manual.dashboard} 
               hint="dashboard menu" 
               caption="Pantalla de Selección de Operación" 
             />
@@ -356,7 +350,7 @@ export function ManualComponent() {
             <SubSection title="Consultar Formatos Guardados">
               <p className="text-sm text-gray-600 mb-4">Filtre por fechas, pedido o cliente para visualizar el detalle completo de una operación.</p>
               <StepImage 
-                src="https://picsum.photos/seed/search/800/450" 
+                src={images.manual.search} 
                 hint="search filters" 
                 caption="Interfaz de Filtros de Búsqueda" 
               />
@@ -433,7 +427,7 @@ export function ManualComponent() {
                 El administrador puede habilitar o deshabilitar funciones específicas para cada correo electrónico registrado.
               </p>
               <StepImage 
-                src="https://picsum.photos/seed/security/800/450" 
+                src={images.manual.security} 
                 hint="security management" 
                 caption="Panel de Administración de Usuarios" 
               />

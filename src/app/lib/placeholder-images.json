@@ -1,0 +1,8 @@
+{
+  "manual": {
+    "login": "https://picsum.photos/seed/login/800/450",
+    "dashboard": "https://picsum.photos/seed/home/800/450",
+    "search": "https://picsum.photos/seed/search/800/450",
+    "security": "https://picsum.photos/seed/security/800/450"
+  }
+}
