@@ -70,7 +70,13 @@ import {
   Users2,
   Loader2,
   File as FileIcon,
-  Maximize2
+  Maximize2,
+  History,
+  FileSignature,
+  Layers,
+  Truck,
+  ListTodo,
+  CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -382,7 +388,7 @@ export function ManualComponent() {
     { id: 'principal', label: 'Menú Principal', icon: Home },
     { id: 'formatos', label: 'Formatos de Operación', icon: FileText },
     { id: 'consultas', label: 'Consultas y Trazabilidad', icon: Search },
-    { id: 'liquidacion', label: 'Liquidación Clientes', icon: DollarSign },
+    { id: 'liquidacion', label: 'Gestión y Liquidación Clientes', icon: DollarSign },
     { id: 'cuadrilla', label: 'Gestión de Cuadrilla', icon: HardHat },
     { id: 'maestros', label: 'Gestión de Maestros', icon: Settings },
     { id: 'seguridad', label: 'Seguridad y Usuarios', icon: ShieldCheck },
@@ -641,23 +647,100 @@ export function ManualComponent() {
           </Section>
 
           <Section id="liquidacion" title="5. Gestión y Liquidación Clientes">
-            <p className="text-gray-600">
-              Módulo para el área administrativa que automatiza el cálculo de cobros basado en las reglas de negocio.
+            <p className="text-gray-600 leading-relaxed">
+              Módulo integral para la administración y cobro automatizado de servicios logísticos.
             </p>
-            <SubSection title="Informe de Liquidación de Servicios">
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 my-6">
+              <Badge className="bg-blue-100 text-blue-800 border-blue-200 justify-center h-10 font-bold uppercase shadow-sm"><Warehouse className="mr-2 h-4 w-4" /> Almacenamiento</Badge>
+              <Badge className="bg-green-100 text-green-800 border-green-200 justify-center h-10 font-bold uppercase shadow-sm"><Package className="mr-2 h-4 w-4" /> Movimientos</Badge>
+              <Badge className="bg-orange-100 text-orange-800 border-orange-200 justify-center h-10 font-bold uppercase shadow-sm"><Sparkles className="mr-2 h-4 w-4" /> Servicios Extra</Badge>
+            </div>
+
+            <SubSection title="Gestión de Conceptos de Liquidación">
               <p className="text-sm text-gray-600">
-                Seleccione el cliente y el periodo para generar el reporte de facturación. El sistema calculará automáticamente:
+                Permite definir las reglas de negocio y tarifas específicas por cliente. Se pueden configurar cobros por tonelada, paleta, unidad o tiempos fijos.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
-                <Badge className="bg-blue-100 text-blue-800 border-blue-200 justify-center h-10 font-bold uppercase"><Warehouse className="mr-2 h-4 w-4" /> Almacenamiento</Badge>
-                <Badge className="bg-green-100 text-green-800 border-green-200 justify-center h-10 font-bold uppercase"><Package className="mr-2 h-4 w-4" /> Movimientos</Badge>
-                <Badge className="bg-orange-100 text-orange-800 border-orange-200 justify-center h-10 font-bold uppercase"><Sparkles className="mr-2 h-4 w-4" /> Servicios Extra</Badge>
-              </div>
               <StepMedia 
-                assetKey="billing"
+                assetKey="billing_concepts"
                 defaultSrc={images.manual.billing} 
-                hint="billing and settlement report" 
-                caption="Módulo de Liquidación: Cálculo de tarifas y generación de reporte de cobro." 
+                hint="client concepts management" 
+                caption="Panel de Configuración de Tarifas y Conceptos." 
+              />
+            </SubSection>
+
+            <SubSection title="Registro de Op. Manuales Clientes">
+              <p className="text-sm text-gray-600">
+                Herramienta para ingresar cobros extraordinarios que no provienen de los formatos operativos, como servicios de cuadrilla especial o ajustes administrativos.
+              </p>
+              <StepMedia 
+                assetKey="billing_manual_ops"
+                defaultSrc={images.manual.billing} 
+                hint="manual client operations entry" 
+                caption="Formulario de Ingreso de Operaciones Manuales." 
+              />
+            </SubSection>
+
+            <SubSection title="Calendario de Facturación">
+              <p className="text-sm text-gray-600">
+                Visualizador de fechas de facturación por cliente. Permite marcar el estado de la liquidación como: 
+                <Badge variant="outline" className="ml-1 bg-yellow-100 text-yellow-800">Pendiente</Badge>, 
+                <Badge variant="outline" className="ml-1 bg-blue-100 text-blue-800">En Proceso</Badge> o 
+                <Badge variant="outline" className="ml-1 bg-green-100 text-green-800">Facturado</Badge>.
+              </p>
+              <StepMedia 
+                assetKey="billing_calendar"
+                defaultSrc={images.manual.billing} 
+                hint="billing schedule calendar" 
+                caption="Calendario Interactivo de Seguimiento de Liquidación." 
+              />
+            </SubSection>
+
+            <SubSection title="Informes de Control y Liquidación">
+              <p className="text-sm text-gray-600">
+                El centro de generación de reportes donde se calcula la deuda del cliente cruzando formatos operativos, saldos de inventario y reglas de cobro.
+              </p>
+              <StepMedia 
+                assetKey="billing_reports_main"
+                defaultSrc={images.manual.billing} 
+                hint="billing reports and settlement" 
+                caption="Generador de Reportes de Liquidación y Ocupación." 
+              />
+            </SubSection>
+
+            <SubSection title="Control de Versiones de Liquidación">
+              <p className="text-sm text-gray-600">
+                Repositorio que guarda instantáneas de liquidaciones enviadas anteriormente para auditoría histórica.
+              </p>
+              <StepMedia 
+                assetKey="billing_versions"
+                defaultSrc={images.manual.billing} 
+                hint="settlement version control" 
+                caption="Historial de Versiones Guardadas de Liquidación." 
+              />
+            </SubSection>
+
+            <SubSection title="Asistente SMYL (Liquidación por Lote)">
+              <p className="text-sm text-gray-600">
+                Algoritmo especializado que analiza la trazabilidad de lotes para el cliente SMYL, calculando automáticamente los días de gracia y saldos de almacenamiento.
+              </p>
+              <StepMedia 
+                assetKey="billing_smyl_assistant"
+                defaultSrc={images.manual.billing} 
+                hint="SMYL lot liquidation assistant" 
+                caption="Analizador de Trazabilidad y Liquidación SMYL." 
+              />
+            </SubSection>
+
+            <SubSection title="Asistente de Liquidación sin Contenedor/Lote">
+              <p className="text-sm text-gray-600">
+                Permite reconstruir movimientos para mercancía genérica que no posee un ID único, facilitando el cobro de almacenamiento diario.
+              </p>
+              <StepMedia 
+                assetKey="billing_inventory_assistant"
+                defaultSrc={images.manual.billing} 
+                hint="generic inventory liquidation assistant" 
+                caption="Asistente para Operaciones sin Trazabilidad Única." 
               />
             </SubSection>
           </Section>
