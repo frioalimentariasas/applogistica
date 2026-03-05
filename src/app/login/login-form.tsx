@@ -90,56 +90,56 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex w-full items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50/50 p-4 sm:p-8">
-      <div className="w-full max-w-md space-y-6 animate-in fade-in zoom-in duration-500">
-        <div className="flex flex-col items-center mb-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-blue-100 mb-6 transform hover:scale-105 transition-transform duration-300">
+    <div className="min-h-screen flex w-full items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50/50 p-4">
+      <div className="w-full max-w-md space-y-4 animate-in fade-in zoom-in duration-500">
+        <div className="flex flex-col items-center mb-2">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 mb-4 transform hover:scale-105 transition-transform duration-300">
                 <Image
                     src="/images/company-logo.png"
                     alt="Logotipo de Frio Alimentaria"
-                    width={220}
-                    height={63}
+                    width={180}
+                    height={51}
                     priority
                 />
             </div>
             <div className="space-y-1 text-center">
-                <h1 className="text-2xl font-black tracking-tight text-primary leading-tight px-4">
+                <h1 className="text-lg font-black tracking-tight text-primary uppercase whitespace-nowrap px-2">
                     CONTROL DE OPERACIONES LOGÍSTICAS
                 </h1>
-                <div className="h-1 w-16 bg-accent mx-auto rounded-full mt-2" />
+                <div className="h-0.5 w-12 bg-accent mx-auto rounded-full mt-1" />
             </div>
         </div>
 
         <Card className="border-none shadow-2xl bg-white/95 backdrop-blur-md">
-          <CardHeader className="space-y-1 pb-6 pt-8">
-            <CardTitle className="text-xl font-bold text-center flex items-center justify-center gap-2 text-gray-800">
-                <LogIn className="h-5 w-5 text-primary" />
+          <CardHeader className="space-y-1 pb-4 pt-6">
+            <CardTitle className="text-lg font-bold text-center flex items-center justify-center gap-2 text-gray-800">
+                <LogIn className="h-4 w-4 text-primary" />
                 Iniciar Sesión
             </CardTitle>
-            <CardDescription className="text-center text-gray-500">
-              Ingrese su correo y contraseña para acceder al sistema.
+            <CardDescription className="text-center text-xs text-gray-500">
+              Ingrese sus credenciales para acceder al sistema.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pb-4">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="email"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-700 font-semibold">Correo Electrónico</FormLabel>
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-xs text-gray-700 font-semibold">Correo Electrónico</FormLabel>
                       <FormControl>
                         <div className="relative group">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-primary transition-colors" />
                             <Input 
                                 placeholder="usuario@ejemplo.com" 
                                 {...field} 
-                                className="pl-10 h-12 bg-gray-50/50 border-gray-200 focus:bg-white transition-all rounded-lg"
+                                className="pl-10 h-10 bg-gray-50/50 border-gray-200 focus:bg-white transition-all rounded-lg text-sm"
                             />
                         </div>
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-[10px]" />
                     </FormItem>
                   )}
                 />
@@ -147,8 +147,8 @@ export default function LoginForm() {
                   control={form.control}
                   name="password"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-700 font-semibold">Contraseña</FormLabel>
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-xs text-gray-700 font-semibold">Contraseña</FormLabel>
                       <FormControl>
                         <div className="relative group">
                             <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-primary transition-colors" />
@@ -156,11 +156,11 @@ export default function LoginForm() {
                                 type="password" 
                                 placeholder="********" 
                                 {...field} 
-                                className="pl-10 h-12 bg-gray-50/50 border-gray-200 focus:bg-white transition-all rounded-lg"
+                                className="pl-10 h-10 bg-gray-50/50 border-gray-200 focus:bg-white transition-all rounded-lg text-sm"
                             />
                         </div>
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-[10px]" />
                     </FormItem>
                   )}
                 />
@@ -168,13 +168,13 @@ export default function LoginForm() {
                    <Button 
                     type="submit" 
                     disabled={isLoading} 
-                    className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transform hover:-translate-y-0.5 transition-all rounded-lg active:scale-95"
+                    className="w-full h-11 text-base font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transform hover:-translate-y-0.5 transition-all rounded-lg active:scale-95"
                    >
                     {isLoading ? (
-                      <Loader2 className="animate-spin h-5 w-5" />
+                      <Loader2 className="animate-spin h-4 w-4" />
                     ) : (
                       <>
-                        <LogIn className="mr-2 h-5 w-5" />
+                        <LogIn className="mr-2 h-4 w-4" />
                         Ingresar
                       </>
                     )}
@@ -183,11 +183,11 @@ export default function LoginForm() {
               </form>
             </Form>
           </CardContent>
-          <CardFooter className="pb-8 pt-2 flex flex-col items-center gap-4">
-              <Separator className="w-1/3 opacity-50" />
-              <div className="flex flex-col items-center gap-1 opacity-60">
-                  <p className="text-[10px] font-bold text-primary tracking-widest uppercase">Frio Alimentaria SAS</p>
-                  <p className="text-[9px] font-mono text-gray-500">{appVersion}</p>
+          <CardFooter className="pb-6 pt-0 flex flex-col items-center gap-3">
+              <Separator className="w-1/4 opacity-50" />
+              <div className="flex flex-col items-center gap-0.5 opacity-60">
+                  <p className="text-[9px] font-bold text-primary tracking-widest uppercase">Frio Alimentaria SAS</p>
+                  <p className="text-[8px] font-mono text-gray-500">{appVersion}</p>
               </div>
           </CardFooter>
         </Card>
