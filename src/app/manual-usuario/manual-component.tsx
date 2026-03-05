@@ -35,7 +35,8 @@ import {
   Settings,
   PackagePlus,
   Scale,
-  ClipboardList
+  ClipboardList,
+  CalendarIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -447,7 +448,7 @@ export function ManualComponent() {
             <p className="mt-1">Todos los derechos reservados.</p>
           </footer>
         </div>
-      </main>
+      </nav>
     </div>
   );
 }
