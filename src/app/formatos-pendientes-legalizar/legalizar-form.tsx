@@ -107,7 +107,7 @@ export default function LegalizarFormComponent({ clients }: { clients: ClientInf
 
     const getEditUrl = (submission: PendingLegalizationResult) => {
         const { id, formType } = submission;
-        const operation = formType.includes('reception') ? 'recepcion' : 'despacho';
+        const operation = (formType.includes('reception') || formType.includes('recepcion')) ? 'recepcion' : 'despacho';
         return `/fixed-weight-form?operation=${operation}&id=${id}`;
     };
 
